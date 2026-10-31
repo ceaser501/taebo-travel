@@ -427,14 +427,19 @@ function totals(){const t={sum:0,by:{}};expenses().forEach(e=>{const v=toKRW(e);
 function catBar(t,base){return `<div class="bar">${Object.keys(XCAT).filter(k=>t.by[k]).map(k=>`<i style="width:${(t.by[k]/base*100).toFixed(2)}%;background:var(${XCAT[k]})"></i>`).join('')}</div>`;}
 function heroArt(){return `<svg class="art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6cbf7"/><stop offset=".7" stop-color="#dcdcf8"/><stop offset="1" stop-color="#f6e2e2"/></linearGradient></defs><rect width="400" height="200" fill="url(#hD)"/>${cloud(-20,24,.8,.8)}${cloud(300,130,1.2,1)}<path d="M170 120 C 230 100, 262 70, 250 52 C 242 40, 226 44, 222 56 C 218 44, 202 40, 194 52 C 182 70, 214 100, 222 112 C 240 132, 300 90, 350 40" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><g transform="translate(352 38) rotate(-45)">${planeTop('#fff','#b9c3ea')}</g></svg>`;}
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
-let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(state.tab==='home')render();});
+let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(state.tab==='home'||(state.tab==='auth'&&!document.activeElement.closest('form')))render();});
+function installCard(){
+  const ua=navigator.userAgent,ios=/iphone|ipad|ipod/i.test(ua),inapp=/KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua),kakao=/KAKAOTALK/i.test(ua);
+  const installTip=inapp?'카카오톡·인스타그램 같은 앱 안에서는 설치가 안 되고 바로가기만 만들어져요. 아래 버튼으로 '+(ios?'Safari':'Chrome')+'에서 열어 주세요.'
+    :installEvt?'아래 버튼을 누르세요.':ios?'Safari 아래쪽 공유 버튼 → 「홈 화면에 추가」':'Chrome 오른쪽 위 ⋮ → 「앱 설치」(처음 열었다면 한 번 새로고침한 뒤)';
+  return !standalone()?`<div class="card install">${svg('share')}<div><b>홈 화면에 추가하면 앱처럼 써요</b><p class="fine">${installTip}</p>${inapp&&kakao?`<a class="btn sm acc" href="kakaotalk://web/openExternal?url=${encodeURIComponent(location.href.split('#')[0])}">${ios?'Safari':'Chrome'}로 열기</a>`:inapp?`<p class="fine">오른쪽 위 메뉴에서 「다른 브라우저로 열기」를 눌러 주세요.</p>`:''}${installEvt&&!inapp?'<button class="btn sm acc" data-install>앱 설치</button>':''}</div></div>`:'';
+}
 function slotStatus(){const tk=tickets();return TICKET_SLOTS.map(s=>({...s,t:tk.find(t=>t.slot===s.slot)}));}
 function viewHome(){
   const all=PREP.flatMap(g=>g.items).length,t=totals(),first=planOf(1).slice(0,4),ds=diary(),last=ds[ds.length-1],checks=checkSet();
-  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
   return `<section class="view">
     <div class="hero">${heroArt()}<div class="in"><h2>도쿄에서 보내는<br>느긋한 2박 3일</h2><p><span class="mono">11.24(화) – 11.26(목)</span> · 니혼바시 숙소</p></div></div>
-    ${!standalone()?`<div class="card install">${svg('share')}<div><b>홈 화면에 추가하면 앱처럼 써요</b><p class="fine">${installEvt?'아래 버튼을 누르세요.':ios?'Safari 아래쪽 공유 버튼 → 「홈 화면에 추가」':'브라우저 메뉴 → 「홈 화면에 추가」 또는 「앱 설치」'}</p>${installEvt?'<button class="btn sm acc" data-install>앱 설치</button>':''}</div></div>`:''}
+    ${installCard()}
     <button class="mapthumb" data-map="home" data-tab="plan" aria-label="3일 동선 지도, 일정으로 이동"><svg></svg><span class="mlegend">${DAYS.map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></button>
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
       <button class="tool" data-tool="talk" style="--tc:#e6e6fd"><span class="ti">${svg('talk','')}</span><b>일본어 회화</b><small>듣기 · 크게 보여주기</small></button>
@@ -572,6 +577,7 @@ function viewAuth(){
       ${a.err?`<p class="err">${esc(a.err)}</p>`:''}${a.info?`<p class="note">${esc(a.info)}</p>`:''}
       <button class="btn acc" type="submit" ${a.busy?'disabled':''}>${a.busy?'잠시만요…':signup?'가입하기':'로그인'}</button>
     </form>
+    ${installCard()}
     ${!navigator.onLine?'<p class="fine">처음 로그인할 때는 인터넷이 필요해요.</p>':''}
   </section>`;
 }
