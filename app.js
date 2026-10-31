@@ -275,7 +275,6 @@ function flyHeart(el){
 function showIntro(){
   clearTimers();closeSheet();
   const el=$('#intro');el.innerHTML=introHTML();el.hidden=false;$('#tabs').hidden=true;document.body.style.overflow='hidden';
-  LS.set('introDay',new Date().toDateString());
   const scenes=[...el.querySelectorAll('.sc')],show=i=>scenes.forEach((s,j)=>s.classList.toggle('on',j===i));
   let stage=0;el._done=false;
   const toTicket=()=>{clearTimers();stage=1;show(1);};
@@ -286,7 +285,6 @@ function showIntro(){
   show(0);at(reduced()?1200:3600,toTicket);
 }
 function finishIntro(){const el=$('#intro');clearTimers();el.hidden=true;el.innerHTML='';document.body.style.overflow='';enter();}
-const introDue=()=>LS.get('introDay','')!==new Date().toDateString();
 
 /* ===================== sheets & overlays ===================== */
 function openSheet(html){$('#sheetRoot').innerHTML=`<div class="sheet-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;const f=$('#sheetRoot .sh-x');if(f)f.focus({preventScroll:true});hydrateFiles($('#sheetRoot'));}
@@ -732,5 +730,6 @@ Sync.on(what=>{const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.
   if(!typing&&!GATED.has(state.tab)&&$('#sheetRoot').innerHTML==='')render();});
 
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
-if(introDue())showIntro();else enter();
+// the intro plays every time the app is opened, signed in or not; it hands over to enter() when done
+showIntro();
 if(document.fonts)document.fonts.ready.then(()=>document.querySelectorAll('[data-map]').forEach(b=>b._draw&&b._draw()));
