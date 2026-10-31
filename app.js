@@ -729,7 +729,12 @@ Sync.on(what=>{const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.
   if(what==='files'){hydrateFiles($('#main'));return;}
   if(!typing&&!GATED.has(state.tab)&&$('#sheetRoot').innerHTML==='')render();});
 
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){
+  // when a new version takes over, reload once so the new files are used right away
+  const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded){reloaded=true;location.reload();}});
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+}
 // the intro plays every time the app is opened, signed in or not; it hands over to enter() when done
 showIntro();
 if(document.fonts)document.fonts.ready.then(()=>document.querySelectorAll('[data-map]').forEach(b=>b._draw&&b._draw()));
