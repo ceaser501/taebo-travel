@@ -1,6 +1,6 @@
 /* Offline support: the app shell is cached on install, fonts and the Supabase library are cached on first use.
    Supabase API and storage calls always go to the network; the app keeps its own copy of data and files. */
-const VERSION='taebo-travel-v4';
+const VERSION='taebo-travel-v5';
 const SHELL=['./','index.html','styles.css','data.js','sync.js','app.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png',
   'vendor/supabase-2.45.4.js','vendor/591.supabase.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});

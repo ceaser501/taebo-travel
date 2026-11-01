@@ -1,13 +1,15 @@
 /* 도쿄 태교여행 — app shell: state, views and events. Data lives in data.js, storage and sync in sync.js. */
 const KINDS=['한 줄 일기','아기에게 편지','맛있었던 것'];
 const TICKET_TYPES=['항공권','입장권','숙소','기타'];
-const TICKET_SLOTS=[
-  {slot:'flight-out',type:'항공권',title:'가는 편 · 김포 → 하네다',day:1,time:'08:30',place:'hnd',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'},
-  {slot:'flight-in',type:'항공권',title:'오는 편 · 하네다 → 김포',day:3,time:'17:30',place:'hnd',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'},
-  {slot:'skytree',type:'입장권',title:'스카이트리 전망 데크',day:1,time:'15:45',place:'skytree',hint:'예매 메일의 QR 코드 화면'},
+const flights=()=>{const f=Sync.get('flights','trip')||{};return {out:{...FLIGHT0.out,...(f.out||{})},in:{...FLIGHT0.in,...(f.in||{})}};};
+const flightLabel=f=>`${f.fromCity} → ${f.toCity}${f.no?' · '+f.no:''}`;
+function ticketSlots(){const f=flights();return [
+  {slot:'flight-out',type:'항공권',title:'가는 편 · '+flightLabel(f.out),day:1,time:f.out.dep,place:'airport',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'},
+  {slot:'flight-in',type:'항공권',title:'오는 편 · '+flightLabel(f.in),day:3,time:f.in.dep,place:'airport',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'},
+  {slot:'skytree',type:'입장권',title:'스카이트리 전망 데크',day:1,time:'16:15',place:'skytree',hint:'예매 메일의 QR 코드 화면'},
   {slot:'shibuya',type:'입장권',title:'시부야 스카이',day:2,time:'16:00',place:'shibuya',hint:'예매 메일의 QR 코드 화면'},
   {slot:'hotel',type:'숙소',title:'숙소 예약 확인서',day:1,time:'15:00',place:'hotel',hint:'예약 번호가 보이는 화면'},
-];
+];}
 const COLORS=['#5a6fe3','#f27d99','#24a37f','#ee8640'];
 
 const state={
@@ -33,7 +35,7 @@ const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2));
 
 /* ---------- synced data accessors ---------- */
-const planOf=d=>{const v=Sync.get('plan',String(d));return v&&v.stops?v.stops:clone(PLAN0[d]);};
+const planOf=d=>{const v=Sync.get('plan',String(d));return v&&v.stops?v.stops.map(x=>x.p==='hnd'?{...x,p:'airport'}:x):clone(PLAN0[d]);};
 const setPlan=(d,stops)=>Sync.put('plan',String(d),{stops});
 const settings=()=>Object.assign({budget:2000000,rate:9.2},Sync.get('settings','trip')||{});
 const setSettings=patch=>Sync.put('settings','trip',Object.assign(settings(),patch));
@@ -61,6 +63,7 @@ const IC={
   sndon:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',sndoff:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
   speak:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
   gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',sync:'<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>',
+  bus:'<rect x="4" y="4" width="16" height="13" rx="3"/><path d="M4 11h16M7 17v3M17 17v3M8 14h.01M16 14h.01"/>',
   file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',expand:'<path d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6"/>',share:'<path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/>',
 };
 const svg=(k,cls='i')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
@@ -100,7 +103,7 @@ function leg(a,b){
   const k=KNOWN[a+'>'+b];if(k)return {...k};
   const za=ZNEAR[a],zb=ZNEAR[b];
   if(za&&zb&&za!==zb){const n=Math.abs(ZORDER.indexOf(za)-ZORDER.indexOf(zb));return {how:'subway',min:Math.round(4+n*2.6),note:`${n}정거장 · 환승 없음`,via:[za,zb]};}
-  if(a==='hnd'||b==='hnd')return {how:'taxi',min:35,note:'예상 · 공항 정액 운임 확인'};
+  if(a==='airport'||b==='airport')return {how:'bus',min:85,note:'리무진 버스 약 70~90분 · 택시는 정액 2만 엔대'};
   const d=hav(PL[a].ll,PL[b].ll);
   if(d<0.9)return {how:'walk',min:Math.max(3,Math.round(d*1.25*15)),note:`예상 · 약 ${Math.round(d*1250)}m`};
   const road=d*1.3,fare=Math.round((500+Math.max(0,road-1.1)*390)/100)*100;
@@ -112,7 +115,7 @@ function legPath(a,b,l){
   if(l.via){const i0=ZORDER.indexOf(l.via[0]),i1=ZORDER.indexOf(l.via[1]);const seq=i0<=i1?ZORDER.slice(i0,i1+1):ZORDER.slice(i1,i0+1).reverse();path=path.concat(seq.map(k=>ZST[k]));}
   path.push(PL[b].ll);return path;
 }
-function numbered(d){const out=[];planOf(d).forEach(s=>{if(s.p!=='hotel'&&s.p!=='hnd'&&!out.includes(s.p))out.push(s.p);});return out;}
+function numbered(d){const out=[];planOf(d).forEach(s=>{if(s.p!=='hotel'&&s.p!=='airport'&&!out.includes(s.p))out.push(s.p);});return out;}
 
 /* ===================== map ===================== */
 function fitBox(ids,W,H,pad){
@@ -124,7 +127,7 @@ function fitBox(ids,W,H,pad){
 }
 function mapCfg(key){
   if(key==='plan'){const d=state.day,ids=numbered(d);
-    return {routes:[d],pins:ids.map((id,i)=>({id,c:dayOf(d).c,num:i+1})),fit:['hotel',...ids],fitKey:'plan'+d+ids.join(),pad:[40,64,36,52],hnd:planOf(d).some(s=>s.p==='hnd')};}
+    return {routes:[d],pins:ids.map((id,i)=>({id,c:dayOf(d).c,num:i+1})),fit:['hotel',...ids],fitKey:'plan'+d+ids.join(),pad:[40,64,36,52],hnd:planOf(d).some(s=>s.p==='airport')};}
   if(key==='home'){const pins=[];[1,2,3].forEach(d=>numbered(d).forEach((id,i)=>pins.push({id,c:dayOf(d).c,num:i+1})));
     return {routes:[1,2,3],pins,fit:['hotel',...pins.map(p=>p.id)],fitKey:'home',pad:[20,20,20,40],static:1,nolabel:1};}
   const ids=placeList().filter(id=>!PL[id].off);
@@ -191,7 +194,7 @@ function drawMap(el,key,cfg){
 }
 const mapBox=(key,cls,cfg)=>`<div class="mapbox ${cls}" data-map="${key}"><svg role="img" aria-label="도쿄 지도"></svg>
   <div class="mtools"><button data-zoom="in" aria-label="확대">+</button><button data-zoom="out" aria-label="축소">−</button><button data-zoom="fit" aria-label="전체 보기">${svg('fit')}</button></div>
-  ${cfg.hnd?`<div class="hnd">${svg('plane')}하네다 공항은 남쪽으로 택시 30분</div>`:''}</div>`;
+  ${cfg.hnd?`<div class="hnd">${svg('plane')}나리타 공항은 동쪽 약 60km · 리무진 버스 70~90분</div>`:''}</div>`;
 
 /* ===================== illustrations ===================== */
 const cloud=(x,y,s,o=1,fill='#fff')=>`<g transform="translate(${x} ${y}) scale(${s})" opacity="${o}"><path d="M0 30a16 16 0 0 1 10-28 24 24 0 0 1 42-2 18 18 0 0 1 22 14 14 14 0 0 1-2 28H8A12 12 0 0 1 0 30z" fill="${fill}"/></g>`;
@@ -258,7 +261,7 @@ function introHTML(){
     <div class="sc"><svg class="art" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice"><rect width="400" height="800" fill="#e8ecfb"/>${cloud(-30,90,1.3,.9)}${cloud(240,170,1,.8)}${cloud(-50,620,2.4,1)}${cloud(200,680,2.6,1)}</svg>
       <div class="txt" style="top:calc(120px + env(safe-area-inset-top,0px))"><h2 class="rise">탑승권이<br>도착했어요</h2><p class="rise d1">표를 끊으면 바로 출발해요</p></div>
       <button class="ticket" data-tear aria-label="표를 끊고 출발하기" style="--stub:#5a6fe3;--tk:#7c83ad;--tv:#232849;bottom:calc(36% + env(safe-area-inset-bottom,0px))"><div class="main"><div class="k">ADMIT 3 · 엄마 · 아빠 · 아가</div><div class="v">서울 → 도쿄</div>
-        <div class="row"><div><div class="k">DATE</div><div class="v">11.24 – 26</div></div><div><div class="k">FLIGHT</div><div class="v">KE2101</div></div><div><div class="k">SEAT</div><div class="v">통로석</div></div></div></div>
+        <div class="row"><div><div class="k">DATE</div><div class="v">11.24 – 26</div></div><div><div class="k">FLIGHT</div><div class="v">${esc(flights().out.no||'ICN→NRT')}</div></div><div><div class="k">SEAT</div><div class="v">통로석</div></div></div></div>
         <div class="stub"><span class="pulse">탭해서<br>표 끊기</span></div></button></div>
     ${finaleSC()}
   </div>`;
@@ -316,11 +319,11 @@ function placeSheet(id){
     ${tks.map(t=>`<button class="btn acc" data-showticket="${t.id}">${svg('ticket')}${esc(t.title)} 티켓 보여주기</button>`).join('')}
     <div><div class="grp" style="margin-top:0">일본어 간판 · 발음</div>${signRows(id)}
       <button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}「${esc(mainSign(id)[0])}」 어디예요? 물어보기</button></div>
-    <p style="margin:0;font-size:15px">${esc(p.d)}</p>
+    <p style="margin:0;font-size:15px">${esc(p.d)}${id==='airport'?(()=>{const f=flights();return f.out.term||f.in.term?` 가는 편 ${f.out.term||'터미널 미입력'} · 오는 편 ${f.in.term||'터미널 미입력'}`:' 터미널은 항공편 정보에 넣어 주세요.';})():''}</p>
     <dl class="facts">${p.stn?`<dt>가까운 역</dt><dd><span class="mono">${p.stn.join('')}</span> ${esc(p.sname)}</dd>`:''}${p.walk?`<dt>걷는 양</dt><dd>${walkHTML(p.walk)}</dd>`:''}${p.price?`<dt>가격대</dt><dd class="mono">${'¥'.repeat(p.price)}<span style="color:var(--soft2)">${'¥'.repeat(4-p.price)}</span></dd>`:''}</dl>
     ${p.tips?`<div class="note"><h4>임산부 팁</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
     <div class="sh-acts"><a class="btn acc" href="${gdir(null,p.off?p.q:p.ll,'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${gsearch(p.q)}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
-      ${id!=='hotel'&&id!=='hnd'?`<button class="btn" data-heart="${id}" aria-pressed="${saved.has(id)}">${svg('heart')}${saved.has(id)?'저장됨':'저장'}</button><button class="btn pri" data-addto="${id}">${svg('plus')}일정에 추가</button>`:''}</div>
+      ${id!=='hotel'&&id!=='airport'?`<button class="btn" data-heart="${id}" aria-pressed="${saved.has(id)}">${svg('heart')}${saved.has(id)?'저장됨':'저장'}</button><button class="btn pri" data-addto="${id}">${svg('plus')}일정에 추가</button>`:''}</div>
     <p class="fine">영업시간과 휴무일은 방문 전에 확인하세요.</p>`);
 }
 function addToSheet(id){openSheet(`${shHead('어느 날에 추가할까요?',esc(PL[id].n))}<div class="stack">${DAYS.map(d=>`<button class="btn" style="justify-content:flex-start" data-addday="${d.id}|${id}"><span class="mono" style="color:var(${d.c})">DAY ${d.id}</span> ${d.label} · ${d.title}</button>`).join('')}</div>`);}
@@ -354,10 +357,33 @@ function settingsSheet(){
     <div><div class="grp">함께하는 사람</div>${Sync.members.map(x=>`<div class="mrow">${avatar(x.user_id)}<b>${esc(x.display_name)}</b>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}</div>
     <div class="names"><label>내 이름<input id="myName" value="${esc(mine.display_name)}" maxlength="12"></label><label>내 색<span class="colors">${COLORS.map(c=>`<button type="button" class="cdot" data-mycolor="${c}" aria-pressed="${mine.color===c}" style="--c:${c}" aria-label="색 ${c}"></button>`).join('')}</span></label></div>
     <button class="btn pri" data-saveprofile>이름 저장</button>
+    <button class="btn" data-flights>${svg('plane')}항공편 정보 (인천 ⇄ 나리타)</button>
     <div class="grp">동기화</div><div class="sync-row"><span>${syncText()}</span><button class="btn sm" data-syncnow>${svg('sync')}지금 동기화</button></div>
     <div class="sh-acts"><button class="btn" data-sound aria-pressed="${state.sound}">${state.sound?'효과음 끄기':'효과음 켜기'}</button><button class="btn" data-replay>인트로 다시 보기</button></div>
     <button class="btn ghost" data-signout>로그아웃</button>
     <p class="fine">로그아웃하면 이 휴대폰에 저장된 여행 데이터도 지워져요. 서버에 올라간 기록은 그대로 남아요.</p>`);
+}
+
+/* ---------- flights ---------- */
+function flightSheet(){
+  const f=flights(),row=(k,lbl,x)=>`<div class="fl-block"><div class="grp" style="margin-top:0">${lbl} · ${esc(x.fromCity)} → ${esc(x.toCity)}</div>
+    <div class="two3"><div><label class="f" for="${k}No">편명</label><input type="text" id="${k}No" value="${esc(x.no)}" placeholder="예: KE705" autocomplete="off" autocapitalize="characters"></div>
+    <div><label class="f" for="${k}Dep">출발</label><input type="time" id="${k}Dep" value="${esc(x.dep)}"></div><div><label class="f" for="${k}Arr">도착</label><input type="time" id="${k}Arr" value="${esc(x.arr)}"></div></div>
+    <label class="f" for="${k}Term">나리타 터미널</label><select id="${k}Term">${['','제1터미널','제2터미널','제3터미널'].map(t=>`<option value="${t}" ${x.term===t?'selected':''}>${t||'모름'}</option>`).join('')}</select></div>`;
+  openSheet(`${shHead('항공편 정보','인천 ⇄ 나리타 · 입력하면 일정·티켓에 바로 반영돼요')}
+    <form id="flightForm" class="stack" novalidate>${row('o','가는 편',f.out)}${row('i','오는 편',f.in)}
+    <p class="fine">항공사마다 나리타 터미널이 달라요. 예약 메일이나 항공사 앱에서 확인해 넣어 주세요.</p>
+    <button class="btn acc" type="submit">저장</button></form>`);
+}
+function saveFlights(){
+  const v=id=>$('#'+id).value.trim(),f=flights();
+  const out={...f.out,no:v('oNo').toUpperCase(),dep:v('oDep'),arr:v('oArr'),term:v('oTerm')},inn={...f.in,no:v('iNo').toUpperCase(),dep:v('iDep'),arr:v('iArr'),term:v('iTerm')};
+  Sync.put('flights','trip',{out,in:inn});
+  // keep the airport stops in step with the flights
+  const sub=(t,m)=>{const [h,mm]=t.split(':').map(Number),x=h*60+mm-m;return `${String(Math.floor((x+1440)%1440/60)).padStart(2,'0')}:${String((x+1440)%60).padStart(2,'0')}`;};
+  const d1=planOf(1),a1=d1.find(s=>s.p==='airport');if(a1&&out.arr){a1.t=out.arr;setPlan(1,d1);}
+  const d3=planOf(3),a3=[...d3].reverse().find(s=>s.p==='airport');if(a3&&inn.dep){a3.t=sub(inn.dep,150);a3.dur='출발 2시간 30분 전 도착';setPlan(3,d3);}
+  closeSheet();toast('항공편을 저장했어요. 둘 다에게 반영돼요.');render();
 }
 
 /* ---------- tickets ---------- */
@@ -432,7 +458,7 @@ function installCard(){
     :installEvt?'아래 버튼을 누르세요.':ios?'Safari 아래쪽 공유 버튼 → 「홈 화면에 추가」':'Chrome 오른쪽 위 ⋮ → 「앱 설치」(처음 열었다면 한 번 새로고침한 뒤)';
   return !standalone()?`<div class="card install">${svg('share')}<div><b>홈 화면에 추가하면 앱처럼 써요</b><p class="fine">${installTip}</p>${inapp&&kakao?`<a class="btn sm acc" href="kakaotalk://web/openExternal?url=${encodeURIComponent(location.href.split('#')[0])}">${ios?'Safari':'Chrome'}로 열기</a>`:inapp?`<p class="fine">오른쪽 위 메뉴에서 「다른 브라우저로 열기」를 눌러 주세요.</p>`:''}${installEvt&&!inapp?'<button class="btn sm acc" data-install>앱 설치</button>':''}</div></div>`:'';
 }
-function slotStatus(){const tk=tickets();return TICKET_SLOTS.map(s=>({...s,t:tk.find(t=>t.slot===s.slot)}));}
+function slotStatus(){const tk=tickets();return ticketSlots().map(s=>({...s,t:tk.find(t=>t.slot===s.slot)}));}
 function viewHome(){
   const all=PREP.flatMap(g=>g.items).length,t=totals(),first=planOf(1).slice(0,4),ds=diary(),last=ds[ds.length-1],checks=checkSet();
   return `<section class="view">
@@ -458,14 +484,14 @@ function viewHome(){
   </section>`;
 }
 function viewPlan(){
-  const d=state.day,day=dayOf(d),st=planOf(d),nums=numbered(d),fl=FLIGHTS[d],tk=tickets();
+  const d=state.day,day=dayOf(d),st=planOf(d),nums=numbered(d),fi=flights(),fl=d===1?{pos:'top',f:fi.out}:d===3?{pos:'bottom',f:fi.in}:null,tk=tickets();
   const legs=[];for(let i=0;i<st.length-1;i++)legs.push(leg(st[i].p,st[i+1].p));
   const tot=legs.filter(Boolean).reduce((a,l)=>a+l.min,0);
   const ft=tk.find(t=>t.slot===(d===1?'flight-out':'flight-in'));
-  const flightRow=fl?`<button class="flight" ${ft?`data-showticket="${ft.id}"`:`data-slot="${d===1?'flight-out':'flight-in'}"`}>${svg('plane')}<b>${fl.txt}</b><span class="r">${ft?'탑승권 보기':'탑승권 추가'}</span></button>`:'';
+  const flightRow=fl?`<button class="flight" ${ft?`data-showticket="${ft.id}"`:'data-flights'}>${svg('plane')}<b>${esc(fl.f.no||'항공편')} · ${esc(fl.f.fromCity)} ${esc(fl.f.dep||'--:--')} → ${esc(fl.f.toCity)} ${esc(fl.f.arr||'--:--')}</b><span class="r">${ft?'탑승권 보기':fl.f.no?'탑승권 추가':'항공편 입력'}</span></button>`:'';
   let list='';
   st.forEach((s,i)=>{
-    const p=PL[s.p],n=nums.indexOf(s.p)+1,isHome=s.p==='hotel',isAir=s.p==='hnd',sg=mainSign(s.p),stk=tk.filter(t=>t.place===s.p&&t.day===d&&t.type!=='항공권');
+    const p=PL[s.p],n=nums.indexOf(s.p)+1,isHome=s.p==='hotel',isAir=s.p==='airport',sg=mainSign(s.p),stk=tk.filter(t=>t.place===s.p&&t.day===d&&t.type!=='항공권');
     const mark=isHome?`<span class="num home">숙소</span>`:isAir?`<span class="num air">${svg('plane','')}</span>`:`<span class="num">${n}</span>`;
     list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail">${mark}</div><div class="body">
       <button class="stop-card" data-place="${s.p}" ${state.edit?'disabled':''}><div class="nm">${esc(s.title||p.n)}</div>
@@ -476,7 +502,7 @@ function viewPlan(){
         <div class="edit-ctl"><button data-mv="${i}|-1" ${i===0?'disabled':''} aria-label="위로">${svg('up')}</button><button data-mv="${i}|1" ${i===st.length-1?'disabled':''} aria-label="아래로">${svg('down')}</button><button class="del" data-del="${i}">${svg('x')}삭제</button></div>`
       :s.memo?`<div class="memo">${svg('memo','')}<span>${esc(s.memo)}</span></div>`:''}</div></li>`;
     if(i<st.length-1){const l=legs[i];if(l){const [hn,mode]=HOW[l.how],b=PL[st[i+1].p];
-      list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail"></div><div class="body"><div class="leg"><span class="how">${svg(l.how==='taxi'?'taxi':l.how==='walk'?'walk':'train')}${hn}</span><span class="min">${l.min}분</span><a href="${gdir(p.off?p.q:p.ll,b.off?b.q:b.ll,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div></div></li>`;}}
+      list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail"></div><div class="body"><div class="leg"><span class="how">${svg(l.how==='taxi'?'taxi':l.how==='walk'?'walk':l.how==='bus'?'bus':'train')}${hn}</span><span class="min">${l.min}분</span><a href="${gdir(p.off?p.q:p.ll,b.off?b.q:b.ll,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div></div></li>`;}}
   });
   return `<section class="view">
     <div class="seg days" role="group" aria-label="날짜">${DAYS.map(x=>`<button class="pill" style="--c:var(${x.c})" data-day="${x.id}" aria-pressed="${x.id===d}"><span><i style="margin-right:5px;vertical-align:1px"></i>DAY ${x.id}</span><small>${x.label}</small></button>`).join('')}</div>
@@ -487,7 +513,7 @@ function viewPlan(){
       <div class="addrow"><button class="btn" data-pick="${d}">${svg('plus')}장소 추가</button>${state.edit?`<button class="btn ghost" data-reset>원래 일정으로</button>`:`<button class="btn ghost" data-edit>${svg('memo')}메모 · 순서 편집</button>`}</div></div>
   </section>`;
 }
-function placeList(){const s=savedSet();return Object.keys(PL).filter(id=>!['hotel','hnd'].includes(id)).filter(id=>(state.sCat==='전체'||PL[id].cat===state.sCat)&&(!state.sOnly||s.has(id)));}
+function placeList(){const s=savedSet();return Object.keys(PL).filter(id=>!['hotel','airport'].includes(id)).filter(id=>(state.sCat==='전체'||PL[id].cat===state.sCat)&&(!state.sOnly||s.has(id)));}
 function viewPlaces(){
   const cats=['전체','관광명소','맛집','카페·간식','쇼핑'],list=placeList(),saved=savedSet();
   return `<section class="view"><div style="display:flex;flex-direction:column;gap:10px">
@@ -506,6 +532,7 @@ function viewTickets(){
   const card=t=>{const img=(t.files||[]).find(f=>f.mime!=='application/pdf');return `<button class="card tcard" data-showticket="${t.id}"><span class="tc-thumb">${img?`<img data-file="${esc(img.path)}" alt="">`:svg((t.files||[]).length?'file':'ticket')}</span><span class="m"><span class="k">${esc(t.type)} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</span><b>${esc(t.title)}</b>${t.code?`<span class="mono s">${esc(t.code)}</span>`:''}</span><span class="chip ok" data-offline="${esc((t.files||[]).map(f=>f.path).join('|'))}">보여주기</span></button>`;};
   return `<section class="view">
     <p class="fine">공항·입구에서 이 화면을 보여 주세요. 한 번 열어 본 티켓은 인터넷이 없어도 열려요.</p>
+    ${(()=>{const f=flights();return `<button class="card fl-card" data-flights>${svg('plane')}<span class="m"><b>항공편 정보</b><span class="s">가는 편 ${esc(f.out.no||'미입력')} ${esc(f.out.dep||'')} · 오는 편 ${esc(f.in.no||'미입력')} ${esc(f.in.dep||'')}</span></span><span class="chip ${f.out.no&&f.in.no?'ok':'warn'}">${f.out.no&&f.in.no?'고치기':'입력하기'}</span></button>`;})()}
     ${TICKET_TYPES.map(ty=>{const a=tk.filter(t=>t.type===ty),need=slots.filter(s=>s.type===ty);if(!a.length&&!need.length)return '';
       return `<div><div class="sec-h"><h2>${ty}</h2></div><div class="stack">${a.map(card).join('')}${need.map(s=>`<button class="card tslot" data-slot="${s.slot}"><span class="tc-thumb">${svg('plus')}</span><span class="m"><span class="k">DAY ${s.day} · ${s.time}</span><b>${esc(s.title)}</b><span class="s">${esc(s.hint)}</span></span></button>`).join('')}</div></div>`;}).join('')}
     <button class="btn acc" data-addticket>${svg('plus')}다른 티켓 추가</button>
@@ -623,7 +650,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install]');
+  const t=e.target.closest('[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -642,8 +669,9 @@ document.addEventListener('click',async e=>{
   else if(ds.authmode){state.auth={mode:ds.authmode,err:'',info:'',busy:false};keep(['aEmail']);}
   else if(ds.obmode){state.onboard.mode=ds.obmode;state.onboard.err='';keep(['obName']);}
   else if(ds.obcolor){state.onboard.color=ds.obcolor;keep(['obName','obCode']);}
+  else if(ds.flights!==undefined){closeSheet();flightSheet();}
   else if(ds.addticket!==undefined){ticketForm(null);}
-  else if(ds.slot){const s=TICKET_SLOTS.find(x=>x.slot===ds.slot);ticketForm(null);Object.assign(state.tf,{type:s.type,day:s.day,place:s.place,slot:s.slot,time:s.time});$('#tTitle').value=s.title;$('#tTime').value=s.time;$('#tPlace').value=s.place;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ttype===s.type));document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===s.day));}
+  else if(ds.slot){const s=ticketSlots().find(x=>x.slot===ds.slot);ticketForm(null);Object.assign(state.tf,{type:s.type,day:s.day,place:s.place,slot:s.slot,time:s.time});$('#tTitle').value=s.title;$('#tTime').value=s.time;$('#tPlace').value=s.place;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ttype===s.type));document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===s.day));}
   else if(ds.showticket){closeSheet();showTicket(ds.showticket);}
   else if(ds.editticket){closeOverlay();ticketForm({id:ds.editticket,...Sync.get('ticket',ds.editticket)});}
   else if(ds.delticket){Sync.remove('ticket',ds.delticket);closeSheet();render();toast('티켓을 지웠어요.');}
@@ -659,7 +687,7 @@ document.addEventListener('click',async e=>{
   else if(ds.reset!==undefined){setPlan(state.day,clone(PLAN0[state.day]));render();}
   else if(ds.pick){pickPlaceSheet(+ds.pick);}
   else if(ds.addto){addToSheet(ds.addto);}
-  else if(ds.addday){const [d,id]=ds.addday.split('|'),a=planOf(+d),last=a[a.length-1],pos=(last&&(last.p==='hotel'||last.p==='hnd'))?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(+d,a);closeSheet();state.day=+d;LS.set('day',state.day);go('plan');}
+  else if(ds.addday){const [d,id]=ds.addday.split('|'),a=planOf(+d),last=a[a.length-1],pos=(last&&(last.p==='hotel'||last.p==='airport'))?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(+d,a);closeSheet();state.day=+d;LS.set('day',state.day);go('plan');}
   else if(ds.heart){const id=ds.heart,s=savedSet();s.has(id)?s.delete(id):s.add(id);setSaved(s);if($('#sheetRoot .sheet'))placeSheet(id);render();}
   else if(ds.scat){state.sCat=ds.scat;render();}
   else if(ds.sonly!==undefined){state.sOnly=!state.sOnly;render();}
@@ -695,6 +723,7 @@ document.addEventListener('submit',async e=>{
     }catch(err){o.busy=false;o.err=authMsg(err);keep(['obName','obCode']);}
   }
   if(id==='ticketForm'){saveTicket();}
+  if(id==='flightForm'){saveFlights();}
   if(id==='expForm'){const amt=parseFloat(($('#amtIn').value||'').replace(/,/g,'')),title=$('#titleIn').value.trim()||state.form.cat;
     if(!(amt>0)){state.err='금액을 숫자로 입력해 주세요.';keep(['amtIn','titleIn']);$('#amtIn').focus();return;}
     state.err='';Sync.put('exp',uid(),{day:state.form.day,cat:state.form.cat,title,amt,cur:state.form.cur,who:me(),at:new Date().toISOString()});render();}
