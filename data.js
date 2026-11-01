@@ -1,7 +1,8 @@
-/* Trip content: places, plan, Japanese signs and map geometry. Edit here to change the trip. */
-const DAYS=[{id:1,label:'11.24 화',title:'아사쿠사 · 스카이트리',c:'--d1'},{id:2,label:'11.25 수',title:'메이지 신궁 · 시부야',c:'--d2'},{id:3,label:'11.26 목',title:'스이텐구 · 긴자',c:'--d3'}];
-const CAT={'관광명소':{c:'--c-sight',ic:'flag'},'맛집':{c:'--c-food',ic:'bowl'},'카페·간식':{c:'--c-snack',ic:'cup'},'쇼핑':{c:'--c-shop',ic:'bag'},'숙소':{c:'--c-stay',ic:'bed'},'공항':{c:'--c-air',ic:'plane'}};
-const PL={
+/* Fixed content: categories, phrases, checklists, and the Tokyo example trip that can be imported as a starting point.
+   The trip itself (places, plan, dates, flights) lives in synced data and is edited inside the app. */
+const CAT={'기타':{c:'--c-air',ic:'pin'},'관광명소':{c:'--c-sight',ic:'flag'},'맛집':{c:'--c-food',ic:'bowl'},'카페·간식':{c:'--c-snack',ic:'cup'},'쇼핑':{c:'--c-shop',ic:'bag'},'숙소':{c:'--c-stay',ic:'bed'},'공항':{c:'--c-air',ic:'plane'}};
+// --- Tokyo example (imported with "도쿄 예시 불러오기") ---
+const TPL_PL={
   hotel:{n:'숙소 (닌교초)',short:'숙소',jp:'人形町',cat:'숙소',ll:[35.6858,139.7826],stn:['Z','10'],sname:'스이텐구마에역 도보 3분',area:'니혼바시',d:'예시 숙소 위치. 한조몬선 한 번으로 스카이트리·오모테산도·시부야까지 가요.',q:'Ningyocho Station Tokyo'},
   airport:{n:'나리타 공항',short:'나리타',jp:'成田空港',cat:'공항',ll:[35.7647,140.3864],off:1,area:'나리타',d:'인천과 오가는 공항. 숙소까지 리무진 버스로 70~90분이고, 하코자키 T-CAT에서 내리면 숙소까지 걸어서 5분이에요.',tips:['도착 로비의 리무진 버스 카운터에서 T-CAT(東京シティエアターミナル)행 표를 사요.','임산부라고 말하면 입국심사 배려 줄로 안내받기도 해요.','Visit Japan Web QR을 미리 캡처해 두세요.'],q:'Narita International Airport'},
   sensoji:{n:'센소지 · 나카미세',short:'센소지',jp:'浅草寺',cat:'관광명소',ll:[35.7148,139.7967],stn:['G','19'],sname:'아사쿠사역',area:'아사쿠사',walk:2,side:'l',d:'도쿄에서 가장 오래된 절과 250m 기념품 거리.',tips:['가미나리몬에서 본당까지 평지예요.','맞은편 아사쿠사 문화관광센터 8층 무료 전망대에 엘리베이터와 화장실이 있어 쉬어 가기 좋아요.'],q:'Sensoji Temple'},
@@ -26,22 +27,24 @@ const PL={
   gaien:{n:'진구가이엔 은행나무길',jp:'いちょう並木',cat:'관광명소',ll:[35.6745,139.7176],stn:['G','03'],sname:'가이엔마에역',area:'아오야마',walk:1,d:'11월 하순 절정인 노란 은행나무 터널.',q:'Jingu Gaien Ginkgo Avenue'},
   tower:{n:'도쿄 타워',jp:'東京タワー',cat:'관광명소',ll:[35.6586,139.7454],stn:['E','21'],sname:'아카바네바시역',area:'시바',walk:1,d:'시부야가 붐빌 때 야경 대안.',q:'Tokyo Tower'},
 };
-const PLAN0={
+const TPL_PLAN={
 1:[{p:'airport',t:'11:00',dur:'입국 수속 약 1시간',memo:'리무진 버스표는 도착 로비 카운터에서. T-CAT행을 타면 숙소 바로 옆에 내려요.'},{p:'hotel',t:'13:30',title:'짐 맡기고 점심',memo:'닌교초 골목 식당에서 가볍게'},{p:'sensoji',t:'15:00',dur:'1시간',memo:'간식은 가게츠도 멜론빵'},{p:'skytree',t:'16:15',dur:'1시간 30분',memo:'일몰 16:30 전후. 저녁은 소라마치 6·7층'},{p:'hotel',t:'19:30',title:'숙소에서 휴식'}],
 2:[{p:'hotel',t:'08:30',title:'느긋한 아침'},{p:'meiji',t:'10:00',dur:'1시간',memo:'아침이라 덜 붐비고 공기가 좋아요'},{p:'omote',t:'11:30',dur:'1시간'},{p:'hotel',t:'13:15',title:'숙소에서 낮잠',memo:'오늘 가장 중요한 일정. 2시간 쉬기'},{p:'shibuya',t:'16:00',dur:'1시간 30분',memo:'일몰 30분 전 입장권 예매. 저녁은 근처 이치란'},{p:'hotel',t:'19:00',title:'숙소에서 휴식'}],
 3:[{p:'hotel',t:'08:30',title:'체크아웃 · 짐 맡기기'},{p:'suitengu',t:'09:30',dur:'45분',memo:'안산 부적·복대 받기. 근처에서 닌교야키 간식'},{p:'ginza',t:'11:00',dur:'1시간',memo:'점심은 긴자 바이린 돈카츠'},{p:'tokyost',t:'12:15',dur:'45분',memo:'아기 선물 쇼핑'},{p:'hotel',t:'13:15',title:'짐 찾기',memo:'T-CAT에서 공항 리무진 버스'},{p:'airport',t:'15:00',dur:'출국 2시간 전 도착',memo:'출국 수속 뒤 면세 구역에서 저녁'}]};
 // flights are entered in the app (trip settings); these are only the defaults shown before that
-const FLIGHT0={out:{from:'ICN',fromCity:'인천',to:'NRT',toCity:'나리타',no:'',dep:'',arr:'',term:''},in:{from:'NRT',fromCity:'나리타',to:'ICN',toCity:'인천',no:'',dep:'',arr:'',term:''}};
+const FLIGHT0={out:{fromCity:'인천',toCity:'',no:'',dep:'',arr:'',term:''},in:{fromCity:'',toCity:'인천',no:'',dep:'',arr:'',term:''}};
+const TPL_FLIGHTS={out:{fromCity:'인천',toCity:'나리타'},in:{fromCity:'나리타',toCity:'인천'}};
+const TPL_TRIP={title:'도쿄 태교여행',city:'도쿄',start:'2026-11-24',nights:2,hotelId:'hotel',dayTitles:{1:'아사쿠사 · 스카이트리',2:'메이지 신궁 · 시부야',3:'스이텐구 · 긴자'}};
 const ZST={oshiage:[35.7103,139.8133],kinshicho:[35.6966,139.8150],sumiyoshi:[35.6890,139.8160],kiyosumi:[35.6818,139.7993],suitengumae:[35.6827,139.7856],mitsukoshimae:[35.6862,139.7737],otemachi:[35.6860,139.7640],jimbocho:[35.6958,139.7577],kudanshita:[35.6956,139.7514],hanzomon:[35.6833,139.7417],nagatacho:[35.6786,139.7400],aoyama1:[35.6727,139.7240],omotesando:[35.6654,139.7121],shibuya:[35.6580,139.7016]};
 const ZORDER=Object.keys(ZST);
 const ZNEAR={skytree:'oshiage',solamachi:'oshiage',hotel:'suitengumae',suitengu:'suitengumae',ningyoyaki:'suitengumae',omote:'omotesando',shibuya:'shibuya',ichiran:'shibuya',motomura:'shibuya'};
 const KNOWN={'airport>hotel':{how:'bus',min:85,note:'리무진 버스 → 하코자키 T-CAT 하차, 숙소까지 걸어서 5분 · 약 3,000엔대'},'hotel>airport':{how:'bus',min:85,note:'T-CAT에서 공항 리무진 버스 · 출발 3시간 전에는 타기'},'hotel>sensoji':{how:'taxi',min:20,note:'가미나리몬 앞 하차'},'sensoji>skytree':{how:'taxi',min:10,note:'스미다강 건너 바로'},'hotel>meiji':{how:'taxi',min:25,note:'메이지 신궁 남쪽 입구(하라주쿠 쪽)'},'meiji>omote':{how:'walk',min:10,note:'오모테산도 방향 완만한 내리막'},'shibuya>hotel':{how:'taxi',min:25,note:'퇴근 시간 지하철 대신 택시'},'hotel>suitengu':{how:'walk',min:5,note:''},'suitengu>ginza':{how:'taxi',min:10,note:'긴자 4초메 교차로'},'ginza>tokyost':{how:'taxi',min:10,note:'도쿄역 야에스 출구'},'tokyost>hotel':{how:'taxi',min:10,note:''}};
-const HOW={bus:['리무진 버스','transit'],taxi:['택시','driving'],walk:['도보','walking'],subway:['한조몬선','transit']};
+const HOW={train:['전철','transit'],bus:['버스','transit'],taxi:['택시','driving'],walk:['도보','walking'],subway:['지하철','transit']};
 const PREP=[{g:'서류',items:[['passport','여권 · 항공권','유효기간 6개월 이상'],['vjw','Visit Japan Web 등록','입국·세관 QR 캡처'],['insure','여행자보험','임신 관련 보장 여부 확인'],['doctor','영문 진단서(의사 소견서)','주수에 따라 항공사가 요구'],['sky','시부야 스카이 · 스카이트리 예매','시간 지정권']]},{g:'건강',items:[['mombook','산모수첩','임신 주수·혈액형 확인용'],['meds','복용 중인 영양제 · 약',''],['mark','마타니티 마크 받기','도쿄 지하철역 사무실에서 무료'],['socks','압박 스타킹','비행기 안 붓기 예방']]},{g:'짐',items:[['shoes','쿠션 좋은 운동화',''],['layer','얇은 겉옷 여러 겹','낮 14~16℃, 아침저녁 7~9℃ 안팎'],['bottle','개인 물병',''],['ic','교통카드 (Suica · PASMO)','휴대폰 지갑에 추가 가능'],['go','택시 앱 GO 설치','한국 카드 등록']]}];
 const XCAT={'식비':'--c-food','교통':'--c-air','관광':'--c-sight','쇼핑':'--c-shop','숙소':'--d2','항공':'--d3','기타':'--mute'};
 
 // Japanese text to match against real signboards, with kana reading and Korean meaning.
-const SIGNS={
+const TPL_SIGNS={
   hotel:[['人形町駅','にんぎょうちょうえき','닌교초역'],['水天宮前駅','すいてんぐうまええき','스이텐구마에역']],
   airport:[['成田空港','なりた くうこう','나리타 공항'],['リムジンバス 乗車券','リムジンバス じょうしゃけん','리무진 버스 승차권'],['東京シティエアターミナル','とうきょう シティ エアターミナル','T-CAT (숙소 옆 버스 터미널)'],['到着ロビー','とうちゃく ロビー','도착 로비'],['出発ロビー','しゅっぱつ ロビー','출발 로비']],
   sensoji:[['浅草寺','せんそうじ','센소지'],['雷門','かみなりもん','가미나리몬 (큰 빨간 등)'],['仲見世通り','なかみせどおり','나카미세 거리'],['浅草駅','あさくさえき','아사쿠사역']],
@@ -75,16 +78,7 @@ const PHRASES=[
   ['トイレはどこですか','トイレは どこですか','화장실은 어디예요?'],
   ['これをください','これを ください','이거 주세요'],
   ['写真を撮っていただけますか','しゃしんを とって いただけますか','사진 좀 찍어 주실래요?'],
-  ['人形町駅までお願いします','にんぎょうちょうえき まで おねがいします','닌교초역까지 가 주세요 (택시)'],
 ];
 
-/* ---- map geometry ---- */
-const B={lat0:35.7215,lon0:139.6905},COS=Math.cos(35.69*Math.PI/180),K=9000;
-const P=ll=>[(ll[1]-B.lon0)*COS*K,(B.lat0-ll[0])*K];
-const pts=a=>a.map(ll=>P(ll).map(n=>n.toFixed(1)).join(',')).join(' ');
-const YAMANOTE=[[35.6812,139.7671],[35.6918,139.7709],[35.6984,139.7731],[35.7075,139.7748],[35.7138,139.7773],[35.7215,139.7781],[35.7281,139.7710],[35.7320,139.7668],[35.7381,139.7608],[35.7365,139.7470],[35.7334,139.7393],[35.7318,139.7286],[35.7295,139.7109],[35.7212,139.7065],[35.7126,139.7038],[35.7012,139.7000],[35.6896,139.7006],[35.6830,139.7020],[35.6702,139.7027],[35.6580,139.7016],[35.6467,139.7101],[35.6339,139.7157],[35.6262,139.7236],[35.6197,139.7286],[35.6285,139.7387],[35.6355,139.7407],[35.6457,139.7476],[35.6553,139.7570],[35.6663,139.7583],[35.6751,139.7630]];
-const GINZA_L=[[35.7110,139.7976],[35.7105,139.7907],[35.7114,139.7826],[35.7114,139.7769],[35.7077,139.7729],[35.7027,139.7718],[35.6936,139.7705],[35.6862,139.7737],[35.6820,139.7740],[35.6766,139.7700],[35.6717,139.7640],[35.6663,139.7583],[35.6701,139.7499],[35.6738,139.7414],[35.6772,139.7369],[35.6727,139.7240],[35.6708,139.7178],[35.6654,139.7121],[35.6580,139.7016]];
-const RIVER=[[35.740,139.808],[35.728,139.8045],[35.718,139.8015],[35.7105,139.7990],[35.7055,139.7935],[35.6990,139.7880],[35.6935,139.7865],[35.6880,139.7915],[35.6820,139.7930],[35.6760,139.7880],[35.6700,139.7850],[35.6640,139.7765],[35.6560,139.7715],[35.640,139.770]];
-const PARKS=[[35.6852,139.7528,.0078,.0068,'황거'],[35.6730,139.6985,.0068,.0085,'요요기 숲'],[35.6852,139.7100,.0055,.0030,''],[35.7150,139.7735,.0035,.0042,'우에노 공원'],[35.6790,139.7268,.0042,.0040,''],[35.6735,139.7560,.0016,.0016,''],[35.6600,139.7635,.0028,.0022,'']];
-const AREAS=[['아사쿠사',35.7178,139.7930],['우에노',35.7090,139.7790],['아키하바라',35.6990,139.7760],['료고쿠',35.6965,139.7975],['신주쿠',35.6930,139.6990],['하라주쿠',35.6705,139.7045],['아카사카',35.6745,139.7390],['롯폰기',35.6628,139.7314],['쓰키지',35.6660,139.7720],['니혼바시',35.6890,139.7790]];
-
+const DAY_COLORS=['--d1','--d2','--d3','--d4','--d5','--d6','--d7'];
+const CAT_LIST=['관광명소','맛집','카페·간식','쇼핑','숙소','공항','기타'];
