@@ -479,7 +479,10 @@ function showIntro(){
   el._tap=()=>{if(el._done){finishIntro();return;}if(stage===0)toTicket();else tear();};
   show(0);at(reduced()?1200:3600,toTicket);
 }
-function finishIntro(){const el=$('#intro');clearTimers();el.hidden=true;el.innerHTML='';document.body.style.overflow='';enter();}
+// a new app version that arrived while the intro was playing is switched to here, without playing the intro again
+let pendingReload=false;
+const reloadSkippingIntro=()=>{try{sessionStorage.setItem('tt:skipIntro','1');}catch(e){}location.reload();};
+function finishIntro(){if(pendingReload){reloadSkippingIntro();return;}const el=$('#intro');clearTimers();el.hidden=true;el.innerHTML='';document.body.style.overflow='';enter();}
 
 /* ===================== sheets & overlays ===================== */
 function openSheet(html){$('#sheetRoot').innerHTML=`<div class="sheet-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;const f=$('#sheetRoot .sh-x');if(f)f.focus({preventScroll:true});hydrateFiles($('#sheetRoot'));}
@@ -1200,11 +1203,14 @@ Sync.on(what=>{const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
   // when a new version takes over, reload once so the new files are used right away
   const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded){reloaded=true;location.reload();}});
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloaded)return;reloaded=true;
+    if(!$('#intro').hidden)pendingReload=true;else reloadSkippingIntro();});
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 }
 rebuild();
-// the intro plays every time the app is opened, signed in or not; it hands over to enter() when done
-showIntro();
+// the intro plays every time the app is opened, signed in or not; it hands over to enter() when done.
+// the one exception is the reload that swaps in a new version, so the intro never plays twice in a row
+let skipIntro=false;try{skipIntro=sessionStorage.getItem('tt:skipIntro')==='1';sessionStorage.removeItem('tt:skipIntro');}catch(e){}
+if(skipIntro)enter();else showIntro();
 
 
