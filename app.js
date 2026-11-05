@@ -53,6 +53,10 @@ const placeSearch=id=>gsearch(placeQ(id))+(PL[id]&&PL[id].gid?'&query_place_id='
 const planOf=d=>{const v=Sync.get('plan',String(d));return (v&&v.stops?v.stops:[]).filter(s=>PL[s.p]).map(s=>({...s}));};
 const setPlan=(d,stops)=>Sync.put('plan',String(d),{stops});
 const flights=()=>{const f=Sync.get('flights','trip')||{};return {out:{...FLIGHT0.out,...(f.out||{})},in:{...FLIGHT0.in,...(f.in||{})}};};
+const DIRS={out:'가는 편',in:'오는 편',etc:'기타'};
+// minutes between two HH:MM times (same time zone, next day if it wraps)
+const spanMin=(a,b)=>{if(!a||!b)return 0;const m=t=>{const [h,x]=t.split(':').map(Number);return h*60+x;};return (m(b)-m(a)+1440)%1440;};
+const durText=min=>min?`${Math.floor(min/60)}시간${min%60?` ${min%60}분`:''}`:'';
 const flightLabel=f=>`${f.fromCity||'출발지'} → ${f.toCity||'도착지'}${f.no?' · '+f.no:''}`;
 const settings=()=>Object.assign({budget:2000000,rate:9.2},Sync.get('settings','trip')||{});
 const setSettings=patch=>Sync.put('settings','trip',Object.assign(settings(),patch));
@@ -71,8 +75,8 @@ const member=u=>Sync.members.find(m=>m.user_id===u)||{display_name:u===me()?'나
 const avatar=u=>{const m=member(u);return `<span class="av" style="--wc:${esc(m.color)}">${esc((m.display_name||'?').slice(0,1))}</span>`;};
 function ticketSlots(){
   const f=flights(),out=[];
-  out.push({slot:'flight-out',type:'항공권',title:'가는 편 · '+flightLabel(f.out),day:1,time:f.out.dep,place:'',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'});
-  if(DAYS.length>1)out.push({slot:'flight-in',type:'항공권',title:'오는 편 · '+flightLabel(f.in),day:DAYS.length,time:f.in.dep,place:'',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'});
+  out.push({slot:'flight-out',dir:'out',type:'항공권',title:flightLabel(f.out),day:1,time:f.out.dep,place:'',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'});
+  if(DAYS.length>1)out.push({slot:'flight-in',dir:'in',type:'항공권',title:flightLabel(f.in),day:DAYS.length,time:f.in.dep,place:'',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'});
   const h=hotelId();if(h)out.push({slot:'hotel',type:'숙소',title:PL[h].n+' 예약 확인서',day:1,time:'',place:h,hint:'예약 번호가 보이는 화면'});
   DAYS.forEach(d=>planOf(d.id).forEach(s=>{if(PL[s.p].ticket&&!out.some(o=>o.slot==='place:'+s.p))out.push({slot:'place:'+s.p,type:'입장권',title:PL[s.p].n,day:d.id,time:s.t||'',place:s.p,hint:'예매 메일의 QR 코드 화면'});}));
   return out;
@@ -750,59 +754,91 @@ function flightSheet(){
     <div class="two"><div><label class="f" for="${k}From">출발</label><input type="text" id="${k}From" value="${esc(x.fromCity)}" placeholder="예: 인천"></div><div><label class="f" for="${k}To">도착</label><input type="text" id="${k}To" value="${esc(x.toCity)}" placeholder="예: 나리타"></div></div>
     <div class="two3"><div><label class="f" for="${k}No">편명</label><input type="text" id="${k}No" value="${esc(x.no)}" placeholder="KE705" autocomplete="off" autocapitalize="characters"></div>
     <div><label class="f" for="${k}Dep">출발 시각</label><input type="time" id="${k}Dep" value="${esc(x.dep)}"></div><div><label class="f" for="${k}Arr">도착 시각</label><input type="time" id="${k}Arr" value="${esc(x.arr)}"></div></div>
-    <label class="f" for="${k}Term">터미널 (선택)</label><input type="text" id="${k}Term" value="${esc(x.term)}" placeholder="예: 나리타 제1터미널"></div>`;
+    <div class="two3"><div><label class="f" for="${k}Term">출발 터미널</label><input type="text" id="${k}Term" value="${esc(x.term||'')}" placeholder="예: 1"></div><div><label class="f" for="${k}ATerm">도착 터미널</label><input type="text" id="${k}ATerm" value="${esc(x.arrTerm||'')}" placeholder="예: 2"></div><div><label class="f" for="${k}Dur">비행시간</label><input type="text" id="${k}Dur" value="${esc(x.dur||'')}" placeholder="2시간 30분"></div></div></div>`;
   openSheet(`${shHead('항공편 정보','입력하면 일정 첫날·마지막 날과 티켓 칸에 반영돼요')}
     <form id="flightForm" class="stack" novalidate>${row('o','가는 편 (DAY 1)',f.out)}${row('i',`오는 편 (DAY ${DAYS.length})`,f.in)}
     <button class="btn acc" type="submit">저장</button></form>`);
 }
 function saveFlights(){
   const v=id=>$('#'+id).value.trim();
-  const out={fromCity:v('oFrom'),toCity:v('oTo'),no:v('oNo').toUpperCase(),dep:v('oDep'),arr:v('oArr'),term:v('oTerm')},inn={fromCity:v('iFrom'),toCity:v('iTo'),no:v('iNo').toUpperCase(),dep:v('iDep'),arr:v('iArr'),term:v('iTerm')};
+  const g=k=>({fromCity:v(k+'From'),toCity:v(k+'To'),no:v(k+'No').toUpperCase(),dep:v(k+'Dep'),arr:v(k+'Arr'),dur:v(k+'Dur')||durText(spanMin(v(k+'Dep'),v(k+'Arr'))),term:v(k+'Term'),arrTerm:v(k+'ATerm')}),f=flights();
+  const out={...f.out,...g('o')},inn={...f.in,...g('i')};
+  applyFlights(out,inn);
+  closeSheet();toast('항공편을 저장했어요. 둘 다에게 반영돼요.');render();
+}
+function applyFlights(out,inn){
   Sync.put('flights','trip',{out,in:inn});
   // keep airport stops in step with the flights
   const sub=(t,m)=>{const [h,mm]=t.split(':').map(Number),x=(h*60+mm-m+1440)%1440;return `${String(Math.floor(x/60)).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`;};
   const d1=planOf(1),a1=d1.find(s=>isAir(s.p));if(a1&&out.arr){a1.t=out.arr;setPlan(1,d1);}
   const L=DAYS.length,dl=planOf(L),al=[...dl].reverse().find(s=>isAir(s.p));if(L>1&&al&&inn.dep){al.t=sub(inn.dep,150);al.dur='출발 2시간 30분 전 도착';setPlan(L,dl);}
-  closeSheet();toast('항공편을 저장했어요. 둘 다에게 반영돼요.');render();
 }
 /* ---------- tickets ---------- */
 function ticketForm(t){
-  const tf=t?{...t}:{type:'입장권',title:'',day:1,time:'',place:'',code:'',memo:'',files:[]};
+  const tf=t?{...t}:{type:'입장권',title:'',day:1,time:'',place:'',code:'',seat:'',memo:'',files:[]};
+  if(!tf.dir&&tf.slot&&tf.slot.startsWith('flight-'))tf.dir=tf.slot.slice(7);
+  // older tickets kept the reservation number and seat together as "code · seat"
+  if(!tf.seat&&/ · /.test(tf.code||'')){const [c,...r]=tf.code.split(' · ');tf.code=c;tf.seat=r.join(' · ');}
+  const fl={...(tf.dir&&tf.dir!=='etc'?flights()[tf.dir]:{}),...(tf.fl||{})},air=tf.type==='항공권';
   state.tf={...tf,newFiles:[]};
-  openSheet(`${shHead(t?'티켓 고치기':'티켓 추가','QR·바코드가 잘 보이는 사진이나 캡처, PDF를 올려 주세요')}
+  openSheet(`${shHead(t&&t.id?'티켓 고치기':'티켓 추가','QR·바코드가 잘 보이는 사진이나 캡처, PDF를 올려 주세요')}
     <form id="ticketForm" class="stack" novalidate>
       <div class="catpick" role="group" aria-label="종류">${TICKET_TYPES.map(k=>`<button type="button" data-ttype="${k}" aria-pressed="${tf.type===k}">${k}</button>`).join('')}</div>
-      <label class="f" for="tTitle">이름</label><input type="text" id="tTitle" value="${esc(tf.title)}" placeholder="예: 시부야 스카이 16:00 입장">
+      <div id="tFlight" class="stack" ${air?'':'hidden'}>
+        <div><label class="f">구분</label><div class="catpick" role="group" aria-label="구분">${Object.entries(DIRS).map(([k,l])=>`<button type="button" data-tdir="${k}" aria-pressed="${(tf.dir||'')===k}">${l}</button>`).join('')}</div></div>
+        <div class="two"><div><label class="f" for="tNo">편명</label><input type="text" id="tNo" value="${esc(fl.no||'')}" placeholder="예: TW243" autocomplete="off" autocapitalize="characters"></div>
+          <div><label class="f" for="tDur">비행시간</label><input type="text" id="tDur" value="${esc(fl.dur||'')}" placeholder="예: 2시간 30분"></div></div>
+        <div class="two"><div><label class="f" for="tFrom">출발 공항</label><input type="text" id="tFrom" value="${esc(fl.fromCity||'')}" placeholder="예: 인천 ICN"></div>
+          <div><label class="f" for="tTo">도착 공항</label><input type="text" id="tTo" value="${esc(fl.toCity||'')}" placeholder="예: 나리타 NRT"></div></div>
+        <div class="two"><div><label class="f" for="tDep">출발 시각</label><input type="time" id="tDep" value="${esc(fl.dep||tf.time||'')}"></div>
+          <div><label class="f" for="tArr">도착 시각</label><input type="time" id="tArr" value="${esc(fl.arr||'')}"></div></div>
+        <div class="two"><div><label class="f" for="tDepT">출발 터미널</label><input type="text" id="tDepT" value="${esc(fl.term||'')}" placeholder="예: 1"></div>
+          <div><label class="f" for="tArrT">도착 터미널</label><input type="text" id="tArrT" value="${esc(fl.arrTerm||'')}" placeholder="예: 2"></div></div>
+      </div>
+      <label class="f" for="tTitle">이름<span class="opt" id="tTitleOpt" ${air?'':'hidden'}> (비우면 공항으로 채워요)</span></label><input type="text" id="tTitle" value="${esc(tf.title)}" placeholder="${air?'예: 도쿄 가는 비행기':'예: 시부야 스카이 16:00 입장'}">
       <div class="catpick" role="group" aria-label="날짜">${DAYS.map(d=>`<button type="button" data-tday="${d.id}" aria-pressed="${tf.day===d.id}">DAY ${d.id}</button>`).join('')}</div>
-      <div class="two"><div><label class="f" for="tTime">시간</label><input type="time" id="tTime" value="${esc(tf.time)}"></div>
+      <div class="two"><div id="tTimeBox" ${air?'hidden':''}><label class="f" for="tTime">시간</label><input type="time" id="tTime" value="${esc(tf.time)}"></div>
         <div><label class="f" for="tPlace">장소</label><select id="tPlace"><option value="">선택 안 함</option>${Object.keys(PL).map(id=>`<option value="${id}" ${tf.place===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select></div></div>
-      <label class="f" for="tCode">예약 번호 · 좌석 (선택)</label><input type="text" id="tCode" value="${esc(tf.code)}" placeholder="예: 6ABC12 · 23A" autocomplete="off">
+      <div class="two"><div><label class="f" for="tCode">예약 번호</label><input type="text" id="tCode" value="${esc(tf.code)}" placeholder="예: Q2TL65" autocomplete="off" autocapitalize="characters"></div>
+        <div><label class="f" for="tSeat">좌석 (선택)</label><input type="text" id="tSeat" value="${esc(tf.seat||'')}" placeholder="예: 23A" autocomplete="off" autocapitalize="characters"></div></div>
       <label class="f" for="tMemo">메모 (선택)</label><input type="text" id="tMemo" value="${esc(tf.memo)}" placeholder="예: 3터미널 2층 L 카운터">
       <div id="tFiles" class="tfiles">${filesEditHTML()}</div>
       <label class="btn photo-btn">${svg('camera')}사진 · PDF 추가<input type="file" id="tFileIn" accept="image/*,application/pdf" multiple></label>
       <p class="err" id="tErr" hidden></p>
       <button class="btn acc" type="submit">${svg('ticket')}저장</button>
-      ${t?`<button class="btn ghost" type="button" data-delticket="${t.id}" style="color:var(--no)">티켓 삭제</button>`:''}
+      ${t&&t.id?`<button class="btn ghost" type="button" data-delticket="${t.id}" style="color:var(--no)">티켓 삭제</button>`:''}
     </form>`);
   state.tf.id=t?t.id:null;state.tf.slot=t?t.slot:'';
 }
 function filesEditHTML(){const tf=state.tf;return [...tf.files.map((f,i)=>`<div class="tfile"><span class="tfi">${f.mime==='application/pdf'?svg('file'):`<img data-file="${esc(f.path)}" alt="">`}</span><span>${esc(f.name||'파일')}</span><button type="button" data-rmfile="o${i}" aria-label="빼기">×</button></div>`),
   ...tf.newFiles.map((f,i)=>`<div class="tfile"><span class="tfi">${f.blob.type==='application/pdf'?svg('file'):`<img src="${f.url}" alt="">`}</span><span>${esc(f.name)}</span><button type="button" data-rmfile="n${i}" aria-label="빼기">×</button></div>`)].join('');}
 async function saveTicket(){
-  const tf=state.tf,title=$('#tTitle').value.trim(),err=$('#tErr');
+  const tf=state.tf,err=$('#tErr'),air=tf.type==='항공권',v=id=>$('#'+id).value.trim();
+  const fl=air?{no:v('tNo').toUpperCase(),fromCity:v('tFrom'),toCity:v('tTo'),dep:v('tDep'),arr:v('tArr'),dur:v('tDur')||durText(spanMin(v('tDep'),v('tArr'))),term:v('tDepT'),arrTerm:v('tArrT')}:null;
+  const title=v('tTitle')||(air&&(fl.fromCity||fl.toCity||fl.no)?flightLabel(fl):'');
   if(!title){err.textContent='티켓 이름을 적어 주세요.';err.hidden=false;$('#tTitle').focus();return;}
   if(!tf.files.length&&!tf.newFiles.length&&!$('#tCode').value.trim()){err.textContent='사진·PDF를 올리거나 예약 번호를 적어 주세요.';err.hidden=false;return;}
   const files=[...tf.files];
   for(const f of tf.newFiles){const ext=(f.name.split('.').pop()||'').toLowerCase().slice(0,5)||(f.blob.type==='application/pdf'?'pdf':'jpg');
     try{files.push({path:await Sync.addFile(f.blob,ext),name:f.name,mime:f.blob.type||'image/jpeg'});}catch(e){err.textContent='이 휴대폰 저장 공간이 부족해 파일을 저장하지 못했어요.';err.hidden=false;return;}}
-  const id=tf.id||uid();
-  Sync.put('ticket',id,{type:tf.type,title,day:tf.day,time:$('#tTime').value,place:$('#tPlace').value,code:$('#tCode').value.trim(),memo:$('#tMemo').value.trim(),files,slot:tf.slot||'',at:tf.at||new Date().toISOString()});
+  const id=tf.id||uid(),dir=air?tf.dir||'':'';
+  const slot=air&&(dir==='out'||dir==='in')?'flight-'+dir:(tf.slot&&tf.slot.startsWith('flight-')?'':tf.slot||'');
+  Sync.put('ticket',id,{type:tf.type,title,day:tf.day,time:air?fl.dep:$('#tTime').value,place:$('#tPlace').value,code:v('tCode').toUpperCase(),seat:v('tSeat').toUpperCase(),memo:v('tMemo'),files,slot,dir,fl,at:tf.at||new Date().toISOString()});
+  // a flight ticket for the way out or back also fills in the trip's flight info, which the schedule uses
+  if(dir==='out'||dir==='in'){const f=flights();f[dir]={...f[dir],...fl};applyFlights(f.out,f.in);}
   closeSheet();toast('티켓을 저장했어요. 인터넷이 없어도 열려요.');render();
 }
+const termText=x=>x?(/^\d+$/.test(x)?`터미널 ${x}`:x):'';
+function flightBlock(t){const f=t.type==='항공권'&&t.fl;if(!f||!(f.fromCity||f.toCity||f.no))return '';
+  return `<div class="ts-fl"><div class="ap"><span class="tm mono">${esc(f.dep||'--:--')}</span><b>${esc(f.fromCity||'출발')}</b><span class="tt">${esc(termText(f.term))}</span></div>
+    <div class="mid">${svg('plane')}<span>${esc(f.dur||durText(spanMin(f.dep,f.arr)))}</span></div>
+    <div class="ap"><span class="tm mono">${esc(f.arr||'--:--')}</span><b>${esc(f.toCity||'도착')}</b><span class="tt">${esc(termText(f.arrTerm))}</span></div></div>
+    ${f.no?`<div class="ts-meta"><span>편명 <b class="mono">${esc(f.no)}</b></span>${t.dir&&DIRS[t.dir]?`<span>${DIRS[t.dir]}</span>`:''}</div>`:''}`;}
 function showTicket(id){
   const t=Sync.get('ticket',id);if(!t)return;
-  openOverlay(`<div class="tshow"><div class="ts-top"><div><div class="k">${esc(t.type)} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</div><b>${esc(t.title)}</b></div><button class="ov-x" data-closeov aria-label="닫기">×</button></div>
-    ${t.code?`<div class="ts-code"><span class="k">예약 번호 · 좌석</span><span class="mono">${esc(t.code)}</span></div>`:''}
+  openOverlay(`<div class="tshow"><div class="ts-top"><div><div class="k">${esc(t.type)}${t.dir&&DIRS[t.dir]&&t.dir!=='etc'?' · '+DIRS[t.dir]:''} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</div><b>${esc(t.title)}</b></div><button class="ov-x" data-closeov aria-label="닫기">×</button></div>
+    ${flightBlock(t)}
+    ${t.code||t.seat?`<div class="ts-codes">${t.code?`<div class="ts-code"><span class="k">예약 번호</span><span class="mono">${esc(t.code)}</span></div>`:''}${t.seat?`<div class="ts-code seat"><span class="k">좌석</span><span class="mono">${esc(t.seat)}</span></div>`:''}</div>`:''}
     <div class="ts-files">${(t.files||[]).map(f=>f.mime==='application/pdf'?`<a class="btn" data-pdf="${esc(f.path)}" href="#" target="_blank" rel="noopener">${svg('file')}${esc(f.name||'PDF')} 열기</a>`:`<img data-file="${esc(f.path)}" alt="${esc(t.title)} 티켓">`).join('')||'<p class="fine">올린 파일이 없어요.</p>'}</div>
     ${t.memo?`<p class="ts-memo">${esc(t.memo)}</p>`:''}
     <p class="fine ts-hint">화면 밝기를 최대로 올리고 보여 주세요. 이 화면이 열려 있는 동안 화면이 꺼지지 않아요.</p>
@@ -969,7 +1005,7 @@ function viewPlaces(){
 }
 function viewTickets(){
   const tk=tickets(),slots=slotStatus().filter(s=>!s.t),f=flights();
-  const card=t=>{const img=(t.files||[]).find(x=>x.mime!=='application/pdf');return `<button class="card tcard" data-showticket="${t.id}"><span class="tc-thumb">${img?`<img data-file="${esc(img.path)}" alt="">`:svg((t.files||[]).length?'file':'ticket')}</span><span class="m"><span class="k">${esc(t.type)} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</span><b>${esc(t.title)}</b>${t.code?`<span class="mono s">${esc(t.code)}</span>`:''}</span><span class="chip ok">보여주기</span></button>`;};
+  const card=t=>{const img=(t.files||[]).find(x=>x.mime!=='application/pdf');return `<button class="card tcard" data-showticket="${t.id}"><span class="tc-thumb">${img?`<img data-file="${esc(img.path)}" alt="">`:svg((t.files||[]).length?'file':'ticket')}</span><span class="m"><span class="k">${t.dir&&DIRS[t.dir]&&t.dir!=='etc'?DIRS[t.dir]:esc(t.type)} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</span><b>${esc(t.title)}</b>${t.code||t.seat||(t.fl&&t.fl.no)?`<span class="mono s">${[t.fl&&t.fl.no,t.code&&'예약 '+t.code,t.seat&&'좌석 '+t.seat].filter(Boolean).map(esc).join('  ')}</span>`:''}</span><span class="chip ok">보여주기</span></button>`;};
   return `<section class="view">
     <p class="fine">공항·입구에서 이 화면을 보여 주세요. 한 번 열어 본 티켓은 인터넷이 없어도 열려요.</p>
     <button class="card fl-card" data-flights>${svg('plane')}<span class="m"><b>항공편 정보</b><span class="s">가는 편 ${esc(f.out.no||'미입력')} ${esc(f.out.dep||'')} · 오는 편 ${esc(f.in.no||'미입력')} ${esc(f.in.dep||'')}</span></span><span class="chip ${f.out.no&&f.in.no?'ok':'warn'}">${f.out.no&&f.in.no?'고치기':'입력하기'}</span></button>
@@ -1053,7 +1089,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1091,11 +1127,14 @@ document.addEventListener('click',async e=>{
   else if(ds.restorephrases!==undefined){Sync.put('phrasehide','set',{ids:[]});talkSheet('');}
   else if(ds.bigja){closeSheet();const i=allPhrases().findIndex(p=>p[0]===ds.bigja);if(i>=0)bigPhrase(i);else{const p=PHRASES.find(x=>x[0]===ds.bigja);if(p)openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button></div></div>`);}}
   else if(ds.addticket!==undefined){ticketForm(null);}
-  else if(ds.slot){const s=ticketSlots().find(x=>x.slot===ds.slot);ticketForm(null);Object.assign(state.tf,{type:s.type,day:s.day,place:s.place,slot:s.slot,time:s.time});$('#tTitle').value=s.title;$('#tTime').value=s.time;$('#tPlace').value=s.place;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ttype===s.type));document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===s.day));}
+  else if(ds.slot){const s=ticketSlots().find(x=>x.slot===ds.slot);if(s.dir){ticketForm({type:'항공권',title:'',day:s.day,time:s.time,place:'',code:'',seat:'',memo:'',files:[],slot:s.slot,dir:s.dir});state.tf.id=null;return;}ticketForm(null);Object.assign(state.tf,{type:s.type,day:s.day,place:s.place,slot:s.slot,time:s.time});$('#tTitle').value=s.title;$('#tTime').value=s.time;$('#tPlace').value=s.place;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ttype===s.type));document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===s.day));}
   else if(ds.showticket){closeSheet();showTicket(ds.showticket);}
   else if(ds.editticket){closeOverlay();ticketForm({id:ds.editticket,...Sync.get('ticket',ds.editticket)});}
   else if(ds.delticket){Sync.remove('ticket',ds.delticket);closeSheet();render();toast('티켓을 지웠어요.');}
-  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));}
+  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권';$('#tFlight').hidden=!air;$('#tTimeBox').hidden=air;$('#tTitleOpt').hidden=!air;}
+  else if(ds.tdir){state.tf.dir=ds.tdir;document.querySelectorAll('[data-tdir]').forEach(b=>b.setAttribute('aria-pressed',b===t));
+    if(ds.tdir!=='etc'){const f=flights()[ds.tdir],day=ds.tdir==='out'?1:DAYS.length;state.tf.day=day;document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===day));
+      [['tNo','no'],['tFrom','fromCity'],['tTo','toCity'],['tDep','dep'],['tArr','arr'],['tDur','dur'],['tDepT','term'],['tArrT','arrTerm']].forEach(([i,k])=>{const el=$('#'+i);if(el&&!el.value&&f[k])el.value=f[k];});}}
   else if(ds.tday){state.tf.day=+ds.tday;document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',b===t));}
   else if(ds.rmfile){const k=ds.rmfile[0],i=+ds.rmfile.slice(1);if(k==='o')state.tf.files.splice(i,1);else state.tf.newFiles.splice(i,1);$('#tFiles').innerHTML=filesEditHTML();hydrateFiles($('#tFiles'));}
   else if(ds.tab!==undefined){if(ds.day)state.day=+ds.day;go(ds.tab);}
