@@ -228,7 +228,7 @@ const hotelPhrase=()=>{const h=hotelId(),sg=h&&mainSign(h);return sg?[sg[0]+'ま
 const myPhrases=()=>Sync.list('phrase').sort((a,b)=>(b.at||'').localeCompare(a.at||''));
 const hiddenPhrases=()=>new Set((Sync.get('phrasehide','set')||{ids:[]}).ids);
 const allPhrases=()=>{const hid=hiddenPhrases(),h=hotelPhrase();
-  return [...myPhrases().map(p=>[p.ja,p.kana||'',p.ko,'u:'+p.id]),...PHRASES.filter(p=>!hid.has(p[0])).map(p=>[...p,'b:'+p[0]]),...(h?[[...h,'']]:[])];};
+  return [...myPhrases().map(p=>[p.ja,p.kana||'',p.ko,'u:'+p.id]),...PHRASES.filter(p=>!hid.has(p[0])).map(p=>[...p,'b:'+p[0]]),...(h&&!hid.has(h[0])?[[...h,'h:'+h[0]]]:[])];};
 
 /* ===================== moves between stops ===================== */
 function hav(a,b){const R=6371,r=Math.PI/180,dl=(b[0]-a[0])*r,dn=(b[1]-a[1])*r,x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
@@ -554,7 +554,7 @@ async function addPhrase(text){
     talkSheet('');
   }catch(e){btn.disabled=false;say(e.message==='disabled'?'번역 기능이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Translation API를 켜 주세요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.');}
 }
-function bigPhrase(i){const p=allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(p[0])}">천천히</button></div></div>`);}
+function bigPhrase(i){const p=Array.isArray(i)?i:allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(p[0])}">천천히</button></div></div>`);}
 
 /* ---------- place detail ---------- */
 function placeSheet(id){
@@ -700,7 +700,7 @@ function toolSheet(k){
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
     openSheet(`${shHead('숙소로 돌아가기',esc(PL[h].n),thumb(h))}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>
-    ${hotelPhrase()?`<button class="btn ghost" data-bigphrase="${allPhrases().length-1}">${svg('expand')}택시 기사에게 보여주기</button>`:''}${signRows(h)}`);}
+    ${hotelPhrase()?`<button class="btn ghost" data-bighotel>${svg('expand')}택시 기사에게 보여주기</button>`:''}${signRows(h)}`);}
 }
 
 /* ---------- trip setup ---------- */
@@ -1053,12 +1053,13 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
   else if(ds.bigsign){const [id,i]=ds.bigsign.split('|');bigSign(id,+i,false);}
   else if(ds.bigask){const [id,i]=ds.bigask.split('|');bigSign(id,+i,true);}
+  else if(ds.bighotel!==undefined){closeSheet();const h=hotelPhrase();if(h)bigPhrase(h);}
   else if(ds.bigphrase!==undefined){closeSheet();bigPhrase(+ds.bigphrase);}
   else if(ds.sound!==undefined){toggleSound();}
   else if(ds.replay!==undefined){closeSheet();showIntro();}
