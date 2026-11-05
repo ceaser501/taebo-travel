@@ -678,8 +678,9 @@ async function ocrImage(file){
     const blob=await downscale(file,1600),url=URL.createObjectURL(blob);
     const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
     // first ask Claude to read it as a whole (dishes paired with prices, natural Korean names); fall back to plain OCR + translation
-    if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진"><p class="fine" style="text-align:center;padding:14px 0">메뉴를 읽고 있어요… (10~30초)</p>`;
-    const ai=await readWithClaude(b64);
+    if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진"><div class="ai-wait"><div class="ai-bar"><i></i></div><p class="fine" id="aiSec">메뉴를 읽고 있어요… 0초</p><p class="fine">메뉴가 많으면 1분 정도 걸려요.</p></div>`;
+    const t0=Date.now(),tick=setInterval(()=>{const e=$('#aiSec');if(!e){clearInterval(tick);return;}const s=Math.round((Date.now()-t0)/1000);e.textContent=`메뉴를 읽고 있어요… ${s}초`;},1000);
+    const ai=await readWithClaude(b64);clearInterval(tick);
     if(ai&&ai.items){state.ocrAi=ai;if(body())body().innerHTML=aiResultHTML(ai,url);return;}
     const r=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION'}],imageContext:{languageHints:['ja']}}]})});
@@ -699,7 +700,10 @@ async function ocrImage(file){
 }
 
 async function readWithClaude(b64){
-  try{const {data,error}=await Sync.sb.functions.invoke('menu-read',{body:{image:b64,media_type:'image/jpeg'}});if(error||!data||data.error)return null;return data;}catch(e){return null;}}
+  // give up after 2.5 minutes (the server's own limit) and fall back to plain translation
+  try{const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);
+    const {data,error}=await Sync.sb.functions.invoke('menu-read',{body:{image:b64,media_type:'image/jpeg'},signal:ctl.signal});clearTimeout(to);
+    if(error||!data||data.error){console.warn('menu-read',error||data);return null;}return data;}catch(e){return null;}}
 function aiResultHTML(ai,url){
   const won=y=>y?`<span class="pw">약 ${Math.round(y*rate()).toLocaleString('ko-KR')}원</span>`:'';
   const secs=[];ai.items.forEach((it,i)=>{let g=secs.find(x=>x.n===it.section_ko);if(!g)secs.push(g={n:it.section_ko,a:[]});g.a.push([it,i]);});

@@ -736,3 +736,7 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .ai-c{font-size:12.5px;color:#b0473e}
 .ai-r{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .ai-r b{font-size:16px}.ai-r .pw{font-size:11.5px;color:var(--mute)}
+.ai-wait{text-align:center;padding:10px 0}
+.ai-bar{height:6px;border-radius:6px;background:var(--soft);overflow:hidden;margin:6px 20px 10px}
+.ai-bar i{display:block;height:100%;width:40%;background:var(--accent);border-radius:6px;animation:aibar 1.4s ease-in-out infinite}
+@keyframes aibar{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
