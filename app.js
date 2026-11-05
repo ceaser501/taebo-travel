@@ -926,9 +926,9 @@ function toolSheet(k){
   if(k==='rate')rateSheet();
   if(k==='talk')talkSheet();
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
-    openSheet(`${shHead('숙소로 돌아가기',esc(PL[h].n),thumb(h))}
+    openSheet(`${shHead('숙소로 돌아가기',`${esc(PL[h].n)}${PL[h].en?`<br><span class="en-n">${esc(PL[h].en)}</span>`:''}`,thumb(h))}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>
-    ${(()=>{const p=hotelPhrase();return p?`<div class="grp">택시 기사에게</div><div class="signs"><div class="sign tap" data-bighotel role="button" tabindex="0" aria-label="크게 보기"><div class="sj"><span class="ja${jaFit(p[0])}" lang="ja" translate="no">${esc(p[0])}</span><span class="kana" lang="ja" translate="no">${esc(p[1])}</span>${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div><button class="say-zone" data-say="${esc(p[0])}" aria-label="듣기">${svg('speak')}<span>듣기</span></button></div></div><div class="grp">간판·주소</div>`:'';})()}${signRows(h)}`);}
+    ${(()=>{const p=hotelPhrase();return p?`<div class="grp">택시 기사에게</div><div class="signs"><div class="sign tap" data-bighotel role="button" tabindex="0" aria-label="크게 보기"><div class="sj"><span class="ja${jaFit(p[0])}" lang="ja" translate="no">${esc(p[0])}</span><span class="kana" lang="ja" translate="no">${esc(p[1])}</span>${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div><button class="say-zone" data-say="${esc(p[0])}" aria-label="듣기">${svg('speak')}<span>듣기</span></button></div></div><div class="grp">간판·주소</div>`:'';})()}${signRows(h)}${PL[h].en||PL[h].addrEn?`<div class="grp">영문</div><div class="en-box">${PL[h].en?`<b>${esc(PL[h].en)}</b>`:''}${PL[h].addrEn?`<span>${esc(PL[h].addrEn)}</span>`:''}</div>`:''}`);}
 }
 
 /* ---------- trip setup ---------- */

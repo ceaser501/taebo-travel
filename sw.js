@@ -1,17 +1,19 @@
 /* Offline support: the app shell is cached on install, fonts and the Supabase library are cached on first use.
    Supabase API and storage calls always go to the network; the app keeps its own copy of data and files. */
-const VERSION='taebo-travel-v45';
+const VERSION='taebo-travel-v46';
 const SHELL=['./','index.html','styles.css','data.js','sync.js','app.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png',
   'vendor/supabase-2.45.4.js','vendor/591.supabase.js','vendor/leaflet-1.9.4/leaflet.js','vendor/leaflet-1.9.4/leaflet.css','vendor/maplibre-gl-4.7.1/maplibre-gl.js','vendor/maplibre-gl-4.7.1/maplibre-gl.css','vendor/maplibre-gl-4.7.1/leaflet-maplibre-gl.js'];
 const TILES='taebo-tiles-v3';
-self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});
+// GitHub Pages keeps files in its CDN for 10 minutes; asking with this version in the URL gets the new files right after a deploy
+const fresh=url=>url+(url.includes('?')?'&':'?')+'_v='+VERSION;
+self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>Promise.all(SHELL.map(p=>fetch(fresh(p),{cache:'no-cache'}).then(r=>{if(r.ok)return c.put(p,r);})))).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION&&k!==TILES).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
   if(e.request.method!=='GET'||u.hostname.endsWith('supabase.co'))return;
   if(u.origin===location.origin){
     // app files: always revalidate with the server (Pages caches 10 min), fall back to the saved copy offline
-    e.respondWith(fetch(e.request,{cache:'no-cache'}).then(r=>{const c=r.clone();caches.open(VERSION).then(x=>x.put(e.request,c));return r;}).catch(()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||caches.match('index.html'))));
+    e.respondWith(fetch(fresh(u.origin+u.pathname+u.search),{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error(r.status);const c=r.clone();caches.open(VERSION).then(x=>x.put(e.request,c));return r;}).catch(()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||caches.match('index.html'))));
     return;
   }
   // map tiles you have looked at stay available offline
