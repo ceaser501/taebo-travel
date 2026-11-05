@@ -701,7 +701,7 @@ let kuroP=null;
 async function savePhrase(ja,ko){let kana='';try{kana=await readingOf(ja);}catch(e){}Sync.put('phrase',uid(),{ja,kana,ko,by:me(),at:new Date().toISOString()});cloudTTS(ja,false).catch(()=>{});}
 
 /* ---------- photo translation: Cloud Vision reads the Japanese, Cloud Translation turns it into Korean ---------- */
-async function ocrImage(file){
+async function ocrImage(file,precise){
   openOverlay(`<div class="ocr"><div class="ov-top"><b>사진 번역</b><button class="ov-x" data-closeov aria-label="닫기">×</button></div><div id="ocrBody"><p class="fine" style="text-align:center;padding:30px 0">글자를 읽는 중…</p></div></div>`);
   const body=()=>$('#ocrBody');
   try{
@@ -711,8 +711,9 @@ async function ocrImage(file){
     // first ask Claude to read it as a whole (dishes paired with prices, natural Korean names); fall back to plain OCR + translation
     if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진"><div class="ai-wait"><div class="ai-bar"><i></i></div><p class="fine" id="aiSec">메뉴를 읽고 있어요… 0초</p><p class="fine">읽은 메뉴부터 바로 보여 드려요.</p></div>`;
     const t0=Date.now(),tick=setInterval(()=>{const e=$('#aiSec');if(!e){clearInterval(tick);return;}const s=Math.round((Date.now()-t0)/1000);e.textContent=`메뉴를 읽고 있어요… ${s}초`;},1000);
+    state.ocrFile=file;
     const ai=await readWithClaude(b64,p=>{if(!body())return;state.ocrAi=p;
-        body().innerHTML=aiResultHTML(p,url,true);});clearInterval(tick);
+        body().innerHTML=aiResultHTML(p,url,true);},precise);clearInterval(tick);
     if(ai&&ai.items){state.ocrAi=ai;if(body())body().innerHTML=aiResultHTML(ai,url)+(ai.cut?'<p class="fine" style="text-align:center">일부만 읽었어요. 다시 찍으면 나머지도 읽어요.</p>':'');return;}
     const r=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION'}],imageContext:{languageHints:['ja']}}]})});
@@ -732,22 +733,26 @@ async function ocrImage(file){
 }
 
 // Claude's answer arrives a piece at a time; onPart gets what can already be shown (title, summary, finished dishes)
-async function readWithClaude(b64,onPart){
+async function readWithClaude(b64,onPart,precise){
   try{const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);
     const {data:{session}}=await Sync.sb.auth.getSession();
     const r=await fetch(`${Sync.sb.supabaseUrl}/functions/v1/menu-read`,{method:'POST',signal:ctl.signal,
       headers:{'Content-Type':'application/json',apikey:Sync.sb.supabaseKey,Authorization:`Bearer ${session?session.access_token:Sync.sb.supabaseKey}`},
-      body:JSON.stringify({image:b64,media_type:'image/jpeg',stream:true})});
+      body:JSON.stringify({image:b64,media_type:'image/jpeg',stream:true,precise:!!precise})});
     if(!r.ok||!r.body){clearTimeout(to);console.warn('menu-read',r.status);return null;}
     if((r.headers.get('content-type')||'').includes('application/json')){clearTimeout(to);const j=await r.json();return j&&j.items?j:null;}
-    const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',err='',done=false,shown=-1;
+    const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',err='',done=false,shown=-1,checking=false,fixText='';
     while(!done){const {value,done:end}=await rd.read();if(end)break;buf+=dec.decode(value,{stream:true});
       let k;while((k=buf.indexOf('\n'))>=0){const line=buf.slice(0,k);buf=buf.slice(k+1);
-        if(line.startsWith('d:'))text+=JSON.parse(line.slice(2));else if(line.startsWith('e:'))err=line.slice(2);else if(line==='z:')done=true;}
-      const p=partialMenu(text);const n=(p.title_ko?1:0)+p.items.length;if(onPart&&n!==shown){shown=n;onPart(p);}}
+        if(line.startsWith('d:'))text+=JSON.parse(line.slice(2));else if(line.startsWith('e:'))err=line.slice(2);else if(line==='o:'){checking=true;shown=-1;}else if(line.startsWith('f:'))fixText=JSON.parse(line.slice(2));else if(line==='z:')done=true;}
+      const p=partialMenu(text);const n=(p.title_ko?1:0)+p.items.length;if(onPart&&n!==shown){shown=n;if(checking)try{onPart({...JSON.parse(text),checking:true});}catch(e){onPart(p);}else onPart(p);}}
     clearTimeout(to);
     if(err){console.warn('menu-read',err);const p=partialMenu(text);return p.items.length?{...p,cut:true}:null;}
-    try{return JSON.parse(text);}catch(e){const p=partialMenu(text);return p.items.length?{...p,cut:true}:null;}
+    let ai;try{ai=JSON.parse(text);}catch(e){const p=partialMenu(text);return p.items.length?{...p,cut:true}:null;}
+    // Opus's second look at the doubtful parts: replace what it corrected, add what it could now read
+    if(fixText){try{const f=JSON.parse(fixText).fixes||[];ai.items=ai.items.slice();
+      f.forEach(x=>{if(x.index>=0&&ai.items[x.index])ai.items[x.index]={...x.item,sure:true,fixed:true};else if(x.index<0)ai.items.push({...x.item,sure:true,fixed:true});});}catch(e){}}
+    return ai;
   }catch(e){console.warn('menu-read',e);return null;}}
 // read the finished parts of a JSON answer that is still being written
 function partialMenu(t){const str=k=>{const m=t.match(new RegExp(`"${k}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`));try{return m?JSON.parse(`"${m[1]}"`):'';}catch(e){return '';}};
@@ -762,9 +767,11 @@ function aiResultHTML(ai,url,more){
   return `<img class="ocr-img" src="${url}" alt="찍은 사진">
     <div class="ai-head"><b>${esc(ai.title_ko)}</b>${ai.summary_ko?`<p>${esc(ai.summary_ko)}</p>`:''}</div>
     ${secs.map(g=>`<div class="ai-sec">${g.n?`<div class="grp">${esc(g.n)}</div>`:''}${g.a.map(([it,i])=>`<div class="ai-it">
-      <button class="ai-m" data-say="${esc(it.ja)}"><span class="ai-ko">${esc(it.ko)}</span><span class="ai-ja" lang="ja" translate="no">${esc(it.ja)}${it.reading&&it.reading!==it.ja?` · ${esc(it.reading)}`:''}</span>${it.desc_ko?`<span class="ai-d">${esc(it.desc_ko)}</span>`:''}${it.caution_ko?`<span class="ai-c">⚠️ ${esc(it.caution_ko)}</span>`:''}</button>
+      <button class="ai-m" data-say="${esc(it.ja)}"><span class="ai-ko">${esc(it.ko)}${it.sure===false?`<i class="ai-q">${ai.checking?'확인 중':'흐림'}</i>`:''}</span><span class="ai-ja" lang="ja" translate="no">${esc(it.ja)}${it.reading&&it.reading!==it.ja?` · ${esc(it.reading)}`:''}</span>${it.desc_ko?`<span class="ai-d">${esc(it.desc_ko)}</span>`:''}${it.caution_ko?`<span class="ai-c">⚠️ ${esc(it.caution_ko)}</span>`:''}</button>
       <div class="ai-r">${it.price_yen!=null?`<b class="mono">¥${it.price_yen.toLocaleString('ko-KR')}</b>${won(it.price_yen)}`:''}<button class="btn sm" data-aisave="${i}" aria-label="회화에 넣기">${svg('plus')}</button></div></div>`).join('')}</div>`).join('')}
-    ${more?`<div class="ai-more"><div class="ai-bar"><i></i></div><p class="fine">더 읽는 중…</p></div>`:'<p class="fine">항목을 누르면 일본어로 들려줘요. 직원에게 그대로 들려주면 주문할 수 있어요.</p>'}`;}
+    ${ai.checking?`<div class="ai-more"><div class="ai-bar"><i></i></div><p class="fine">흐린 부분을 더 정확하게 읽는 중…</p></div>`:''}
+    ${(ai.unread_ko||[]).length&&!ai.checking&&!more?`<p class="fine">못 읽은 부분: ${ai.unread_ko.map(esc).join(' · ')}</p>`:''}
+    ${more?(ai.checking?'':`<div class="ai-more"><div class="ai-bar"><i></i></div><p class="fine">더 읽는 중…</p></div>`):'<p class="fine">항목을 누르면 일본어로 들려줘요. 직원에게 그대로 들려주면 주문할 수 있어요.</p><button class="btn ghost sm" data-ocrprecise style="display:block;margin:8px auto 0">이상하면 더 정확하게 다시 읽기</button>'}`;}
 
 /* ---------- interpreter: the phone listens (Web Speech), translates and reads the result aloud ---------- */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;var rec=null;
@@ -1497,7 +1504,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1587,6 +1594,7 @@ document.addEventListener('click',async e=>{
   else if(ds.ipsave){const x=state.interp[+ds.ipsave];if(x){await savePhrase(x.src,x.dst);toast('회화 목록에 넣었어요.');}}
   else if(ds.ipbig){const x=state.interp[+ds.ipbig];if(x){let k='';try{k=await readingOf(x.dst);}catch(e){}bigPhrase([x.dst,k,x.src]);}}
   else if(ds.aisave){const it=state.ocrAi&&state.ocrAi.items[+ds.aisave];if(it){await savePhrase(it.ja,it.ko);t.disabled=true;toast('회화 목록에 넣었어요.');}}
+  else if(ds.ocrprecise!==undefined){if(state.ocrFile)ocrImage(state.ocrFile,true);}
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.addpop){addPop(ds.addpop);}
   else if(ds.addfav!==undefined){addFavPop();}
@@ -1742,7 +1750,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v73';
+const APP_VER='v74';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

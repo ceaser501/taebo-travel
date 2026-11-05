@@ -8,10 +8,20 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const ITEM_PROPS = {
+  section_ko: { type: "string" },
+  ja: { type: "string" },
+  reading: { type: "string" },
+  ko: { type: "string" },
+  desc_ko: { type: "string" },
+  price_yen: { type: ["integer", "null"] },
+  caution_ko: { type: "string" },
+};
+const ITEM_KEYS = Object.keys(ITEM_PROPS);
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["kind", "title_ko", "summary_ko", "items"],
+  required: ["kind", "title_ko", "summary_ko", "items", "unread_ko"],
   properties: {
     kind: { type: "string", enum: ["menu", "sign", "other"] },
     title_ko: { type: "string" },
@@ -21,15 +31,28 @@ const SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["section_ko", "ja", "reading", "ko", "desc_ko", "price_yen", "caution_ko"],
+        required: [...ITEM_KEYS, "sure"],
+        properties: { ...ITEM_PROPS, sure: { type: "boolean" } },
+      },
+    },
+    unread_ko: { type: "array", items: { type: "string" } },
+  },
+};
+// what Opus sends back when it re-reads only the doubtful parts
+const FIX_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["fixes"],
+  properties: {
+    fixes: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["index", "item"],
         properties: {
-          section_ko: { type: "string" },
-          ja: { type: "string" },
-          reading: { type: "string" },
-          ko: { type: "string" },
-          desc_ko: { type: "string" },
-          price_yen: { type: ["integer", "null"] },
-          caution_ko: { type: "string" },
+          index: { type: "integer" },
+          item: { type: "object", additionalProperties: false, required: ITEM_KEYS, properties: ITEM_PROPS },
         },
       },
     },
@@ -48,24 +71,34 @@ You get one photo: usually a restaurant menu, sometimes a sign, notice or label.
   - ko: a natural Korean name a Korean diner would understand, not a word-by-word translation (豚玉 is "돼지고기 오코노미야키", not "돼지 구슬").
   - desc_ko: one short line on what it is or what the sign means.
   - caution_ko: a short note only if it matters for a pregnant woman (alcohol, raw or undercooked fish/meat/egg, unpasteurised cheese, high-mercury fish, a lot of caffeine); otherwise "".
-Do not invent entries you cannot read; skip unreadable ones.`;
+  - sure: false when you are not confident about the text or which price belongs to it (small, blurred, handwritten, cut off); otherwise true.
+- unread_ko: short Korean notes on parts you could not read at all (e.g. "오른쪽 아래 손글씨 3줄"); [] if none.
+Do not invent entries you cannot read; leave them out and mention them in unread_ko.`;
+
+const FIX_SYSTEM = SYSTEM.split("\n- kind:")[0] + `
+Another reader already went through this photo. You get the entries it was unsure about (with their index) and notes on parts it could not read.
+Look closely at only those parts and return fixes: for an unsure entry, its corrected item with the same index; for something in the unread parts, a new item with index -1.
+Use the same rules for each item as the first reader: ja exactly as printed, reading in hiragana, a natural Korean name in ko, a short desc_ko, price_yen as an integer or null, caution_ko for a pregnant woman or "".
+Return no fix for anything still unreadable. Do not repeat entries that are not in question.`;
 
 // The answer is streamed back as it is written, so the phone can show each dish as soon as it is read.
-// Lines on the wire: "d:<json string>" a piece of the answer, "e:<code>" an error, "z:" the end.
+// Lines on the wire: "d:<json string>" a piece of the answer, "o:" Opus is re-reading the doubtful parts,
+// "f:<json string>" its fixes, "e:<code>" an error, "z:" the end.
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) return json({ error: "no-key" }, 503);
-  let body: { image?: string; media_type?: string; stream?: boolean };
+  let body: { image?: string; media_type?: string; stream?: boolean; precise?: boolean };
   try { body = await req.json(); } catch { return json({ error: "bad-body" }, 400); }
-  const { image, media_type, stream: wantStream } = body;
+  const { image, media_type, stream: wantStream, precise } = body;
   if (!image || typeof image !== "string") return json({ error: "no-image" }, 400);
 
   const client = new Anthropic({ apiKey: key });
   const base = {
-    model: "claude-opus-5-5",
+    // Sonnet reads most menus well at half the price; "다시 정확하게 읽기" asks Opus instead
+    model: precise ? "claude-opus-5-5" : "claude-sonnet-5-5",
     max_tokens: 32000,
     fallbacks: "default",
     output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } },
@@ -78,24 +111,13 @@ Deno.serve(async (req) => {
       ],
     }],
   };
-  // Fast mode: the same model writing faster. If it is refused or busy, the normal speed is used instead.
-  // deno-lint-ignore no-explicit-any
-  const open = async (fast: boolean): Promise<{ stream: any; it: AsyncIterator<any>; first: IteratorResult<any> }> => {
-    // deno-lint-ignore no-explicit-any
-    const params: any = fast
-      ? { ...base, speed: "fast", betas: ["server-side-fallback-2026-07-01", "fast-mode-2026-02-01"] }
-      : { ...base, betas: ["server-side-fallback-2026-07-01"] };
-    // no automatic retries on the fast try: on a refusal or a busy signal go straight to normal speed
-    const stream = client.beta.messages.stream(params, fast ? { maxRetries: 0 } : undefined);
-    const it = stream[Symbol.asyncIterator]();
-    return { stream, it, first: await it.next() };
-  };
   let opened;
   try {
-    try { opened = await open(true); } catch (e) {
-      if (e instanceof Anthropic.BadRequestError || e instanceof Anthropic.RateLimitError) opened = await open(false);
-      else throw e;
-    }
+    // deno-lint-ignore no-explicit-any
+    const params: any = { ...base, betas: ["server-side-fallback-2026-07-01"] };
+    const stream = client.beta.messages.stream(params);
+    const it = stream[Symbol.asyncIterator]();
+    opened = { stream, it, first: await it.next() };
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json({ error: "busy" }, 429);
     if (e instanceof Anthropic.AuthenticationError) return json({ error: "bad-key" }, 503);
@@ -131,6 +153,43 @@ Deno.serve(async (req) => {
         const msg = await stream.finalMessage();
         if (msg.stop_reason === "refusal") send("e:refusal");
         else if (msg.stop_reason === "max_tokens") send("e:too-long");
+        else if (!precise) {
+          // Opus looks again only at what Sonnet was unsure of or could not read
+          // deno-lint-ignore no-explicit-any
+          let first: any = null;
+          // deno-lint-ignore no-explicit-any
+          try { first = JSON.parse(msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("")); } catch { /* keep Sonnet's answer as is */ }
+          // deno-lint-ignore no-explicit-any
+          const doubt = first ? first.items.map((it: any, index: number) => ({ index, ...it })).filter((it: any) => !it.sure) : [];
+          const unread = first ? first.unread_ko : [];
+          if (doubt.length || unread.length) {
+            send("o:");
+            try {
+              // deno-lint-ignore no-explicit-any
+              const fix: any = await client.beta.messages.create({
+                model: "claude-opus-5-5",
+                max_tokens: 16000,
+                betas: ["server-side-fallback-2026-07-01"],
+                fallbacks: "default",
+                output_config: { effort: "medium", format: { type: "json_schema", schema: FIX_SCHEMA } },
+                system: FIX_SYSTEM,
+                messages: [{
+                  role: "user",
+                  content: [
+                    base.messages[0].content[0],
+                    { type: "text", text: JSON.stringify({ unsure_entries: doubt, unread_parts: unread }) },
+                  ],
+                }],
+              // deno-lint-ignore no-explicit-any
+              } as any);
+              if (fix.stop_reason === "end_turn") {
+                // deno-lint-ignore no-explicit-any
+                const t = fix.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+                send("f:" + JSON.stringify(t));
+              }
+            } catch { /* the first answer stands */ }
+          }
+        }
         send("z:");
       } catch (e) {
         send("e:" + (e instanceof Anthropic.RateLimitError ? "busy" : e instanceof Anthropic.APIError ? "api" : "failed"));
