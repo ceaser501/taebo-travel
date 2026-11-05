@@ -793,11 +793,12 @@ function gInfoHTML(d){if(!d)return navigator.onLine?'<div class="gc-ph wait"><i>
     ${d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}`;}
 async function fillGInfo(id){const el=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`),p=PL[id];if(!el||!p||!p.gid)return;const d=await placeInfo(p.gid);const e2=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`);if(e2)e2.innerHTML=gInfoHTML(d)||'';}
 function placeSheet(id){
-  const p=PL[id];if(!p)return;const days=DAYS.filter(d=>planOf(d.id).some(s=>s.p===id)).map(d=>d.id),saved=savedSet(),tks=tickets().filter(t=>t.place===id),sg=mainSign(id),c=CAT[p.cat]||CAT['기타'];
+  const p=PL[id];if(!p)return;const cx=state.stopCtx&&state.stopCtx.id===id?state.stopCtx:null,cs=cx&&planOf(cx.d)[cx.i];const days=DAYS.filter(d=>planOf(d.id).some(s=>s.p===id)).map(d=>d.id),saved=savedSet(),tks=tickets().filter(t=>t.place===id),sg=mainSign(id),c=CAT[p.cat]||CAT['기타'];
   // the name as written in Japanese (and English, if known) sits right under the Korean name
   const jpName=(sg&&sg[0])||p.jp||'';
   openSheet(`${shHead(esc(p.n),`${jpName?`<span class="jp-n" lang="ja" translate="no">${esc(jpName)}</span>${p.en?`<span class="en-n"> · ${esc(p.en)}</span>`:''}<br>`:p.en?`<span class="en-n">${esc(p.en)}</span><br>`:''}<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${safeChip(p)}${days.map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}${!hasLL(id)?'<span class="chip">지도 위치 없음</span>':''}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${safeChip(p)}${days.filter(d=>!(cs&&cs.p===id&&d===cx.d)).map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}${!hasLL(id)?'<span class="chip">지도 위치 없음</span>':''}</div>
+    ${cs&&cs.p===id?`<button class="card stopctx" data-stopedit style="--c:var(${dayOf(cx.d).c})"><span class="sc-k mono">DAY ${cx.d}</span><span class="sc-m"><b>${esc(cs.t||'시간 미정')}${cs.dur?` · ${esc(cs.dur)}`:''}</b>${cs.memo?`<span>${esc(cs.memo)}</span>`:''}</span><span class="sc-e">${svg('pen')}일정 고치기</span></button>`:''}
     ${p.gid?`<div class="ginfo" data-ginfo="${id}">${gInfoHTML(LS.get('gpi:'+p.gid,null)?.d)}</div>`:''}
     <div><div class="grp" style="margin-top:0">일본어 간판 · 발음</div>${signRows(id)}
       ${sg?`<button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}여기 어디예요? 물어보기</button>`:''}</div>
@@ -1188,7 +1189,7 @@ function header(){
   if(state.tab==='auth'||state.tab==='onboard')return `<h1>여행 같이 쓰기</h1>`;
   if(state.tab==='places')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>장소</h1>${syncDot()}<button class="btn sm acc" data-newplace="0">${svg('plus')}찾기</button>`;
   if(state.tab==='prep')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>${TITLES.prep}</h1>${syncDot()}`;
-  const right=state.tab==='plan'?`<button class="btn sm ${state.edit?'pri':''}" data-edit>${state.edit?'완료':'편집'}</button>`:state.tab==='fav'?`<button class="btn sm acc" data-addfav>${svg('plus')}추가</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:state.tab==='home'?`<span class="dday">${ddayTxt()}</span>`:'';
+  const right=state.tab==='plan'?`<button class="btn sm acc" data-pick="${state.day}">${svg('plus')}추가</button>`:state.tab==='fav'?`<button class="btn sm acc" data-addfav>${svg('plus')}추가</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:state.tab==='home'?`<span class="dday">${ddayTxt()}</span>`:'';
   return `<h1>${state.tab==='home'?esc(trip().title):TITLES[state.tab]}</h1>${syncDot()}${right}`;
 }
 function viewHome(){
@@ -1228,27 +1229,21 @@ function viewPlan(){
   st.forEach((s,i)=>{
     const p=PL[s.p],n=nums.indexOf(s.p)+1,home=isStay(s.p),air=isAir(s.p),sg=mainSign(s.p),stk=tk.filter(t=>t.place===s.p&&t.day===d&&t.type!=='항공권'),c=CAT[p.cat]||CAT['기타'];
     if(i>0){const l=legs[i-1];if(l){const b=p,a=PL[st[i-1].p],[hn,mode]=HOW[l.how]||HOW.train;
-      list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail"></div><div class="body">${state.edit?`<div class="leg-edit"><label class="f" for="mv${i}">이동</label><select id="mv${i}" data-movehow="${i}"><option value="">자동 (거리로 추정)</option>${Object.entries(HOW).filter(([k])=>k!=='subway').map(([k,v])=>`<option value="${k}" ${s.move&&s.move.how===k?'selected':''}>${v[0]}</option>`).join('')}<option value="subway" ${s.move&&s.move.how==='subway'?'selected':''}>지하철</option></select><input type="number" inputmode="numeric" min="0" max="600" id="mvm${i}" data-movemin="${i}" value="${s.move&&s.move.min?s.move.min:''}" placeholder="분" aria-label="이동 시간(분)"><input type="text" id="mvn${i}" data-movenote="${i}" value="${esc(s.move&&s.move.note||'')}" placeholder="메모 (예: 한조몬선 4정거장)" aria-label="이동 메모"></div>`
-        :`<div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${placeDir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),s.p,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div>`}</div></li>`;}}
+      list+=`<li class="stop leg-li" style="--c:var(${day.c})"><div class="rail"></div><div class="body"><div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${placeDir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),s.p,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div></div></li>`;}}
     const mark=home?`<span class="num home">숙소</span>`:air?`<span class="num air">${svg('plane','')}</span>`:`<span class="num">${n}</span>`;
     list+=`<li class="stop" data-si="${i}" style="--c:var(${day.c})"><div class="rail">${mark}</div><div class="body">
-      ${state.edit?`<div class="stop-edit"><b>${esc(s.title||p.n)}</b><div class="se-row"><input type="time" data-stoptime="${i}" value="${esc(s.t||'')}" aria-label="시작 시간"><input type="text" data-stopdur="${i}" value="${esc(s.dur||'')}" placeholder="머무는 시간 (예: 1시간)" aria-label="머무는 시간"></div>
-          <input type="text" data-stoptitle="${i}" value="${esc(s.title||'')}" placeholder="일정 이름 (비우면 장소 이름)" aria-label="일정 이름"></div>
-        <div class="memo">${svg('memo','')}<textarea data-memo="${i}" aria-label="메모" placeholder="메모를 남겨 보세요">${esc(s.memo||'')}</textarea></div>
-        <div class="edit-ctl"><button class="drag" data-drag="${i}" aria-label="끌어서 순서 바꾸기">${svg('grip')}끌어서 순서 바꾸기</button><button class="del" data-del="${i}">${svg('x')}빼기</button></div>`
-      :`<button class="stop-card" data-place="${s.p}"><div class="nm">${esc(s.title||p.n)}</div>
+      <button class="stop-card" data-place="${s.p}" data-stopi="${i}"><div class="nm">${esc(s.title||p.n)}</div>
         <div class="meta"><span class="cat" style="--c:var(${c.c})">${esc(p.cat)}</span>${(()=>{const jp=(sg&&sg[0])||p.jp||'',nm=s.title&&s.title!==p.n?p.n:'';return nm||jp?`<span>${esc(nm)}${jp?`${nm?' ':''}<span class="jp-p" lang="ja" translate="no">(${esc(jp)})</span>`:''}</span>`:'';})()}</div>
         <div class="when"><b>${s.t||'시간 미정'}</b>${s.dur?`<span>${esc(s.dur)}</span>`:''}</div></button>
 
-        ${s.memo?`<div class="memo">${svg('memo','')}<span>${esc(s.memo)}</span></div>`:''}`}</div></li>`;
+        ${s.memo?`<div class="memo">${svg('memo','')}<span>${esc(s.memo)}</span></div>`:''}</div></li>`;
   });
   return `<section class="view">
     <div class="seg ${DAYS.length<=3?'days':''}" role="group" aria-label="날짜">${DAYS.map(x=>`<button class="pill" style="--c:var(${x.c})" data-day="${x.id}" aria-pressed="${x.id===d}"><span><i style="margin-right:5px;vertical-align:1px"></i>DAY ${x.id}</span><small>${esc(x.label)}</small></button>`).join('')}</div>
     ${nums.length||st.some(s=>hasLL(s.p))?`<div>${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg"><span><i></i>전철·버스</span><span><i class="taxi"></i>택시</span><span><i class="walk"></i>도보</span><span class="fine">선은 순서만 이어 줘요. 정확한 길은 '길찾기'로</span></div></div>`:''}
-    <div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span>${state.edit?`<input type="text" class="day-title" data-daytitle="${d}" value="${esc(day.title)}" placeholder="이날의 제목 (예: 아사쿠사 · 스카이트리)" aria-label="DAY ${d} 제목">`:`<h2>${esc(day.title||'일정')}</h2>`}<span class="date">${esc(day.label)}</span></div>
-      <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 아래에서 장소를 넣어 보세요.'}${state.edit?' · 바꾼 내용은 둘 다에게 보여요':''}</p></div>
-    <div>${fl&&d===1?flightRow:''}<ol class="stops">${list}</ol>${fl&&d!==1?flightRow:''}
-      <div class="addrow"><button class="btn acc" data-pick="${d}">${svg('plus')}장소 넣기</button>${state.edit?`<button class="btn" data-edit>완료</button>`:`<button class="btn ghost" data-edit>${svg('pen')}시간 · 순서 편집</button>`}</div></div>
+    <div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span><h2><button class="dt-btn" data-daytitlepop="${d}" aria-label="DAY ${d} 제목 바꾸기">${esc(day.title||'일정')}</button></h2><span class="date">${esc(day.label)}</span></div>
+      <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 오른쪽 위 「추가」로 장소를 넣어 보세요.'}</p></div>
+    <div>${fl&&d===1?flightRow:''}<ol class="stops">${list}</ol>${fl&&d!==1?flightRow:''}</div>
   </section>`;
 }
 function placeList(){const s=savedSet();return Object.keys(PL).filter(id=>(state.sCat==='전체'||PL[id].cat===state.sCat)&&(!state.sOnly||s.has(id))).sort((a,b)=>CAT_LIST.indexOf(PL[a].cat)-CAT_LIST.indexOf(PL[b].cat));}
@@ -1360,6 +1355,15 @@ function viewPrep(){
       <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')}</span>`:''}</div>
   </section>`;
 }
+/* edit one stop of the schedule: time, how long, name, memo, and how to get there */
+function stopPop(d,i){const s=planOf(d)[i];if(!s)return;const p=PL[s.p]||{n:''},mv=s.move||{};
+  floatPop(`<div class="fp-h"><b>일정 고치기</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
+    <div class="fp-form sp-form">
+      <div class="sp-row"><label><span>시간</span><input type="time" id="sp-t" value="${esc(s.t||'')}"></label><label><span>머무는 시간</span><input type="text" id="sp-dur" value="${esc(s.dur||'')}" placeholder="예: 1시간" autocomplete="off"></label></div>
+      <label><span>일정 이름</span><input type="text" id="sp-title" value="${esc(s.title||'')}" placeholder="${esc(p.n)}" autocomplete="off"></label>
+      <label><span>메모</span><input type="text" id="sp-memo" value="${esc(s.memo||'')}" placeholder="예: 조식 포함" autocomplete="off"></label>
+      ${i>0?`<label><span>여기까지 이동</span><div class="sp-row"><select id="sp-how"><option value="">자동 (거리로 추정)</option>${Object.entries(HOW).map(([k,v])=>`<option value="${k}" ${mv.how===k?'selected':''}>${v[0]}</option>`).join('')}</select><input type="number" inputmode="numeric" id="sp-min" value="${mv.min||''}" placeholder="분" min="0" max="600"></div><input type="text" id="sp-note" value="${esc(mv.note||'')}" placeholder="예: 한조몬선 4정거장" autocomplete="off"></label>`:''}
+      <div class="sp-acts"><button class="btn danger-t" data-stopdel="${d}|${i}">일정에서 빼기</button><button class="btn acc" data-stopsave="${d}|${i}">저장</button></div></div>`);}
 /* floating popup for adding things: the screen behind stays as it is, and several can be added in a row */
 function floatPop(html){closeFloat();const bg=document.createElement('div');bg.className='fpop-bg';bg.id='fpop';bg.innerHTML=`<div class="fpop" role="dialog" aria-modal="true">${html}</div>`;document.body.appendChild(bg);
   if(byTap())history.pushState({k:'fpop'},'',location.href);setTimeout(()=>{const i=bg.querySelector('input[type=text],input[type=tel]');if(i)i.focus();},60);}
@@ -1435,7 +1439,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1494,7 +1498,17 @@ document.addEventListener('click',async e=>{
   else if(ds.tab!==undefined){if(ds.day)state.day=+ds.day;go(ds.tab);}
   else if(ds.day){state.day=+ds.day;LS.set('day',state.day);render();}
   else if(ds.edit!==undefined){state.edit=!state.edit;render();}
-  else if(ds.place){placeSheet(ds.place);}
+  else if(ds.stopedit!==undefined){const c=state.stopCtx;if(c)stopPop(c.d,c.i);}
+  else if(ds.stopsave){const [d,i]=ds.stopsave.split('|').map(Number),a=planOf(d),s=a[i];if(!s)return;const v=k=>($('#sp-'+k)?$('#sp-'+k).value:'').trim();
+    s.t=v('t');s.dur=v('dur');s.title=v('title');s.memo=v('memo');
+    if($('#sp-how')){const how=v('how'),min=+v('min')||'',note=v('note');if(how||min||note)s.move={how:how||'train',min,note};else delete s.move;}
+    setPlan(d,a);closeFloat();if(state.stopCtx&&$('#sheetRoot .sheet'))placeSheet(state.stopCtx.id);render();toast('일정을 고쳤어요.');}
+  else if(ds.stopdel){const [d,i]=ds.stopdel.split('|').map(Number),a=planOf(d);if(!a[i]||!confirm('이 일정을 뺄까요? 장소와 즐겨찾기는 그대로 남아요.'))return;
+    a.splice(i,1);setPlan(d,a);state.stopCtx=null;closeFloat();closeAllSheets();render();toast('일정에서 뺐어요.');}
+  else if(ds.daytitlepop){const d=+ds.daytitlepop;floatPop(`<div class="fp-h"><b>DAY ${d} 제목</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
+      <div class="fp-form"><input type="text" id="dtIn" value="${esc(dayOf(d).title||'')}" placeholder="예: 아사쿠사 · 스카이트리" autocomplete="off" aria-label="이날의 제목"><button class="btn acc" data-daytitlesave="${d}">저장</button></div>`);}
+  else if(ds.daytitlesave){const T=trip();Sync.put('trip','info',{...T,dayTitles:{...(T.dayTitles||{}),[ds.daytitlesave]:$('#dtIn').value.trim()}});rebuild();closeFloat();render();}
+  else if(ds.place){state.stopCtx=ds.stopi!==undefined?{id:ds.place,d:state.day,i:+ds.stopi}:null;placeSheet(ds.place);}
   else if(ds.mv){const [i,dir]=ds.mv.split('|').map(Number),a=planOf(state.day);[a[i],a[i+dir]]=[a[i+dir],a[i]];setPlan(state.day,a);render();}
   else if(ds.del){const a=planOf(state.day);a.splice(+ds.del,1);setPlan(state.day,a);render();}
   else if(ds.pick){pickPlaceSheet(+ds.pick);}
@@ -1627,20 +1641,37 @@ document.addEventListener('click',e=>{if(e.target.id==='fpop')closeFloat();});
 // the click that ends a long press must not also open the card
 document.addEventListener('click',e=>{if(holdFired&&e.target.closest('[data-hold]')){holdFired=false;e.stopPropagation();e.preventDefault();}
   if(e.target.closest('[data-holdno]')){closeHoldPop();}},true);
-/* drag a stop by its handle to a new place in the day */
-document.addEventListener('pointerdown',e=>{const h=e.target.closest('[data-drag]');if(!h)return;e.preventDefault();
-  const li=h.closest('li.stop'),list=[...document.querySelectorAll('li.stop[data-si]')],from=+h.dataset.drag,y0=e.clientY,s0=window.scrollY;let to=from;
-  li.classList.add('dragging');document.body.classList.add('dragging-now');try{h.setPointerCapture(e.pointerId);}catch(_){}
-  const move=ev=>{const dy=ev.clientY-y0+(window.scrollY-s0);li.style.transform=`translateY(${dy}px)`;
+/* hold a schedule card for a moment, then drag it up or down to change the order */
+let dragOn=false,dragDone=0;
+document.addEventListener('pointerdown',e=>{const c=e.target.closest('.stop-card[data-stopi]');if(!c||e.button>0)return;
+  const li=c.closest('li.stop'),x0=e.clientX;let ly=e.clientY,y0=e.clientY,hold;
+  const off=()=>{clearTimeout(hold);document.removeEventListener('pointermove',pre);document.removeEventListener('pointerup',off);document.removeEventListener('pointercancel',off);};
+  const pre=ev=>{ly=ev.clientY;if(Math.hypot(ev.clientX-x0,ev.clientY-y0)>8)off();};
+  document.addEventListener('pointermove',pre);document.addEventListener('pointerup',off);document.addEventListener('pointercancel',off);
+  hold=setTimeout(()=>{off();startDrag(li,+c.dataset.stopi,ly);},380);});
+function startDrag(li,from,y0){
+  const list=[...document.querySelectorAll('li.stop[data-si]')],s0=window.scrollY;let to=from;dragOn=true;
+  if(navigator.vibrate)try{navigator.vibrate(20);}catch(_){}
+  li.classList.add('dragging');document.body.classList.add('dragging-now');
+  const move=ev=>{const dy=ev.clientY-y0+(window.scrollY-s0);li.style.transform=`translateY(${dy}px) scale(1.02)`;
     if(ev.clientY<90)window.scrollBy(0,-14);else if(ev.clientY>innerHeight-140)window.scrollBy(0,14);
     to=from;list.forEach(o=>{if(o===li)return;const j=+o.dataset.si,r=o.getBoundingClientRect(),mid=r.top+r.height/2;if(j<from&&ev.clientY<mid)to=Math.min(to,j);if(j>from&&ev.clientY>mid)to=Math.max(to,j);});
     list.forEach(o=>{const j=+o.dataset.si;o.classList.toggle('drop-above',to<from&&j===to);o.classList.toggle('drop-below',to>from&&j===to);});};
-  const up=()=>{h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);
-    li.style.transform='';li.classList.remove('dragging');document.body.classList.remove('dragging-now');list.forEach(o=>o.classList.remove('drop-above','drop-below'));
-    if(to!==from){const a=planOf(state.day);a.splice(to,0,a.splice(from,1)[0]);setPlan(state.day,a);render();}};
-  h.addEventListener('pointermove',move);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);});
+  const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
+    dragOn=false;dragDone=Date.now();li.style.transform='';li.classList.remove('dragging');document.body.classList.remove('dragging-now');list.forEach(o=>o.classList.remove('drop-above','drop-below'));
+    if(to!==from){const a=planOf(state.day),lo=Math.min(from,to),hi=Math.max(from,to),ts=a.slice(lo,hi+1).map(x=>x.t||'');
+      a.splice(to,0,a.splice(from,1)[0]);
+      // if those stops had times in order, the times stay in their slots so the day still reads top to bottom
+      const fit=ts.every(Boolean)&&ts.every((t,k)=>!k||ts[k-1]<=t);if(fit)ts.forEach((t,k)=>{a[lo+k].t=t;});
+      setPlan(state.day,a);render();if(fit)toast('시간도 순서에 맞게 바꿨어요.');}};
+  document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);}
+// while a card is being dragged the page must not scroll under the finger
+document.addEventListener('touchmove',e=>{if(dragOn)e.preventDefault();},{passive:false});
+document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.preventDefault();});
+// the release at the end of a drag is not a tap on the card
+document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v58';
+const APP_VER='v59';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
