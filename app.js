@@ -706,13 +706,14 @@ async function ocrImage(file){
   const body=()=>$('#ocrBody');
   try{
     if(!navigator.onLine)throw new Error('offline');
-    const blob=await downscale(file,1600),url=URL.createObjectURL(blob);
+    const blob=await downscale(file,1568),url=URL.createObjectURL(blob);
     const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
     // first ask Claude to read it as a whole (dishes paired with prices, natural Korean names); fall back to plain OCR + translation
-    if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진"><div class="ai-wait"><div class="ai-bar"><i></i></div><p class="fine" id="aiSec">메뉴를 읽고 있어요… 0초</p><p class="fine">메뉴가 많으면 1분 정도 걸려요.</p></div>`;
+    if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진"><div class="ai-wait"><div class="ai-bar"><i></i></div><p class="fine" id="aiSec">메뉴를 읽고 있어요… 0초</p><p class="fine">읽은 메뉴부터 바로 보여 드려요.</p></div>`;
     const t0=Date.now(),tick=setInterval(()=>{const e=$('#aiSec');if(!e){clearInterval(tick);return;}const s=Math.round((Date.now()-t0)/1000);e.textContent=`메뉴를 읽고 있어요… ${s}초`;},1000);
-    const ai=await readWithClaude(b64);clearInterval(tick);
-    if(ai&&ai.items){state.ocrAi=ai;if(body())body().innerHTML=aiResultHTML(ai,url);return;}
+    const ai=await readWithClaude(b64,p=>{if(!body())return;state.ocrAi=p;
+        body().innerHTML=aiResultHTML(p,url,true);});clearInterval(tick);
+    if(ai&&ai.items){state.ocrAi=ai;if(body())body().innerHTML=aiResultHTML(ai,url)+(ai.cut?'<p class="fine" style="text-align:center">일부만 읽었어요. 다시 찍으면 나머지도 읽어요.</p>':'');return;}
     const r=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION'}],imageContext:{languageHints:['ja']}}]})});
     if(r.status===403)throw new Error('vision-off');if(!r.ok)throw new Error('http');
@@ -730,12 +731,32 @@ async function ocrImage(file){
   }catch(e){if(body())body().innerHTML=`<p class="fine" style="text-align:center;padding:24px 0">${e.message==='vision-off'?'사진 번역이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Vision API를 켜고 API 키 제한에 추가해 주세요.':e.message==='offline'?'사진 번역은 인터넷이 필요해요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.'}</p>`;}
 }
 
-async function readWithClaude(b64){
-  // give up after 2.5 minutes (the server's own limit) and fall back to plain translation
+// Claude's answer arrives a piece at a time; onPart gets what can already be shown (title, summary, finished dishes)
+async function readWithClaude(b64,onPart){
   try{const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);
-    const {data,error}=await Sync.sb.functions.invoke('menu-read',{body:{image:b64,media_type:'image/jpeg'},signal:ctl.signal});clearTimeout(to);
-    if(error||!data||data.error){console.warn('menu-read',error||data);return null;}return data;}catch(e){return null;}}
-function aiResultHTML(ai,url){
+    const {data:{session}}=await Sync.sb.auth.getSession();
+    const r=await fetch(`${Sync.sb.supabaseUrl}/functions/v1/menu-read`,{method:'POST',signal:ctl.signal,
+      headers:{'Content-Type':'application/json',apikey:Sync.sb.supabaseKey,Authorization:`Bearer ${session?session.access_token:Sync.sb.supabaseKey}`},
+      body:JSON.stringify({image:b64,media_type:'image/jpeg',stream:true})});
+    if(!r.ok||!r.body){clearTimeout(to);console.warn('menu-read',r.status);return null;}
+    if((r.headers.get('content-type')||'').includes('application/json')){clearTimeout(to);const j=await r.json();return j&&j.items?j:null;}
+    const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',err='',done=false,shown=-1;
+    while(!done){const {value,done:end}=await rd.read();if(end)break;buf+=dec.decode(value,{stream:true});
+      let k;while((k=buf.indexOf('\n'))>=0){const line=buf.slice(0,k);buf=buf.slice(k+1);
+        if(line.startsWith('d:'))text+=JSON.parse(line.slice(2));else if(line.startsWith('e:'))err=line.slice(2);else if(line==='z:')done=true;}
+      const p=partialMenu(text);const n=(p.title_ko?1:0)+p.items.length;if(onPart&&n!==shown){shown=n;onPart(p);}}
+    clearTimeout(to);
+    if(err){console.warn('menu-read',err);const p=partialMenu(text);return p.items.length?{...p,cut:true}:null;}
+    try{return JSON.parse(text);}catch(e){const p=partialMenu(text);return p.items.length?{...p,cut:true}:null;}
+  }catch(e){console.warn('menu-read',e);return null;}}
+// read the finished parts of a JSON answer that is still being written
+function partialMenu(t){const str=k=>{const m=t.match(new RegExp(`"${k}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`));try{return m?JSON.parse(`"${m[1]}"`):'';}catch(e){return '';}};
+  const out={title_ko:str('title_ko'),summary_ko:str('summary_ko'),items:[]};let i=t.indexOf('"items"');if(i<0)return out;i=t.indexOf('[',i);if(i<0)return out;
+  let depth=0,inStr=false,esc=false,start=-1;
+  for(let j=i+1;j<t.length;j++){const c=t[j];if(inStr){if(esc)esc=false;else if(c==='\\')esc=true;else if(c==='"')inStr=false;continue;}
+    if(c==='"')inStr=true;else if(c==='{'){if(depth===0)start=j;depth++;}else if(c==='}'){depth--;if(depth===0&&start>=0){try{out.items.push(JSON.parse(t.slice(start,j+1)));}catch(e){}start=-1;}}else if(c===']'&&depth===0)break;}
+  return out;}
+function aiResultHTML(ai,url,more){
   const won=y=>y?`<span class="pw">약 ${Math.round(y*rate()).toLocaleString('ko-KR')}원</span>`:'';
   const secs=[];ai.items.forEach((it,i)=>{let g=secs.find(x=>x.n===it.section_ko);if(!g)secs.push(g={n:it.section_ko,a:[]});g.a.push([it,i]);});
   return `<img class="ocr-img" src="${url}" alt="찍은 사진">
@@ -743,7 +764,7 @@ function aiResultHTML(ai,url){
     ${secs.map(g=>`<div class="ai-sec">${g.n?`<div class="grp">${esc(g.n)}</div>`:''}${g.a.map(([it,i])=>`<div class="ai-it">
       <button class="ai-m" data-say="${esc(it.ja)}"><span class="ai-ko">${esc(it.ko)}</span><span class="ai-ja" lang="ja" translate="no">${esc(it.ja)}${it.reading&&it.reading!==it.ja?` · ${esc(it.reading)}`:''}</span>${it.desc_ko?`<span class="ai-d">${esc(it.desc_ko)}</span>`:''}${it.caution_ko?`<span class="ai-c">⚠️ ${esc(it.caution_ko)}</span>`:''}</button>
       <div class="ai-r">${it.price_yen!=null?`<b class="mono">¥${it.price_yen.toLocaleString('ko-KR')}</b>${won(it.price_yen)}`:''}<button class="btn sm" data-aisave="${i}" aria-label="회화에 넣기">${svg('plus')}</button></div></div>`).join('')}</div>`).join('')}
-    <p class="fine">항목을 누르면 일본어로 들려줘요. 직원에게 그대로 들려주면 주문할 수 있어요.</p>`;}
+    ${more?`<div class="ai-more"><div class="ai-bar"><i></i></div><p class="fine">더 읽는 중…</p></div>`:'<p class="fine">항목을 누르면 일본어로 들려줘요. 직원에게 그대로 들려주면 주문할 수 있어요.</p>'}`;}
 
 /* ---------- interpreter: the phone listens (Web Speech), translates and reads the result aloud ---------- */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;var rec=null;
@@ -1721,7 +1742,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v72';
+const APP_VER='v73';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
