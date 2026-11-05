@@ -141,6 +141,11 @@ const IC={
   search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
   file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',expand:'<path d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6"/>',share:'<path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/>',
 };
+// icons for the locked 여권 · 카드 wallet
+IC.lock='<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>';
+IC.card='<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h4"/>';
+IC.passport='<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M9 16h6"/>';
+IC.copy='<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>';
 const svg=(k,cls='i')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
 const STK={
   sun:'<circle cx="20" cy="20" r="9" fill="#ffd56b"/><g stroke="#ffbf3d" stroke-width="2.4" stroke-linecap="round"><path d="M20 4v4M20 32v4M4 20h4M32 20h4M8.7 8.7l2.8 2.8M28.5 28.5l2.8 2.8M8.7 31.3l2.8-2.8M28.5 11.5l2.8-2.8"/></g><circle cx="17" cy="19" r="1.2" fill="#6b4a12"/><circle cx="23" cy="19" r="1.2" fill="#6b4a12"/><path d="M17.5 23q2.5 2 5 0" stroke="#6b4a12" stroke-width="1.3" fill="none" stroke-linecap="round"/>',
@@ -316,6 +321,18 @@ function mapCfg(key){
   if(key==='home'){const pins=[];DAYS.forEach(d=>numbered(d.id).forEach((id,i)=>pins.push({id,c:d.c,num:i+1})));return {pins,routes:DAYS.map(d=>d.id),static:true};}
   return {pins:placeList().filter(id=>!isAir(id)).map(id=>({id,c:CAT[PL[id].cat]?CAT[PL[id].cat].c:'--c-air'})),routes:[],labels:false};
 }
+/* real street paths for the lines between stops (walking and taxi). Google has no transit routes for Japan,
+   so train legs stay a straight line. Paths are kept on the phone so the map draws them offline too. */
+function decodePoly(str){const out=[];let i=0,lat=0,lng=0;while(i<str.length){for(const k of [0,1]){let r=0,sh=0,b;do{b=str.charCodeAt(i++)-63;r|=(b&31)<<sh;sh+=5;}while(b>=32);const d=r&1?~(r>>1):r>>1;if(k)lng+=d;else lat+=d;}out.push([lat/1e5,lng/1e5]);}return out;}
+const rtWait={};
+function routePath(a,b,how){const mode=how==='walk'?'WALK':how==='taxi'?'DRIVE':'';if(!mode)return Promise.resolve(null);
+  const k='rt:'+mode+':'+a.map(x=>x.toFixed(5))+'>'+b.map(x=>x.toFixed(5)),c=LS.get(k,null);if(c)return Promise.resolve(c.p);
+  if(!navigator.onLine)return Promise.resolve(null);if(rtWait[k])return rtWait[k];
+  return rtWait[k]=fetch('https://routes.googleapis.com/directions/v2:computeRoutes',{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,'X-Goog-FieldMask':'routes.polyline.encodedPolyline'},
+      body:JSON.stringify({origin:{location:{latLng:{latitude:a[0],longitude:a[1]}}},destination:{location:{latLng:{latitude:b[0],longitude:b[1]}}},travelMode:mode})})
+    .then(r=>r.ok?r.json():null).then(j=>{const e=j&&j.routes&&j.routes[0]&&j.routes[0].polyline&&j.routes[0].polyline.encodedPolyline;if(!e)return null;const pth=decodePoly(e);LS.set(k,{p:pth});return pth;})
+    .catch(()=>null).finally(()=>{delete rtWait[k];});}
+const legHow=(st,i)=>{const l=leg(st[i].p,st[i+1].p,st[i+1].move);return l?l.how:'';};
 function mountLeaflet(key){
   const box=document.querySelector(`[data-map="${key}"]`);
   if(maps[key]){try{maps[key].stop();maps[key].off();maps[key].remove();}catch(e){}delete maps[key];}
@@ -326,8 +343,9 @@ function mountLeaflet(key){
   baseLayer(m);
   const pts=[];
   cfg.routes.forEach(d=>{const st=planOf(d).filter(s=>hasLL(s.p)&&!isAir(s.p)),col=cssVar(dayOf(d).c);
-    for(let i=0;i<st.length-1;i++){const how=(st[i+1].move&&st[i+1].move.how)||'';
-      L.polyline([PL[st[i].p].ll,PL[st[i+1].p].ll],{color:col,weight:cfg.static?3:4,opacity:.85,dashArray:how==='walk'?'1 8':how==='taxi'?'10 7':how?null:'6 6',lineCap:'round'}).addTo(m);}});
+    for(let i=0;i<st.length-1;i++){const how=legHow(st,i),a=PL[st[i].p].ll,z=PL[st[i+1].p].ll;
+      const line=L.polyline([a,z],{color:col,weight:cfg.static?3:4,opacity:.85,dashArray:how==='walk'?'1 8':how==='taxi'?'10 7':null,lineCap:'round'}).addTo(m);
+      routePath(a,z,how).then(pth=>{if(pth&&maps[key]===m)line.setLatLngs(pth);});}});
   cfg.pins.forEach(pn=>{if(!hasLL(pn.id))return;const p=PL[pn.id],col=cssVar(pn.c);pts.push(p.ll);
     const html=pn.num?`<span class="mpin num" style="background:${col}">${pn.num}</span>`:`<span class="mpin dot" style="border-color:${col}"></span>`;
     const mk=L.marker(p.ll,{icon:L.divIcon({className:'mpin-wrap',html,iconSize:[30,30],iconAnchor:[15,15]}),keyboard:!cfg.static}).addTo(m);
@@ -388,9 +406,10 @@ function mountGoogle(key){
   const m=new google.maps.Map(el,{center:{lat:35.681,lng:139.767},zoom:11,styles:GSTYLE,disableDefaultUI:true,zoomControl:!cfg.static,zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP},gestureHandling:cfg.static?'none':'greedy',clickableIcons:false,keyboardShortcuts:!cfg.static});
   const b=new google.maps.LatLngBounds();let n=0;const ll=a=>({lat:a[0],lng:a[1]});
   cfg.routes.forEach(d=>{const st=planOf(d).filter(s=>hasLL(s.p)&&!isAir(s.p)),col=cssVar(dayOf(d).c);
-    for(let i=0;i<st.length-1;i++){const how=(st[i+1].move&&st[i+1].move.how)||'',dashed=how!=='train'&&how!=='subway'&&how!=='bus';
+    for(let i=0;i<st.length-1;i++){const how=legHow(st,i),dashed=how==='walk'||how==='taxi',a=PL[st[i].p].ll,z=PL[st[i+1].p].ll;
       const sym={path:'M 0,-1 0,1',strokeOpacity:.9,strokeColor:col,scale:how==='walk'?2:3};
-      objs.push(new google.maps.Polyline({map:m,path:[ll(PL[st[i].p].ll),ll(PL[st[i+1].p].ll)],strokeColor:col,strokeOpacity:dashed?0:.85,strokeWeight:cfg.static?3:4,icons:dashed?[{icon:sym,offset:'0',repeat:how==='walk'?'8px':'14px'}]:[]}));}});
+      const line=new google.maps.Polyline({map:m,path:[ll(a),ll(z)],strokeColor:col,strokeOpacity:dashed?0:.85,strokeWeight:cfg.static?3:4,icons:dashed?[{icon:sym,offset:'0',repeat:how==='walk'?'8px':'14px'}]:[]});objs.push(line);
+      routePath(a,z,how).then(pth=>{if(pth)line.setPath(pth.map(ll));});}});
   cfg.pins.forEach(pn=>{if(!hasLL(pn.id))return;const p=PL[pn.id],col=cssVar(pn.c);b.extend(ll(p.ll));n++;
     const html=(pn.num?`<span class="mpin num" style="background:${col}">${pn.num}</span>`:`<span class="mpin dot" style="border-color:${col}"></span>`)+(cfg.labels?`<span class="glabel">${esc(p.short||p.n)}</span>`:'');
     const o=new M(new google.maps.LatLng(p.ll[0],p.ll[1]),html,cfg.static?null:()=>placeSheet(pn.id));o.setMap(m);objs.push(o);});
@@ -1207,6 +1226,7 @@ function viewHome(){
       <button class="tool" data-tool="rate" style="--tc:#dff3e8"><span class="ti">${svg('yen','')}</span><b>환율</b><small>¥1,000 ≈ ${won(1000*rate())}</small></button>
       <button class="tool" data-tool="weather" style="--tc:#fff1c7"><span class="ti">${svg('sun','')}</span><b>날씨</b><small>${esc(T.city||'여행지')} 예보</small></button>
       <button class="tool" data-tab="prep" style="--tc:#f1e3fb"><span class="ti">${svg('list','')}</span><b>준비물</b><small>${[...checks].length}/${all} 완료</small></button></div></div>
+    <button class="card vault-entry" data-vault><span class="ve-i">${svg('lock','')}</span><span class="m"><b>여권 · 카드</b><span class="s">비밀번호로 잠가 둔 여권 · 카드 정보</span></span>${svg('chev')}</button>
     <div><div class="sec-h"><h2>티켓</h2><button class="more" data-tab="tickets">티켓 지갑 ${svg('chev')}</button></div>
       <div class="card">${slotStatus().map(s=>{const f=s.dir?flights()[s.dir]:null,air=f&&(f.no||f.fromCity||f.toCity);
         return `<button class="rsv-row${s.t?'':' need'}" ${s.t?`data-showticket="${s.t.id}"`:`data-slot="${esc(s.slot)}"`}><span class="ri">${svg(s.type==='항공권'?'plane':s.type==='숙소'?'bed':'ticket','')}</span><span class="m">${air?`<span class="s">${DIRS[s.dir]} · ${dayDate(s.day)}</span>${flightLine(f)}`:`<b>${esc(s.t?s.t.title:s.title)}</b><span class="s">${dayDate(s.day)}${(s.t&&s.t.time||s.time)?' · '+esc(s.t&&s.t.time||s.time):''}</span>`}</span>${air&&f.no?`<span class="r mono">${esc(f.no)}</span>`:''}${s.t?'':'<span class="r add">+ 추가</span>'}</button>`;}).join('')}</div></div>
@@ -1240,7 +1260,7 @@ function viewPlan(){
   });
   return `<section class="view">
     <div class="seg ${DAYS.length<=3?'days':''}" role="group" aria-label="날짜">${DAYS.map(x=>`<button class="pill" style="--c:var(${x.c})" data-day="${x.id}" aria-pressed="${x.id===d}"><span><i style="margin-right:5px;vertical-align:1px"></i>DAY ${x.id}</span><small>${esc(x.label)}</small></button>`).join('')}</div>
-    ${nums.length||st.some(s=>hasLL(s.p))?`<div>${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg"><span><i></i>전철·버스</span><span><i class="taxi"></i>택시</span><span><i class="walk"></i>도보</span><span class="fine">선은 순서만 이어 줘요. 정확한 길은 '길찾기'로</span></div></div>`:''}
+    ${nums.length||st.some(s=>hasLL(s.p))?`<div>${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg"><span><i></i>전철·버스</span><span><i class="taxi"></i>택시</span><span><i class="walk"></i>도보</span><span class="fine">도보·택시는 실제 길로, 전철은 직선으로 이어요</span></div></div>`:''}
     <div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span><h2><button class="dt-btn" data-daytitlepop="${d}" aria-label="DAY ${d} 제목 바꾸기">${esc(day.title||'일정')}</button></h2><span class="date">${esc(day.label)}</span></div>
       <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 오른쪽 위 「추가」로 장소를 넣어 보세요.'}</p></div>
     <div>${fl&&d===1?flightRow:''}<ol class="stops">${list}</ol>${fl&&d!==1?flightRow:''}</div>
@@ -1637,7 +1657,7 @@ const closeHoldPop=()=>{const x=$('#holdpop');if(x)x.remove();document.querySele
 document.addEventListener('pointerdown',e=>{const c=e.target.closest('[data-hold]');if(!e.target.closest("#holdpop"))closeHoldPop();if(!c||e.target.closest('button'))return;holdFired=false;holdXY=[e.clientX,e.clientY];
   clearTimeout(holdT);holdT=setTimeout(()=>{holdFired=true;if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}
     const r=c.getBoundingClientRect(),pop=document.createElement('div');pop.id='holdpop';pop.className='holdpop';
-    const kind=c.dataset.holdkind||'phrase',msg={phrase:'이 문장을 지울까요?',prep:'이 준비물을 지울까요?',contact:'이 연락처를 지울까요?',fav:'즐겨찾기에서 뺄까요?'}[kind];
+    const kind=c.dataset.holdkind||'phrase',msg={phrase:'이 문장을 지울까요?',prep:'이 준비물을 지울까요?',contact:'이 연락처를 지울까요?',fav:'즐겨찾기에서 뺄까요?',vault:'이 항목을 지울까요?'}[kind];
     pop.innerHTML=`<span>${msg}</span><button type="button" data-holdno>취소</button><button type="button" class="del" data-del${kind}="${c.dataset.hold}">삭제</button>`;
     c.classList.add('held');pop.dataset.for='';document.body.appendChild(pop);},550);});
 ['pointerup','pointercancel','pointerleave'].forEach(k=>document.addEventListener(k,()=>clearTimeout(holdT)));
@@ -1677,7 +1697,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v62';
+const APP_VER='v63';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

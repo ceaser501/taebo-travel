@@ -863,3 +863,33 @@ li.stop.drop-below{box-shadow:0 3px 0 var(--accent)}
 .cattiles button[aria-pressed="true"] .ct-i{background:var(--c);color:#fff}
 .cattiles button[aria-pressed="true"] .ct-t{color:var(--ink,#2b2f45);font-weight:700}
 .two.area-ll{grid-template-columns:1.6fr 1fr}
+/* 여권 · 카드 (locked wallet) */
+.vault-entry{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;cursor:pointer;font:inherit;color:inherit}
+.vault-entry .ve-i{width:40px;height:40px;border-radius:12px;background:#2b2f45;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.vault-entry .ve-i svg,.vlock-ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vault-entry .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.vault-entry .m b{font-size:15.5px}.vault-entry .s{font-size:12.5px;color:var(--mute)}
+.vault{display:flex;flex-direction:column;gap:16px}
+.vlock-ic{width:48px;height:48px;border-radius:50%;background:#2b2f45;color:#fff;display:flex;align-items:center;justify-content:center;flex:none;border:0;padding:0}
+.vlock-ic.open{background:var(--soft);color:var(--ink,#2b2f45);cursor:pointer}
+.vpin{display:flex;gap:8px}
+.vpin input,.vault .fsec input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:13px 14px;font:inherit;font-size:20px;letter-spacing:.2em;background:#fff}
+.vcard{padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.vh{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.vh b{flex:1;font-size:16px}
+.vic{width:30px;height:30px;border-radius:9px;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.vic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
+.ic-btn{width:36px;height:36px;border-radius:50%;border:0;background:var(--soft);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;color:var(--ink,#2b2f45)}
+.ic-btn svg{width:16px;height:16px}
+.vrow{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:8px 0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:none;border-top:1px dashed var(--line)}
+.vrow .k{width:72px;flex:none;font-size:12.5px;color:var(--mute)}
+.vrow .v{flex:1;min-width:0;font-size:15.5px;font-weight:600;overflow-wrap:anywhere}
+.vrow .v.mono{font-family:var(--f-mono);letter-spacing:.04em}
+.vrow>svg{width:15px;height:15px;stroke:var(--soft2,#aab);fill:none;stroke-width:2;flex:none}
+.vmemo{margin:4px 0 0;font-size:14px;white-space:pre-wrap;color:var(--mute)}
+.vphoto{border:0;padding:0;margin-top:8px;background:none;cursor:pointer;align-self:flex-start}
+.vphoto img{max-width:140px;max-height:100px;border-radius:10px;display:block;background:var(--soft)}
+.vbig{width:100%;border-radius:12px;max-height:70vh;object-fit:contain}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.shake{animation:shake .35s}
+.vpin input::placeholder,.vault .fsec input::placeholder{letter-spacing:normal;font-size:16px}
+.vpin .btn{border-radius:14px;padding:0 22px}
