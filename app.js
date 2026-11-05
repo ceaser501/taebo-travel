@@ -616,7 +616,7 @@ async function rateSheet(){
     <div class="seg rseg">${[[30,'1개월'],[90,'3개월'],[365,'1년']].map(([d,l])=>`<button type="button" data-rdays="${d}" aria-pressed="${d===days}">${l}</button>`).join('')}</div>
     <div id="rateBody">${rateBody(cached)}</div>
     <div class="conv2"><label><span>¥</span><input id="yenIn" inputmode="decimal" value="1,000" aria-label="엔"></label><span class="eq">⇄</span><label><span>₩</span><input id="wonIn" inputmode="decimal" value="${Math.round(1000*r).toLocaleString('ko-KR')}" aria-label="원"></label></div>
-    <div class="quick">${[500,1000,3000,5000,10000].map(v=>`<button class="btn sm ghost" data-quick="${v}">${yen(v)}</button>`).join('')}</div>
+    <div class="quick5">${[[500,'500'],[1000,'1천'],[3000,'3천'],[5000,'5천'],[10000,'1만']].map(([v,l])=>`<button type="button" data-quick="${v}"><small>¥</small>${l}</button>`).join('')}</div>
     <p class="fine">가계부의 원화 환산도 이 환율로 자동으로 맞춰져요.</p>`);
   if(!cached||Date.now()-cached.at>3*3600000){const d=await loadRates(days);const b=$('#rateBody');if(d&&b){b.innerHTML=rateBody(d);convFrom('yen');}}
 }
@@ -1287,7 +1287,7 @@ function closeFloat(fromBack){const x=$('#fpop');if(!x)return;x.remove();if(from
 function addPop(kind){
   const cats=kind==='prep'?PREP_CATS:CONTACT_CATS,cur=state.popCat&&cats.includes(state.popCat)?state.popCat:cats[0];state.popCat=cur;
   floatPop(`<div class="fp-h"><b>${kind==='prep'?'준비물 추가':'연락처 추가'}</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
-    <div class="seg fp-cats" role="group">${cats.map(c=>`<button type="button" data-popcat="${esc(c)}" aria-pressed="${c===cur}">${esc(c)}</button>`).join('')}</div>
+    <div class="chips fp-cats" role="group">${cats.map(c=>`<button type="button" data-popcat="${esc(c)}" aria-pressed="${c===cur}">${esc(c)}</button>`).join('')}</div>
     <form class="fp-form" data-addform="${kind}">${kind==='prep'?`<input type="text" placeholder="예: 여권, 산모수첩, 보조 배터리" autocomplete="off" aria-label="준비물">`
       :`<input type="text" placeholder="이름 (예: 호텔 프런트)" autocomplete="off" aria-label="이름"><input type="tel" placeholder="전화번호" autocomplete="off" aria-label="전화번호">`}
       <button class="btn acc" type="submit">추가</button></form>

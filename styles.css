@@ -754,3 +754,13 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .sec-h .more svg{width:15px;height:15px;vertical-align:-2px;margin-right:2px}
 .fine.empty{padding:14px 0;text-align:center}
 .sec-h h2 .cnt{font-size:14px;color:var(--mute);font-weight:600;margin-left:4px}
+/* rate quick amounts: one row of five */
+.quick5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.quick5 button{border:0;background:var(--soft);border-radius:12px;padding:11px 0;font:inherit;font-size:15px;font-weight:700;color:inherit;cursor:pointer}
+.quick5 button small{font-size:11px;color:var(--mute);margin-right:1px;font-weight:600}
+.quick5 button:active{background:var(--accent-soft)}
+/* category chips in the add popup: wrap from the left, each sized to its word */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;color:var(--ink2,#555);cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.chips.fp-cats button{flex:none}
