@@ -599,3 +599,27 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .flight .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .flight .m .s{font-size:12.5px;color:var(--mute)}
 .flight>svg:last-child{width:16px;height:16px;flex:none;stroke:var(--mute);fill:none;stroke-width:2}
+/* ticket form: one card per topic */
+.tform{display:flex;flex-direction:column;gap:12px}
+.fsec{background:var(--soft);border-radius:16px;padding:12px 12px 14px;display:flex;flex-direction:column;gap:10px}
+.fsec h4{margin:0;font-size:13px;font-weight:700;color:var(--mute);letter-spacing:.02em}
+.fsec .f{margin-top:0}
+.fsec input,.fsec select{background:#fff}
+.seg{display:flex;gap:4px;padding:4px;background:var(--soft);border-radius:12px;overflow-x:auto}
+.fsec .seg{background:#fff}
+.seg button{flex:1 0 auto;border:0;background:none;border-radius:9px;padding:9px 10px;font:inherit;font-size:14px;color:var(--mute);cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:700}
+.fsec .seg button[aria-pressed="true"]{background:var(--ink,#2b2f45)}
+.three{display:grid;grid-template-columns:1.5fr 1.15fr .8fr;gap:8px}
+.tleg{display:flex;flex-direction:column;gap:6px}
+.tleg .lg{font-size:12.5px;font-weight:700;color:var(--ink,#2b2f45)}
+.tleg input{min-width:0}
+.tform .two{grid-template-columns:1fr 1fr}
+.tform input[type=text],.tform input[type=time],.tform select{background:#fff}
+.btn.ghost.danger{color:var(--no)}
+.sign.tap{cursor:pointer}
+.holdpop{position:fixed;z-index:90;display:flex;align-items:center;gap:6px;background:#232849;color:#fff;border-radius:14px;padding:8px 8px 8px 14px;box-shadow:0 10px 26px rgba(30,30,70,.3);font-size:14px;animation:pop .14s ease-out}
+.holdpop button{border:0;border-radius:10px;padding:7px 12px;font:inherit;font-size:13.5px;background:rgba(255,255,255,.14);color:#fff;cursor:pointer}
+.holdpop button.del{background:#e2566f}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.sign.tap{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}

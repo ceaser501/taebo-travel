@@ -472,7 +472,7 @@ const finaleSC=()=>`<div class="sc final"><svg class="art" viewBox="0 0 400 800"
   <g id="hdots" fill="#fff"></g>
   <path id="hs" d="M200 560 ${HEART_LOOP}${HEART_TAIL}" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" mask="url(#pmask)" style="stroke-dasharray:3000;stroke-dashoffset:3000"/>
   <g filter="url(#psh)"><g id="aplane" transform="translate(-60 900)"><g transform="scale(1.8)">${planeTop('#ffffff','#d4d9f3')}</g></g></g></svg>
-  <div class="txt"><h2 class="rise" data-i="title">${esc(trip().title)}</h2><div class="en rise d1" data-i="range">${esc(rangeText())}</div></div>
+  <div class="txt"><h2 class="rise" data-i="title">${esc(tripInfo()?trip().title:'딱복트립')}</h2><div class="en rise d1" data-i="range">${esc(rangeText())}</div></div>
   <button class="cta go-a rise d3" data-enter>여행 시작하기 ${svg('chev')}</button></div>`;
 // the intro's boarding pass shows the real way-out flight: codes big, cities small, then date, time and my seat
 const apCode=x=>((x||'').match(/\b[A-Z]{3}\b/)||[''])[0];
@@ -522,23 +522,30 @@ const reloadSkippingIntro=()=>{try{sessionStorage.setItem('tt:skipIntro','1');}c
 // the intro is drawn from what this phone saved last time; once the sync brings newer trip info, swap the words in place
 function refreshIntro(){const el=$('#intro');if(!el||el.hidden)return;rebuild();
   const set=(k,h)=>el.querySelectorAll(`[data-i="${k}"]`).forEach(n=>{if(n.innerHTML!==h)n.innerHTML=h;});
-  set('line',introLine());set('range',esc(rangeText()));set('pass',passHTML());set('title',esc(trip().title));}
+  set('line',introLine());set('range',esc(rangeText()));set('pass',passHTML());set('title',esc(tripInfo()?trip().title:'딱복트립'));}
 function finishIntro(){if(pendingReload){reloadSkippingIntro();return;}const el=$('#intro');clearTimers();el.hidden=true;el.innerHTML='';document.body.style.overflow='';enter();}
 
 /* ===================== sheets & overlays ===================== */
 // sheets stack: opening one over another keeps the one below, and closing returns to it
-let sheetStack=[];
-function openSheet(html){const root=$('#sheetRoot');if(root.innerHTML){const sh=root.querySelector('.sheet');sheetStack.push({html:root.innerHTML,top:sh?sh.scrollTop:0});}
+let sheetStack=[],ignorePop=false;
+// a Back step is only worth making while the user is tapping (Chrome would skip it otherwise)
+const byTap=()=>!navigator.userActivation||navigator.userActivation.isActive;
+const stepBack=k=>{if(history.state&&history.state.k===k){ignorePop=true;history.back();}};
+const sheetName=html=>{const m=/<h3[^>]*>([^<]*)/.exec(html);return m?m[1]:'';};
+function openSheet(html){const root=$('#sheetRoot');
+  // the same sheet drawn again (after an edit inside it) replaces itself; a different one stacks on top with its own Back step
+  if(root.innerHTML&&sheetName(root.innerHTML)===sheetName(html)){}
+  else{if(root.innerHTML){const sh=root.querySelector('.sheet');sheetStack.push({html:root.innerHTML,top:sh?sh.scrollTop:0});}if(byTap())history.pushState({k:'sheet'},'',location.href);}
   $('#sheetRoot').innerHTML=`<div class="sheet-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;const f=$('#sheetRoot .sh-x');if(f)f.focus({preventScroll:true});hydrateFiles($('#sheetRoot'));}
-const closeSheet=()=>{const root=$('#sheetRoot'),back=state.reopenTicket&&sheetStack.length===state.reopenTicket.depth?state.reopenTicket.id:null,prev=sheetStack.pop();
+const closeSheet=fromBack=>{if(fromBack!==true)stepBack('sheet');const root=$('#sheetRoot'),back=state.reopenTicket&&sheetStack.length===state.reopenTicket.depth?state.reopenTicket.id:null,prev=sheetStack.pop();
   root.innerHTML=prev?prev.html:'';if(prev){const sh=root.querySelector('.sheet');if(sh)sh.scrollTop=prev.top;hydrateFiles(root);}
   if(back){state.reopenTicket=null;showTicket(back);}};
 const closeAllSheets=()=>{sheetStack=[];state.reopenTicket=null;$('#sheetRoot').innerHTML='';};
 const shHead=(title,sub,lead='')=>`<div class="sh-head">${lead}<div class="m"><h3>${title}</h3>${sub?`<div class="s">${sub}</div>`:''}</div><button class="sh-x" aria-label="닫기">×</button></div>`;
 let wakeLock=null;
 async function keepAwake(on){try{if(on&&'wakeLock' in navigator)wakeLock=await navigator.wakeLock.request('screen');else if(!on&&wakeLock){await wakeLock.release();wakeLock=null;}}catch(e){}}
-function openOverlay(html,awake){const el=$('#overlay');el.innerHTML=html;el.hidden=false;document.body.style.overflow='hidden';if(awake)keepAwake(true);hydrateFiles(el);const b=el.querySelector('.ov-x');if(b)b.focus({preventScroll:true});}
-function closeOverlay(){const el=$('#overlay');el.hidden=true;el.innerHTML='';document.body.style.overflow='';keepAwake(false);if('speechSynthesis' in window)speechSynthesis.cancel();}
+function openOverlay(html,awake){const el=$('#overlay');if(el.hidden&&byTap())history.pushState({k:'ov'},'',location.href);el.innerHTML=html;el.hidden=false;document.body.style.overflow='hidden';if(awake)keepAwake(true);hydrateFiles(el);const b=el.querySelector('.ov-x');if(b)b.focus({preventScroll:true});}
+function closeOverlay(fromBack){if(fromBack!==true)stepBack('ov');const el=$('#overlay');el.hidden=true;el.innerHTML='';document.body.style.overflow='';keepAwake(false);if('speechSynthesis' in window)speechSynthesis.cancel();}
 
 /* ---------- Japanese sign rows and full-screen sign ---------- */
 function signRows(id){
@@ -561,8 +568,9 @@ function talkSheet(msg){
   openSheet(`${shHead('일본어 회화','한국어로 쓰면 일본어로, 일본어를 쓰면 뜻을 달아 목록에 넣어요.')}
     <form id="trForm" class="srow"><input type="text" id="trIn" class="sinput" placeholder="예: 이거 맵나요? / 辛いですか" autocomplete="off" enterkeyhint="done"><button class="btn acc" type="submit">번역</button></form>
     <p class="fine" id="trMsg" ${msg?'':'hidden'}>${esc(msg||'')}</p>
-    <div class="signs">${allPhrases().map((p,i)=>`<div class="sign"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
-      <div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button><button class="icon-btn" data-bigphrase="${i}" aria-label="${esc(p[2])} 크게 보기">${svg('expand')}</button>${p[3]?`<button class="icon-btn del" data-delphrase="${esc(p[3])}" aria-label="${esc(p[2])} 지우기">${svg('x')}</button>`:''}</div></div>`).join('')}</div>
+    <div class="signs">${allPhrases().map((p,i)=>`<div class="sign tap" data-bigphrase="${i}" ${p[3]?`data-hold="${esc(p[3])}"`:''} role="button" tabindex="0" aria-label="${esc(p[2])} 크게 보기"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
+      <div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button></div></div>`).join('')}</div>
+    <p class="fine">카드를 누르면 크게 보여요. 길게 누르면 지울 수 있어요.</p>
     ${hid?`<button class="btn ghost" data-restorephrases>지운 기본 문장 ${hid}개 다시 보기</button>`:''}`);
 }
 /* translation (Google Cloud Translation) + kana reading (kuromoji, loaded the first time it's needed) */
@@ -601,7 +609,7 @@ async function addPhrase(text){
     talkSheet('');
   }catch(e){btn.disabled=false;say(e.message==='disabled'?'번역 기능이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Translation API를 켜 주세요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.');}
 }
-function bigPhrase(i){const p=Array.isArray(i)?i:allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(p[0])}">천천히</button></div></div>`);}
+function bigPhrase(i){const p=Array.isArray(i)?i:allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button></div></div>`);}
 
 /* ---------- place detail ---------- */
 function placeSheet(id){
@@ -825,41 +833,46 @@ function ticketForm(t){
   if(!tf.seat&&/ · /.test(tf.code||'')){const [c,...r]=tf.code.split(' · ');tf.code=c;tf.seat=r.join(' · ');}
   const fl={...(tf.dir&&tf.dir!=='etc'?flights()[tf.dir]:{}),...(tf.fl||{})},air=tf.type==='항공권';
   state.tf={...tf,newFiles:[]};
-  openSheet(`${shHead(t&&t.id?'티켓 고치기':'티켓 추가','QR·바코드가 잘 보이는 사진이나 캡처, PDF를 올려 주세요')}
-    <form id="ticketForm" class="stack" novalidate>
-      <div class="catpick" role="group" aria-label="종류">${TICKET_TYPES.map(k=>`<button type="button" data-ttype="${k}" aria-pressed="${tf.type===k}">${k}</button>`).join('')}</div>
-      <div><label class="f" for="tPax">누구 티켓 (비우면 함께 쓰는 티켓)</label><input type="text" id="tPax" value="${esc(tf.pax||'')}" placeholder="예: 보연" maxlength="12" autocomplete="off">
-        <div class="catpick" style="margin-top:6px">${paxNames().map(n=>`<button type="button" data-tpax="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>
-      <div id="tFlight" class="stack" ${air?'':'hidden'}>
-        <div><label class="f">구분</label><div class="catpick" role="group" aria-label="구분">${Object.entries(DIRS).map(([k,l])=>`<button type="button" data-tdir="${k}" aria-pressed="${(tf.dir||'')===k}">${l}</button>`).join('')}</div></div>
-        <div class="two"><div><label class="f" for="tNo">편명</label><input type="text" id="tNo" value="${esc(fl.no||'')}" placeholder="예: TW243" autocomplete="off" autocapitalize="characters"></div>
-          <div><label class="f" for="tDur">비행시간</label><input type="text" id="tDur" value="${esc(fl.dur||'')}" placeholder="예: 2시간 30분"></div></div>
-        <div class="two"><div><label class="f" for="tFrom">출발 공항</label><input type="text" id="tFrom" value="${esc(fl.fromCity||'')}" placeholder="예: 인천 ICN"></div>
-          <div><label class="f" for="tTo">도착 공항</label><input type="text" id="tTo" value="${esc(fl.toCity||'')}" placeholder="예: 나리타 NRT"></div></div>
-        <div class="two"><div><label class="f" for="tDep">출발 시각</label><input type="time" id="tDep" value="${esc(fl.dep||tf.time||'')}"></div>
-          <div><label class="f" for="tArr">도착 시각</label><input type="time" id="tArr" value="${esc(fl.arr||'')}"></div></div>
-        <div class="two"><div><label class="f" for="tDepT">출발 터미널</label><input type="text" id="tDepT" value="${esc(fl.term||'')}" placeholder="예: 1"></div>
-          <div><label class="f" for="tArrT">도착 터미널</label><input type="text" id="tArrT" value="${esc(fl.arrTerm||'')}" placeholder="예: 2"></div></div>
-      </div>
-      <div id="tTitleBox" ${air?'hidden':''}><label class="f" for="tTitle">이름</label><input type="text" id="tTitle" value="${esc(tf.title)}" placeholder="예: 시부야 스카이 16:00 입장"></div>
-      <div class="catpick" role="group" aria-label="날짜">${DAYS.map(d=>`<button type="button" data-tday="${d.id}" aria-pressed="${tf.day===d.id}">DAY ${d.id}</button>`).join('')}</div>
-      <div class="two" id="tGen" ${air?'hidden':''}><div><label class="f" for="tTime">시간</label><input type="time" id="tTime" value="${esc(tf.time)}"></div>
-        <div><label class="f" for="tPlace">장소</label><select id="tPlace"><option value="">선택 안 함</option>${Object.keys(PL).map(id=>`<option value="${id}" ${tf.place===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select></div></div>
-      <div class="two"><div><label class="f" for="tCode">예약 번호</label><input type="text" id="tCode" value="${esc(tf.code)}" placeholder="예: Q2TL65" autocomplete="off" autocapitalize="characters"></div>
-        <div><label class="f" for="tSeat">좌석 (선택)</label><input type="text" id="tSeat" value="${esc(tf.seat||'')}" placeholder="예: 23A" autocomplete="off" autocapitalize="characters"></div></div>
-      <label class="f" for="tMemo">메모 (선택)</label><input type="text" id="tMemo" value="${esc(tf.memo)}" placeholder="예: 3터미널 2층 L 카운터">
-      <div id="tFiles" class="tfiles">${filesEditHTML()}</div>
-      <label class="btn photo-btn">${svg('camera')}사진 · PDF 추가<input type="file" id="tFileIn" accept="image/*,application/pdf" multiple></label>
+  // people are the names already used on tickets (plus this phone's own), never account nicknames
+  const names=[...new Set([...tickets().map(x=>x.pax),myPax(),tf.pax].filter(Boolean))];
+  const seg=(attr,items,cur)=>`<div class="seg" role="group">${items.map(([k,l])=>`<button type="button" ${attr}="${esc(k)}" aria-pressed="${cur===k}">${esc(l)}</button>`).join('')}</div>`;
+  const daySel=(id,cur)=>`<select id="${id}">${DAYS.map(d=>`<option value="${d.id}" ${cur===d.id?'selected':''}>DAY ${d.id}${d.date?' · '+dayDate(d.id):''}</option>`).join('')}</select>`;
+  const inp=(id,label,val,ph,extra='')=>`<div><label class="f" for="${id}">${label}</label><input type="text" id="${id}" value="${esc(val||'')}" placeholder="${ph}" autocomplete="off" ${extra}></div>`;
+  const tm=(id,label,val)=>`<div><label class="f" for="${id}">${label}</label><input type="time" id="${id}" value="${esc(val||'')}"></div>`;
+  const CAPS='autocapitalize="characters"';
+  openSheet(`${shHead(t&&t.id?'티켓 수정':'티켓 추가','')}
+    <form id="ticketForm" class="tform stack" novalidate>
+      ${seg('data-ttype',TICKET_TYPES.map(k=>[k,k]),tf.type)}
+      <section class="fsec"><h4>누구 티켓</h4>
+        ${seg('data-tpax',[['','함께'],...names.map(n=>[n,n]),['+','+ 다른 사람']],tf.pax||'')}
+        <input type="text" id="tPax" value="${esc(tf.pax||'')}" placeholder="이름" maxlength="12" autocomplete="off" hidden></section>
+      <section class="fsec" id="tFlight" ${air?'':'hidden'}><h4>항공편</h4>
+        ${seg('data-tdir',Object.entries(DIRS),tf.dir||'')}
+        <div class="two">${inp('tNo','편명',fl.no,'TW243',CAPS)}<div><label class="f" for="tDayA">날짜</label>${daySel('tDayA',tf.day)}</div></div>
+        <div class="tleg"><span class="lg">출발</span><div class="three">${inp('tFrom','공항',fl.fromCity,'인천 ICN')}${tm('tDep','시각',fl.dep||tf.time)}${inp('tDepT','터미널',fl.term,'1')}</div></div>
+        <div class="tleg"><span class="lg">도착</span><div class="three">${inp('tTo','공항',fl.toCity,'나리타 NRT')}${tm('tArr','시각',fl.arr)}${inp('tArrT','터미널',fl.arrTerm,'2')}</div></div>
+        ${inp('tDur','비행시간',fl.dur,'비워 두면 시각으로 계산해요')}</section>
+      <section class="fsec" id="tGen" ${air?'hidden':''}><h4>정보</h4>
+        ${inp('tTitle','이름',tf.title,'예: 시부야 스카이')}
+        <div class="two"><div><label class="f" for="tDayG">날짜</label>${daySel('tDayG',tf.day)}</div>${tm('tTime','시간',tf.time)}</div>
+        <div><label class="f" for="tPlace">장소</label><select id="tPlace"><option value="">선택 안 함</option>${Object.keys(PL).map(id=>`<option value="${id}" ${tf.place===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select></div></section>
+      <section class="fsec"><h4>예약</h4>
+        <div class="two">${inp('tCode','예약 번호',tf.code,'Q2TL65',CAPS)}${inp('tSeat','좌석',tf.seat,'4E',CAPS)}</div></section>
+      <section class="fsec"><h4 id="tFilesH">${air?'탑승권 이미지':'티켓 이미지'}</h4>
+        <div id="tFiles" class="tfiles">${filesEditHTML()}</div>
+        <label class="btn photo-btn">${svg('camera')}사진 · PDF 올리기<input type="file" id="tFileIn" accept="image/*,application/pdf" multiple></label></section>
+      <section class="fsec"><h4>메모</h4>
+        <input type="text" id="tMemo" value="${esc(tf.memo||'')}" placeholder="예: 위탁 수하물 15kg" autocomplete="off"></section>
       <p class="err" id="tErr" hidden></p>
-      <button class="btn acc" type="submit">${svg('ticket')}저장</button>
-      ${t&&t.id?`<button class="btn ghost" type="button" data-delticket="${t.id}" style="color:var(--no)">티켓 삭제</button>`:''}
+      <button class="btn acc" type="submit">저장</button>
+      ${t&&t.id?`<button class="btn ghost danger" type="button" data-delticket="${t.id}">티켓 삭제</button>`:''}
     </form>`);
   state.tf.id=t?t.id:null;state.tf.slot=t?t.slot:'';
 }
 function filesEditHTML(){const tf=state.tf;return [...tf.files.map((f,i)=>`<div class="tfile"><span class="tfi">${f.mime==='application/pdf'?svg('file'):`<img data-file="${esc(f.path)}" alt="">`}</span><span>${esc(f.name||'파일')}</span><button type="button" data-rmfile="o${i}" aria-label="빼기">×</button></div>`),
   ...tf.newFiles.map((f,i)=>`<div class="tfile"><span class="tfi">${f.blob.type==='application/pdf'?svg('file'):`<img src="${f.url}" alt="">`}</span><span>${esc(f.name)}</span><button type="button" data-rmfile="n${i}" aria-label="빼기">×</button></div>`)].join('');}
 async function saveTicket(){
-  const tf=state.tf,err=$('#tErr'),air=tf.type==='항공권',v=id=>$('#'+id).value.trim();
+  const tf=state.tf,err=$('#tErr'),air=tf.type==='항공권',v=id=>$('#'+id).value.trim();tf.day=+$(air?'#tDayA':'#tDayG').value||1;
   const fl=air?{no:v('tNo').toUpperCase(),fromCity:v('tFrom'),toCity:v('tTo'),dep:v('tDep'),arr:v('tArr'),dur:v('tDur')||durText(spanMin(v('tDep'),v('tArr'))),term:v('tDepT'),arrTerm:v('tArrT')}:null;
   // a flight's name is made from its airports and flight number, so it never needs typing
   const title=air?(fl.fromCity||fl.toCity||fl.no?flightLabel(fl):''):v('tTitle');
@@ -961,7 +974,8 @@ const ddayTxt=()=>{const n=daysUntil();if(n==null)return '날짜 미정';return 
 const fmtMD=d=>`${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')}`;
 const rangeText=()=>{const a=DAYS[0],b=DAYS[DAYS.length-1];return a&&a.date?`${fmtMD(a.date)}(${WEEK[a.date.getDay()]}) – ${fmtMD(b.date)}(${WEEK[b.date.getDay()]}) · ${DAYS.length-1}박 ${DAYS.length}일`:`${DAYS.length-1}박 ${DAYS.length}일 · 날짜 미정`;};
 const shortRange=()=>{const a=DAYS[0],b=DAYS[DAYS.length-1];return a&&a.date?`${fmtMD(a.date)} – ${b.date.getDate()}`:'미정';};
-const introLine=()=>{const t=(trip().intro||'').trim();return t?t.split('\n').map(esc).join('<br>'):`${esc(whenPhrase())},<br>${esc(trip().city||'여행')}에 가요`;};
+const INTRO_DEFAULT='엄마 아빠 딱복이랑\n떠나는 첫 비행';
+const introLine=()=>{const t=(trip().intro||(tripInfo()?'':INTRO_DEFAULT)).trim();return t?t.split('\n').map(esc).join('<br>'):`${esc(whenPhrase())},<br>${esc(trip().city||'여행')}에 가요`;};
 const whenPhrase=()=>{const s=startDate();if(!s)return '곧';const n=new Date();const diff=(s.getFullYear()-n.getFullYear())*12+s.getMonth()-n.getMonth();return diff<=0?'이번 달':diff===1?'다음 달':`${s.getMonth()+1}월`;};
 const admitText=()=>{const names=Sync.members.map(m=>m.display_name);const baby=/태교/.test(trip().title);const all=[...names,...(baby?['아가']:[])];return all.length?`ADMIT ${all.length} · ${all.join(' · ')}`:'BOARDING PASS';};
 const TITLES={plan:'일정',tickets:'티켓',diary:'우리의 기록',money:'가계부',places:'장소',prep:'준비물 · 연락처'};
@@ -1124,7 +1138,8 @@ function render(){
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===state.tab||(state.tab==='places'&&b.dataset.tab==='home')||(state.tab==='prep'&&b.dataset.tab==='home')));
   ['home','plan','places'].forEach(mountMap);hydrateFiles($('#main'));
 }
-function go(tab,scroll=true){if(!VIEWS[tab])tab='home';if(!Sync.meta.tripId&&!GATED.has(tab))tab='auth';closeAllSheets();state.tab=tab;state.edit=false;if(!GATED.has(tab)&&location.hash.slice(1)!==tab)history.replaceState(history.state,'','#'+tab);render();if(scroll)window.scrollTo(0,0);}
+function go(tab,scroll=true,fromBack=false){if(!VIEWS[tab])tab='home';if(!Sync.meta.tripId&&!GATED.has(tab))tab='auth';closeAllSheets();const changed=tab!==state.tab;state.tab=tab;state.edit=false;
+  if(!GATED.has(tab)&&!fromBack){if(changed&&byTap())history.pushState({k:'tab'},'','#'+tab);else if(location.hash.slice(1)!==tab)history.replaceState(history.state,'','#'+tab);}render();if(scroll)window.scrollTo(0,0);}
 async function enter(){
   if(Sync.meta.tripId){go(VIEWS[location.hash.slice(1)]&&!GATED.has(location.hash.slice(1))?location.hash.slice(1):'home',false);Sync.syncNow();return;}
   const s=await Sync.session();
@@ -1178,20 +1193,21 @@ document.addEventListener('click',async e=>{
   else if(ds.importtpl!==undefined){importTemplate();closeSheet();toast('도쿄 예시를 불러왔어요. 자유롭게 고쳐 쓰세요.');render();}
   else if(ds.delprep){Sync.remove('prep',ds.delprep);render();}
   else if(ds.offlinemap!==undefined){saveOfflineMap(t);}
-  else if(ds.delphrase){const k=ds.delphrase;if(k.startsWith('u:'))Sync.remove('phrase',k.slice(2));else{const h=hiddenPhrases();h.add(k.slice(2));Sync.put('phrasehide','set',{ids:[...h]});}talkSheet('');}
+  else if(ds.delphrase){closeHoldPop();const k=ds.delphrase;if(k.startsWith('u:'))Sync.remove('phrase',k.slice(2));else{const h=hiddenPhrases();h.add(k.slice(2));Sync.put('phrasehide','set',{ids:[...h]});}talkSheet('');}
   else if(ds.restorephrases!==undefined){Sync.put('phrasehide','set',{ids:[]});talkSheet('');}
   else if(ds.bigja){const i=allPhrases().findIndex(p=>p[0]===ds.bigja);if(i>=0)bigPhrase(i);else{const p=PHRASES.find(x=>x[0]===ds.bigja);if(p)openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button></div></div>`);}}
   else if(ds.addticket!==undefined){ticketForm(null);}
   else if(ds.slot){const s=ticketSlots().find(x=>x.slot===ds.slot);if(s.dir){ticketForm({type:'항공권',title:'',day:s.day,time:s.time,place:'',code:'',seat:'',memo:'',files:[],slot:s.slot,dir:s.dir});state.tf.id=null;return;}ticketForm(null);Object.assign(state.tf,{type:s.type,day:s.day,place:s.place,slot:s.slot,time:s.time});$('#tTitle').value=s.title;$('#tTime').value=s.time;$('#tPlace').value=s.place;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ttype===s.type));document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===s.day));}
   else if(ds.showticket){showTicket(ds.showticket);}
-  else if(ds.editticket){closeOverlay();state.reopenTicket={id:ds.editticket,depth:sheetStack.length+($('#sheetRoot').innerHTML?1:0)};ticketForm({id:ds.editticket,...Sync.get('ticket',ds.editticket)});}
+  else if(ds.editticket){closeOverlay(true);state.reopenTicket={id:ds.editticket,depth:sheetStack.length+($('#sheetRoot').innerHTML?1:0)};ticketForm({id:ds.editticket,...Sync.get('ticket',ds.editticket)});}
   else if(ds.delticket){if(!confirm('이 티켓을 지울까요?'))return;state.reopenTicket=null;Sync.remove('ticket',ds.delticket);closeSheet();render();toast('티켓을 지웠어요.');}
-  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권';$('#tFlight').hidden=!air;$('#tGen').hidden=air;$('#tTitleBox').hidden=air;}
-  else if(ds.tpax!==undefined){$('#tPax').value=ds.tpax;}
+  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권';$('#tFlight').hidden=!air;$('#tGen').hidden=air;$('#tFilesH').textContent=air?'탑승권 이미지':'티켓 이미지';}
+  else if(ds.tpax!==undefined){const box=$('#tPax');document.querySelectorAll('[data-tpax]').forEach(b=>b.setAttribute('aria-pressed',b===t));
+    if(ds.tpax==='+'){box.value='';box.hidden=false;box.focus();}else{box.value=ds.tpax;box.hidden=true;}}
   else if(ds.tpaxf!==undefined){state.tpax=ds.tpaxf;render();}
   else if(ds.mypax!==undefined){const m={...paxMap()};if(ds.mypax)m[me()]=ds.mypax;else delete m[me()];Sync.put('paxof','set',{map:m});state.tpax=null;settingsSheet();}
   else if(ds.tdir){state.tf.dir=ds.tdir;document.querySelectorAll('[data-tdir]').forEach(b=>b.setAttribute('aria-pressed',b===t));
-    if(ds.tdir!=='etc'){const f=flights()[ds.tdir],day=ds.tdir==='out'?1:DAYS.length;state.tf.day=day;document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===day));
+    if(ds.tdir!=='etc'){const f=flights()[ds.tdir],day=ds.tdir==='out'?1:DAYS.length;state.tf.day=day;$('#tDayA').value=day;
       [['tNo','no'],['tFrom','fromCity'],['tTo','toCity'],['tDep','dep'],['tArr','arr'],['tDur','dur'],['tDepT','term'],['tArrT','arrTerm']].forEach(([i,k])=>{const el=$('#'+i);if(el&&!el.value&&f[k])el.value=f[k];});}}
   else if(ds.tday){state.tf.day=+ds.tday;document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',b===t));}
   else if(ds.rmfile){const k=ds.rmfile[0],i=+ds.rmfile.slice(1);if(k==='o')state.tf.files.splice(i,1);else state.tf.newFiles.splice(i,1);$('#tFiles').innerHTML=filesEditHTML();hydrateFiles($('#tFiles'));}
@@ -1290,17 +1306,37 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(!$('#overlay').hidden)closeOverlay();else closeSheet();}
   if((e.key==='Enter'||e.key===' ')&&!$('#intro').hidden&&!e.target.closest('button')){e.preventDefault();$('#intro')._tap();}
 });
+/* long press on a phrase card: a small floating "지울까요?" next to it */
+let holdT=0,holdFired=false,holdXY=null;
+const closeHoldPop=()=>{const x=$('#holdpop');if(x)x.remove();};
+document.addEventListener('pointerdown',e=>{const c=e.target.closest('[data-hold]');if(!e.target.closest("#holdpop"))closeHoldPop();if(!c||e.target.closest('button'))return;holdFired=false;holdXY=[e.clientX,e.clientY];
+  clearTimeout(holdT);holdT=setTimeout(()=>{holdFired=true;if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}
+    const r=c.getBoundingClientRect(),pop=document.createElement('div');pop.id='holdpop';pop.className='holdpop';
+    pop.innerHTML=`<span>이 문장을 지울까요?</span><button type="button" data-holdno>취소</button><button type="button" class="del" data-delphrase="${c.dataset.hold}">삭제</button>`;
+    document.body.appendChild(pop);const top=r.top>90?r.top-pop.offsetHeight-8:r.bottom+8;pop.style.top=Math.max(8,top)+'px';pop.style.left=Math.max(12,Math.min(innerWidth-pop.offsetWidth-12,r.left+r.width/2-pop.offsetWidth/2))+'px';},550);});
+['pointerup','pointercancel','pointerleave'].forEach(k=>document.addEventListener(k,()=>clearTimeout(holdT)));
+document.addEventListener('pointermove',e=>{if(holdXY&&Math.hypot(e.clientX-holdXY[0],e.clientY-holdXY[1])>10)clearTimeout(holdT);});
+document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-hold]'))e.preventDefault();});
+// the click that ends a long press must not also open the card
+document.addEventListener('click',e=>{if(holdFired&&e.target.closest('[data-hold]')){holdFired=false;e.stopPropagation();e.preventDefault();}
+  if(e.target.closest('[data-holdno]')){closeHoldPop();}},true);
 /* Android back button: close what is open, then go home, then exit only on a second press */
 let backAt=0;
-const pushGuard=()=>history.pushState({guard:1},'','#'+(GATED.has(state.tab)?'':state.tab));
+const pushGuard=()=>history.pushState({k:'guard'},'',location.href);
+// Chrome skips Back steps that were not made during a tap, so the exit guard is (re)made on the next tap
+document.addEventListener('pointerdown',()=>{if(!history.state||!history.state.k)pushGuard();},true);
 window.addEventListener('popstate',()=>{
-  if(!$('#overlay').hidden){closeOverlay();pushGuard();return;}
-  if($('#sheetRoot').innerHTML){closeSheet();pushGuard();return;}
-  if($('#intro').hidden&&state.tab!=='home'&&!GATED.has(state.tab)){go('home');pushGuard();return;}
+  if(ignorePop){ignorePop=false;return;}
+  if($('#holdpop')){closeHoldPop();}
+  if(!$('#overlay').hidden){closeOverlay(true);return;}
+  if($('#sheetRoot').innerHTML){closeSheet(true);return;}
+  if(!$('#intro').hidden)return;
+  const h=location.hash.slice(1);
+  if(VIEWS[h]&&!GATED.has(h)&&h!==state.tab){go(h,true,true);return;}
+  if(state.tab!=='home'&&!GATED.has(state.tab)){go('home',true,true);return;}
   if(Date.now()-backAt<2200){history.back();return;}
   backAt=Date.now();toast('뒤로 버튼을 한 번 더 누르면 앱이 꺼져요');pushGuard();
 });
-pushGuard();
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS[h]&&h!==state.tab&&!GATED.has(h))go(h);});
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.values(maps).forEach(m=>{try{m.invalidateSize({animate:false});}catch(e){}}),150);});
 // re-render when the other person's changes arrive, unless someone is typing
@@ -1320,6 +1356,8 @@ rebuild();
 // the intro plays every time the app is opened, signed in or not; it hands over to enter() when done.
 // the one exception is the reload that swaps in a new version, so the intro never plays twice in a row
 let skipIntro=false;try{skipIntro=sessionStorage.getItem('tt:skipIntro')==='1';sessionStorage.removeItem('tt:skipIntro');}catch(e){}
+// pulling down to refresh reloads the page: stay where you were instead of replaying the intro
+try{const nav=performance.getEntriesByType('navigation')[0];if(nav&&nav.type==='reload')skipIntro=true;}catch(e){}
 if(skipIntro)enter();else{showIntro();if(Sync.meta.tripId)Sync.syncNow();}
 
 
