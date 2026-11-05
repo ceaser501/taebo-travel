@@ -1254,7 +1254,7 @@ function viewPlan(){
   st.forEach((s,i)=>{
     const p=PL[s.p],n=nums.indexOf(s.p)+1,home=isStay(s.p),air=isAir(s.p),sg=mainSign(s.p),stk=tk.filter(t=>t.place===s.p&&t.day===d&&t.type!=='항공권'),c=CAT[p.cat]||CAT['기타'];
     if(i>0){const l=legs[i-1];if(l){const b=p,a=PL[st[i-1].p],[hn,mode]=HOW[l.how]||HOW.train;
-      list+=`<li class="stop leg-li" style="--c:var(${day.c})"><div class="rail"></div><div class="body"><div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${placeDir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),s.p,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div></div></li>`;}}
+      list+=`<li class="stop leg-li" data-pair="${esc(st[i-1].p+'>'+s.p)}" style="--c:var(${day.c})"><div class="rail"></div><div class="body"><div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${placeDir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),s.p,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div></div></li>`;}}
     const mark=home?`<span class="num home">숙소</span>`:air?`<span class="num air">${svg('plane','')}</span>`:`<span class="num">${n}</span>`;
     list+=`<li class="stop" data-si="${i}" style="--c:var(${day.c})"><div class="rail">${mark}</div><div class="body">
       <button class="stop-card" data-place="${s.p}" data-stopi="${i}"><div class="nm">${esc(s.title||p.n)}</div>
@@ -1703,13 +1703,16 @@ function startDrag(li,from,y0){
     list.forEach(o=>{const j=+o.dataset.si;o.classList.toggle('drop-above',to<from&&j===to);o.classList.toggle('drop-below',to>from&&j===to);});};
   const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
     dragOn=false;dragDone=Date.now();li.style.transform='';li.classList.remove('dragging');document.body.classList.remove('dragging-now');list.forEach(o=>o.classList.remove('drop-above','drop-below'));
-    if(to!==from){const a=planOf(state.day),lo=Math.min(from,to),hi=Math.max(from,to),ts=a.slice(lo,hi+1).map(x=>x.t||'');
+    if(to!==from){const a=planOf(state.day),oldPairs=new Set(a.slice(1).map((x,k)=>a[k].p+'>'+x.p)),lo=Math.min(from,to),hi=Math.max(from,to),ts=a.slice(lo,hi+1).map(x=>x.t||'');
       a.splice(to,0,a.splice(from,1)[0]);
       // how-to-get-here belongs to the old neighbours: drop it where the stop before has changed, so it is worked out again
       for(let k=lo;k<=Math.min(hi+1,a.length-1);k++)if(a[k])delete a[k].move;
       // if those stops had times in order, the times stay in their slots so the day still reads top to bottom
       const fit=ts.every(Boolean)&&ts.every((t,k)=>!k||ts[k-1]<=t);if(fit)ts.forEach((t,k)=>{a[lo+k].t=t;});
-      setPlan(state.day,a);render();if(fit)toast('시간도 순서에 맞게 바꿨어요.');}};
+      setPlan(state.day,a);render();
+      // the ways between stops are worked out again for the new order: make that visible
+      document.querySelectorAll('li.leg-li[data-pair]').forEach(x=>{if(!oldPairs.has(x.dataset.pair))x.classList.add('leg-new');});
+      toast(fit?'순서와 시간을 바꿨어요. 이동 정보도 새로 계산했어요.':'순서를 바꿨어요. 이동 정보도 새로 계산했어요.');}};
   document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);}
 // while a card is being dragged the page must not scroll under the finger
 document.addEventListener('touchmove',e=>{if(dragOn)e.preventDefault();},{passive:false});
@@ -1717,7 +1720,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v69';
+const APP_VER='v70';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

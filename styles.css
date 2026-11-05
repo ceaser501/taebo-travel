@@ -949,3 +949,6 @@ li.stop[data-si] .memo svg{stroke:currentColor}
 .syncdot.gearbtn .sbadge{position:absolute;top:8px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--no);box-shadow:0 0 0 2px var(--app)}
 .syncdot.gearbtn.s-offline .sbadge{background:#9aa0bd}
 .syncdot.gearbtn svg{stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+body.dragging-now li.leg-li{opacity:0}
+@keyframes legnew{0%{background:color-mix(in srgb,var(--c) 22%,transparent)}100%{background:transparent}}
+li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
