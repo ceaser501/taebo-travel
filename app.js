@@ -806,8 +806,8 @@ function placeSheet(id){
     ${p.gid||hasLL(id)?`<div class="ginfo" data-ginfo="${id}">${gInfoHTML(p.gid?LS.get('gpi:'+p.gid,null)?.d:null)}</div>`:''}
     ${p.addr?`<div class="addr-l"><span class="k">주소</span><span>${esc(p.addr.replace(/^日本[、,]\s*/,'').replace(/^(〒\d{3}-\d{4})\s*/,'$1\n'))}</span></div>`:p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
     <dl class="facts">${p.walk?`<dt>걷는 양</dt><dd>${walkHTML(p.walk)}</dd>`:''}${p.price?`<dt>가격대</dt><dd class="mono">${'¥'.repeat(p.price)}<span style="color:var(--soft2)">${'¥'.repeat(4-p.price)}</span></dd>`:''}</dl>
-    ${p.tips&&p.tips.length?`<div class="note"><h4>임산부 팁</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
-    <div class="ibar">${ib(`href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener"`,'nav','길찾기','acc')}${ib(`href="${placeSearch(id)}" target="_blank" rel="noopener"`,'pin','구글 지도')}${sg?ib(`data-bigask="${id}|0"`,'talk','물어보기'):''}${ib(`data-heart="${id}" aria-pressed="${saved.has(id)}"`,'heart',saved.has(id)?'즐겨찾기됨':'즐겨찾기')}${inStop?'':ib(`data-addto="${id}"`,'plus','일정 추가')}${ib(`data-editplace="${id}"`,'gear','정보 수정')}</div>`);
+    ${p.tips&&p.tips.length?`<div class="note"><h4>${p.cat==='숙소'?'예약 정보':'알아 둘 것'}</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
+    <div class="ibar">${ib(`href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener"`,'nav','길찾기','acc')}${ib(`href="${placeSearch(id)}" target="_blank" rel="noopener"`,'pin','구글 지도')}${sg?ib(`data-bigask="${id}|0"`,'talk','물어보기'):''}${inStop?'':ib(`data-heart="${id}" aria-pressed="${saved.has(id)}"`,'heart',saved.has(id)?'즐겨찾기됨':'즐겨찾기')+ib(`data-addto="${id}"`,'plus','일정 추가')}${ib(`data-editplace="${id}"`,'gear','정보 수정')}</div>`);
   fillGInfo(id);
 }
 function addToSheet(id){openSheet(`${shHead('어느 날에 추가할까요?',esc(PL[id].n))}<div class="stack">${DAYS.map(d=>`<button class="btn" style="justify-content:flex-start" data-addday="${d.id}|${id}"><span class="mono" style="color:var(${d.c})">DAY ${d.id}</span> ${esc(d.label)}${d.title?' · '+esc(d.title):''}</button>`).join('')}</div>`);}
@@ -1677,7 +1677,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v60';
+const APP_VER='v61';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
