@@ -756,8 +756,7 @@ function tripSheet(){
       <button type="button" class="btn ghost" data-newstay>${svg('search')}숙소 찾아서 등록</button>
       <p class="err" id="trErr" hidden></p>
       <button class="btn acc" type="submit">저장</button>
-    </form>
-    <button class="btn ghost" data-flights>${svg('plane')}항공편 정보</button>`);
+    </form>`);
 }
 function saveTrip(){
   const v=id=>$('#'+id).value.trim(),err=$('#trErr');
@@ -769,7 +768,7 @@ function saveTrip(){
 function settingsSheet(){
   const m=Sync.meta,mine=member(me());
   openSheet(`${shHead('우리 여행',esc(trip().title))}
-    <div class="sh-acts"><button class="btn acc" data-tripsetup>${svg('pen')}여행 정보</button><button class="btn" data-flights>${svg('plane')}항공편</button></div>
+    <div class="sh-acts"><button class="btn acc" data-tripsetup>${svg('pen')}여행 정보</button></div>
     <div class="invite"><div><div class="k">초대 코드</div><div class="code mono">${esc(m.inviteCode||'—')}</div></div><button class="btn sm" data-copy="${esc(m.inviteCode||'')}">복사</button></div>
     <p class="fine">함께 쓸 사람은 앱에 가입한 뒤 '초대 코드로 참여'에 이 코드를 넣으면 돼요.</p>
     <div><div class="grp">함께하는 사람</div>${Sync.members.map(x=>`<div class="mrow">${avatar(x.user_id)}<b>${esc(x.display_name)}</b>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}</div>
@@ -870,20 +869,21 @@ async function saveTicket(){
   closeSheet();toast('티켓을 저장했어요. 인터넷이 없어도 열려요.');render();
 }
 const termText=x=>x?(/^\d+$/.test(x)?`터미널 ${x}`:x):'';
-function flightBlock(t){const f=t.type==='항공권'&&t.fl;if(!f||!(f.fromCity||f.toCity||f.no))return '';
+function flightBlock(t){const f=t.fl;
   return `<div class="ts-fl"><div class="ap"><span class="tm mono">${esc(f.dep||'--:--')}</span><b>${esc(f.fromCity||'출발')}</b><span class="tt">${esc(termText(f.term))}</span></div>
-    <div class="mid">${svg('plane')}<span>${esc(f.dur||durText(spanMin(f.dep,f.arr)))}</span></div>
-    <div class="ap"><span class="tm mono">${esc(f.arr||'--:--')}</span><b>${esc(f.toCity||'도착')}</b><span class="tt">${esc(termText(f.arrTerm))}</span></div></div>
-    ${f.no?`<div class="ts-meta"><span>편명 <b class="mono">${esc(f.no)}</b></span>${t.dir&&DIRS[t.dir]?`<span>${DIRS[t.dir]}</span>`:''}</div>`:''}`;}
+    <div class="mid">${svg('plane')}${f.no?`<b class="mono">${esc(f.no)}</b>`:''}<span>${esc(f.dur||durText(spanMin(f.dep,f.arr)))}</span></div>
+    <div class="ap"><span class="tm mono">${esc(f.arr||'--:--')}</span><b>${esc(f.toCity||'도착')}</b><span class="tt">${esc(termText(f.arrTerm))}</span></div></div>`;}
+const dayDate=d=>{const x=DAYS[d-1];return x&&x.date?`${fmtMD(x.date)}(${WEEK[x.date.getDay()]})`:`DAY ${d}`;};
+const ticketKind=t=>t.type==='항공권'&&t.dir&&t.dir!=='etc'?DIRS[t.dir]:t.type;
 function showTicket(id){
-  const t=Sync.get('ticket',id);if(!t)return;
-  openOverlay(`<div class="tshow"><div class="ts-top"><div>${t.pax?`<div class="ts-pax">${esc(t.pax)}</div>`:''}<div class="k">${esc(t.type)}${t.dir&&DIRS[t.dir]&&t.dir!=='etc'?' · '+DIRS[t.dir]:''} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</div><b>${esc(t.title)}</b></div><button class="ov-x" data-closeov aria-label="닫기">×</button></div>
-    ${flightBlock(t)}
+  const t=Sync.get('ticket',id);if(!t)return;const air=t.type==='항공권'&&t.fl&&(t.fl.fromCity||t.fl.toCity||t.fl.no);
+  const files=(t.files||[]).map(f=>f.mime==='application/pdf'?`<a class="btn" data-pdf="${esc(f.path)}" href="#" target="_blank" rel="noopener">${svg('file')}${esc(f.name||'PDF')} 열기</a>`:`<img data-file="${esc(f.path)}" alt="${esc(t.title)} 티켓">`).join('');
+  openOverlay(`<div class="tshow"><div class="ts-top"><div>${t.pax?`<div class="ts-pax">${esc(t.pax)}</div>`:''}<div class="k">${esc(ticketKind(t))} · ${dayDate(t.day)}${!air&&t.time?' · '+esc(t.time):''}</div>${air?'':`<b>${esc(t.title)}</b>`}</div>
+      <div class="ts-btns"><button class="ov-x ts-edit" data-editticket="${esc(id)}" aria-label="티켓 수정">${svg('pen')}</button><button class="ov-x" data-closeov aria-label="닫기">×</button></div></div>
+    ${air?flightBlock(t):''}
     ${t.code||t.seat?`<div class="ts-codes">${t.code?`<div class="ts-code"><span class="k">예약 번호</span><span class="mono">${esc(t.code)}</span></div>`:''}${t.seat?`<div class="ts-code seat"><span class="k">좌석</span><span class="mono">${esc(t.seat)}</span></div>`:''}</div>`:''}
-    <div class="ts-files">${(t.files||[]).map(f=>f.mime==='application/pdf'?`<a class="btn" data-pdf="${esc(f.path)}" href="#" target="_blank" rel="noopener">${svg('file')}${esc(f.name||'PDF')} 열기</a>`:`<img data-file="${esc(f.path)}" alt="${esc(t.title)} 티켓">`).join('')||'<p class="fine">올린 파일이 없어요.</p>'}</div>
-    ${t.memo?`<p class="ts-memo">${esc(t.memo)}</p>`:''}
-    <p class="fine ts-hint">화면 밝기를 최대로 올리고 보여 주세요. 이 화면이 열려 있는 동안 화면이 꺼지지 않아요.</p>
-    <button class="btn sm ghost" data-editticket="${t.id}">고치기</button></div>`,true);
+    ${files?`<div class="ts-files">${files}</div>`:''}
+    ${t.memo?`<p class="ts-memo">${esc(t.memo)}</p>`:''}</div>`,true);
 }
 async function hydrateFiles(root){
   for(const img of root.querySelectorAll('img[data-file]')){const u=await Sync.fileURL(img.dataset.file);if(u)img.src=u;else{img.alt='오프라인이라 아직 못 받은 파일이에요';img.classList.add('missing');}}
@@ -1003,7 +1003,7 @@ function viewPlan(){
   const legs=[];for(let i=0;i<st.length-1;i++)legs.push(leg(st[i].p,st[i+1].p,st[i+1].move));
   const tot=legs.filter(l=>l&&l.min).reduce((a,l)=>a+l.min,0);
   const ft=fl&&tk.find(t=>t.slot===fl.slot);
-  const flightRow=fl?`<button class="flight" ${ft?`data-showticket="${ft.id}"`:'data-flights'}>${svg('plane')}<b>${esc(fl.f.no||'항공편')} · ${esc(fl.f.fromCity||'출발')} ${esc(fl.f.dep||'--:--')} → ${esc(fl.f.toCity||'도착')} ${esc(fl.f.arr||'--:--')}</b><span class="r">${ft?'탑승권 보기':fl.f.no?'탑승권 추가':'항공편 입력'}</span></button>`:'';
+  const flightRow=fl?`<button class="flight" ${ft?`data-showticket="${ft.id}"`:`data-slot="${fl.slot}"`}>${svg('plane')}<b>${esc(fl.f.no||'항공편')} · ${esc(fl.f.fromCity||'출발')} ${esc(fl.f.dep||'--:--')} → ${esc(fl.f.toCity||'도착')} ${esc(fl.f.arr||'--:--')}</b><span class="r">${ft?'탑승권 보기':fl.f.no?'탑승권 추가':'항공편 입력'}</span></button>`:'';
   let list='';
   st.forEach((s,i)=>{
     const p=PL[s.p],n=nums.indexOf(s.p)+1,home=isStay(s.p),air=isAir(s.p),sg=mainSign(s.p),stk=tk.filter(t=>t.place===s.p&&t.day===d&&t.type!=='항공권'),c=CAT[p.cat]||CAT['기타'];
@@ -1048,11 +1048,13 @@ function viewPlaces(){
 function viewTickets(){
   const all=tickets(),names=[...new Set(all.map(t=>t.pax).filter(Boolean))],sel=state.tpax===null?myPax():state.tpax,who=names.includes(sel)?sel:'';
   const tk=who?all.filter(t=>!t.pax||t.pax===who):all,slots=slotStatus().filter(s=>!s.t),f=flights();
-  const card=t=>{const img=(t.files||[]).find(x=>x.mime!=='application/pdf');return `<button class="card tcard" data-showticket="${t.id}"><span class="tc-thumb">${img?`<img data-file="${esc(img.path)}" alt="">`:svg((t.files||[]).length?'file':'ticket')}</span><span class="m">${t.pax?`<span class="tpax">${esc(t.pax)}</span>`:''}<span class="k">${t.dir&&DIRS[t.dir]&&t.dir!=='etc'?DIRS[t.dir]:esc(t.type)} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</span><b>${esc(t.title)}</b>${t.code||t.seat||(t.fl&&t.fl.no)?`<span class="mono s">${[t.fl&&t.fl.no,t.code&&'예약 '+t.code,t.seat&&'좌석 '+t.seat].filter(Boolean).map(esc).join('  ')}</span>`:''}</span><span class="chip ok">보여주기</span></button>`;};
+  const card=t=>{const img=(t.files||[]).find(x=>x.mime!=='application/pdf'),f=t.fl,air=t.type==='항공권'&&f&&(f.fromCity||f.toCity||f.no);
+    const top=`<span class="k">${t.pax?`<span class="tpax">${esc(t.pax)}</span>`:''}${esc(ticketKind(t))} · ${dayDate(t.day)}${!air&&t.time?' · '+esc(t.time):''}</span>`;
+    if(air){const a=apCode(f.fromCity)||f.fromCity||'출발',z=apCode(f.toCity)||f.toCity||'도착',sub=[f.no,t.seat&&'좌석 '+t.seat].filter(Boolean).join(' · ');
+      return `<button class="card tcard air" data-showticket="${t.id}"><span class="m">${top}<span class="route"><b>${esc(a)}</b><span class="mono">${esc(f.dep||'')}</span><span class="to">→</span><b>${esc(z)}</b><span class="mono">${esc(f.arr||'')}</span></span>${sub?`<span class="s mono">${esc(sub)}</span>`:''}</span></button>`;}
+    return `<button class="card tcard" data-showticket="${t.id}">${img?`<span class="tc-thumb"><img data-file="${esc(img.path)}" alt=""></span>`:''}<span class="m">${top}<b>${esc(t.title)}</b>${t.code||t.seat?`<span class="s mono">${esc([t.code,t.seat&&'좌석 '+t.seat].filter(Boolean).join(' · '))}</span>`:''}</span></button>`;};
   return `<section class="view">
-    <p class="fine">공항·입구에서 이 화면을 보여 주세요. 한 번 열어 본 티켓은 인터넷이 없어도 열려요.</p>
     ${names.length>1?`<div class="catpick paxpick" role="group" aria-label="누구 티켓">${['',...names].map(n=>`<button type="button" data-tpaxf="${esc(n)}" aria-pressed="${who===n}">${n?esc(n):'전체'}</button>`).join('')}</div>`:''}
-    <button class="card fl-card" data-flights>${svg('plane')}<span class="m"><b>항공편 정보</b><span class="s">가는 편 ${esc(f.out.no||'미입력')} ${esc(f.out.dep||'')} · 오는 편 ${esc(f.in.no||'미입력')} ${esc(f.in.dep||'')}</span></span><span class="chip ${f.out.no&&f.in.no?'ok':'warn'}">${f.out.no&&f.in.no?'고치기':'입력하기'}</span></button>
     ${TICKET_TYPES.map(ty=>{const a=tk.filter(t=>t.type===ty),need=slots.filter(s=>s.type===ty);if(!a.length&&!need.length)return '';
       return `<div><div class="sec-h"><h2>${ty}</h2></div><div class="stack">${a.map(card).join('')}${need.map(s=>`<button class="card tslot" data-slot="${esc(s.slot)}"><span class="tc-thumb">${svg('plus')}</span><span class="m"><span class="k">DAY ${s.day}${s.time?' · '+esc(s.time):''}</span><b>${esc(s.title)}</b><span class="s">${esc(s.hint)}</span></span></button>`).join('')}</div></div>`;}).join('')}
     <button class="btn acc" data-addticket>${svg('plus')}다른 티켓 추가</button>

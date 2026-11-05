@@ -579,3 +579,13 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .ticket .nm{font-size:13px;color:var(--tk,#a08aa8);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ticket .row{gap:16px;margin-top:10px}
 .ticket .row .v{white-space:nowrap}
+.ts-btns{display:flex;gap:8px;flex:none}
+.ts-edit svg{width:18px;height:18px}
+.ts-fl .mid b{font-size:14px;color:#2b2f45}
+.tcard .k{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tcard .k .tpax{margin:0}
+.tcard.air{padding:14px 16px}
+.tcard .route{display:flex;align-items:baseline;gap:6px;margin:3px 0 1px;padding:0;white-space:nowrap}
+.tcard .route b{font-size:20px;letter-spacing:.02em}
+.tcard .route .mono{font-size:15px;color:var(--ink,#2b2f45)}
+.tcard .route .to{color:var(--mute);margin:0 4px}
