@@ -132,7 +132,7 @@ const IC={
   bed:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5M7 11.5a1.5 1.5 0 1 0 0-.01"/>',plane:'<path d="M2 16l20-6-3-3-7 3-5-5-2 1 3 6-4 2-2-1-1 1z"/>',nav:'<path d="M3 11l18-8-8 18-2-8z"/>',pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   memo:'<path d="M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5"/>',taxi:'<path d="M5 17h14v-5l-2-5H7l-2 5zM5 12h14M8 17v2M16 17v2M10 4h4"/>',walk:'<circle cx="13" cy="4.5" r="1.5"/><path d="M10 21l2-6 3 3v3M9 12l2-4 3 1 2 3M11 8l-2 5"/>',train:'<rect x="6" y="3" width="12" height="13" rx="3"/><path d="M6 10h12M9 20l-2 1M15 20l2 1M9 16l-1 4M15 16l1 4"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',yen:'<path d="M6 4l6 8 6-8M12 12v8M8 13h8M8 16h8"/>',talk:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',home:'<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
-  list:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/>',ticket:'<path d="M3 8a2 2 0 0 0 0 4v4h18v-4a2 2 0 0 1 0-4V4H3zM14 4v16"/>',heart:'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',chev:'<path d="M9 6l6 6-6 6"/>',back:'<path d="M15 6l-6 6 6 6"/>',plus:'<path d="M12 5v14M5 12h14"/>',
+  list:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/>',ticket:'<path d="M4 6h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4zM14 6v12"/>',heart:'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',chev:'<path d="M9 6l6 6-6 6"/>',back:'<path d="M15 6l-6 6 6 6"/>',plus:'<path d="M12 5v14M5 12h14"/>',
   up:'<path d="M6 15l6-6 6 6"/>',down:'<path d="M6 9l6 6 6-6"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>',fit:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',pen:'<path d="M4 20l4-1 11-11-3-3L5 16zM14 6l3 3"/>',
   sndon:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',sndoff:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
   speak:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
@@ -789,10 +789,9 @@ function placeSheet(id){
   const p=PL[id];if(!p)return;const days=DAYS.filter(d=>planOf(d.id).some(s=>s.p===id)).map(d=>d.id),saved=savedSet(),tks=tickets().filter(t=>t.place===id),sg=mainSign(id),c=CAT[p.cat]||CAT['기타'];
   openSheet(`${shHead(esc(p.n),`<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
     <div style="display:flex;gap:6px;flex-wrap:wrap">${safeChip(p)}${days.map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}${!hasLL(id)?'<span class="chip">지도 위치 없음</span>':''}</div>
-    ${tks.map(t=>`<button class="btn acc" data-showticket="${t.id}">${svg('ticket')}${esc(t.title)} 티켓 보여주기</button>`).join('')}
     <div><div class="grp" style="margin-top:0">일본어 간판 · 발음</div>${signRows(id)}
       ${sg?`<button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}「${esc(sg[0])}」 어디예요? 물어보기</button>`:''}</div>
-    ${p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
+    ${p.addr?`<div class="addr-l"><span class="k">주소</span><span>${esc(p.addr)}</span></div>`:p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
     <dl class="facts">${p.walk?`<dt>걷는 양</dt><dd>${walkHTML(p.walk)}</dd>`:''}${p.price?`<dt>가격대</dt><dd class="mono">${'¥'.repeat(p.price)}<span style="color:var(--soft2)">${'¥'.repeat(4-p.price)}</span></dd>`:''}</dl>
     ${p.tips&&p.tips.length?`<div class="note"><h4>임산부 팁</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${placeSearch(id)}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
@@ -1199,8 +1198,6 @@ function viewHome(){
         return `<button class="rsv-row${s.t?'':' need'}" ${s.t?`data-showticket="${s.t.id}"`:`data-slot="${esc(s.slot)}"`}><span class="ri">${svg(s.type==='항공권'?'plane':s.type==='숙소'?'bed':'ticket','')}</span><span class="m">${air?`<span class="s">${DIRS[s.dir]} · ${dayDate(s.day)}</span>${flightLine(f)}`:`<b>${esc(s.t?s.t.title:s.title)}</b><span class="s">${dayDate(s.day)}${(s.t&&s.t.time||s.time)?' · '+esc(s.t&&s.t.time||s.time):''}</span>`}</span>${air&&f.no?`<span class="r mono">${esc(f.no)}</span>`:''}${s.t?'':'<span class="r add">+ 추가</span>'}</button>`;}).join('')}</div></div>
     ${first.length?`<div><div class="sec-h"><h2>DAY ${today} · ${esc(dayOf(today).label)}</h2><button class="more" data-tab="plan" data-day="${today}">전체 일정 ${svg('chev')}</button></div>
       <div>${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p);return `<div class="mini"><span class="t">${s.t||'--:--'}</span><span class="n">${esc(s.title||p.n)}</span>${sg?`<span class="jp-s" lang="ja">${esc(sg[0])}</span>`:''}</div>`;}).join('')}</div></div>`:''}
-    <div><div class="sec-h"><h2>최근 기록</h2><button class="more" data-tab="diary">쓰러 가기 ${svg('chev')}</button></div>
-      ${last?entryHTML(last,true):`<button class="card budget" data-tab="diary"><b>첫 기록을 남겨 보세요</b><span class="fine">아기에게 쓰는 편지, 한 줄 일기, 맛있었던 것</span></button>`}</div>
     <div><div class="sec-h"><h2>가계부</h2><button class="more" data-tab="money">기록하기 ${svg('chev')}</button></div>
       <button class="card budget" data-tab="money"><span class="fine">지금까지 쓴 돈</span><span class="big">${won(t.sum)}</span>${catBar(t,Math.max(t.sum,settings().budget))}<span class="fine">예산 ${won(settings().budget)} 중 ${Math.round(t.sum/settings().budget*100)}%</span></button></div>
     <button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>
@@ -1229,14 +1226,14 @@ function viewPlan(){
       :`<button class="stop-card" data-place="${s.p}"><div class="nm">${esc(s.title||p.n)}</div>
         <div class="meta"><span class="cat" style="--c:var(${c.c})">${esc(p.cat)}</span>${home&&s.title?`<span>${esc(p.n)}</span>`:p.area?`<span>${esc(p.area)}</span>`:''}${p.safe?`<span>${p.safe==='ok'?'임산부 안심':'주문 시 주의'}</span>`:''}</div>
         <div class="when"><b>${s.t||'시간 미정'}</b>${s.dur?`<span>${esc(s.dur)}</span>`:''}</div></button>
-        <div class="jp-row">${sg?`<button class="jp-chip" data-bigsign="${s.p}|0"><span lang="ja">${esc(sg[0])}</span></button><button class="icon-btn sm" data-say="${esc(sg[0])}" aria-label="${esc(p.n)} 일본어로 듣기">${svg('speak')}</button>`:''}${stk.map(t=>`<button class="btn sm acc" data-showticket="${t.id}">${svg('ticket')}티켓</button>`).join('')}</div>
+
         ${s.memo?`<div class="memo">${svg('memo','')}<span>${esc(s.memo)}</span></div>`:''}`}</div></li>`;
   });
   return `<section class="view">
     <div class="seg ${DAYS.length<=3?'days':''}" role="group" aria-label="날짜">${DAYS.map(x=>`<button class="pill" style="--c:var(${x.c})" data-day="${x.id}" aria-pressed="${x.id===d}"><span><i style="margin-right:5px;vertical-align:1px"></i>DAY ${x.id}</span><small>${esc(x.label)}</small></button>`).join('')}</div>
     ${nums.length||st.some(s=>hasLL(s.p))?`<div>${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg"><span><i></i>전철·버스</span><span><i class="taxi"></i>택시</span><span><i class="walk"></i>도보</span><span class="fine">선은 순서만 이어 줘요. 정확한 길은 '길찾기'로</span></div></div>`:''}
     <div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span>${state.edit?`<input type="text" class="day-title" data-daytitle="${d}" value="${esc(day.title)}" placeholder="이날의 제목 (예: 아사쿠사 · 스카이트리)" aria-label="DAY ${d} 제목">`:`<h2>${esc(day.title||'일정')}</h2>`}<span class="date">${esc(day.label)}</span></div>
-      <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''} · 일본어를 누르면 간판 대조, 스피커는 발음 듣기`:'아직 이날 일정이 없어요. 아래에서 장소를 넣어 보세요.'}${state.edit?' · 바꾼 내용은 둘 다에게 보여요':''}</p></div>
+      <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 아래에서 장소를 넣어 보세요.'}${state.edit?' · 바꾼 내용은 둘 다에게 보여요':''}</p></div>
     <div>${fl&&d===1?flightRow:''}<ol class="stops">${list}</ol>${fl&&d!==1?flightRow:''}
       <div class="addrow"><button class="btn acc" data-pick="${d}">${svg('plus')}장소 넣기</button>${state.edit?`<button class="btn" data-edit>완료</button>`:`<button class="btn ghost" data-edit>${svg('pen')}시간 · 순서 편집</button>`}</div></div>
   </section>`;
