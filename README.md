@@ -32,5 +32,5 @@ GitHub Pages: Settings → Pages → Source를 `Deploy from a branch`, 브랜치
 
 ## 외부 서비스
 
-- 지도: OpenFreeMap Positron 벡터 지도(OpenStreetMap 데이터, API 키 없음, 한국어 지명 우선). WebGL이 없으면 OpenStreetMap 기본 타일. 본 지역과 '오프라인 지도 받기'로 받은 지역은 오프라인에서도 보임
-- 장소 검색: OpenStreetMap Nominatim (검색할 때만 사용)
+- 지도: 인터넷이 될 때는 구글 지도(브라우저용 키는 이 사이트 주소와 Maps·Places API로만 제한), 끊기면 OpenFreeMap Positron 벡터 지도(OpenStreetMap 데이터, API 키 없음, 한국어 지명 우선). WebGL이 없으면 OpenStreetMap 기본 타일. 본 지역과 '오프라인 지도 받기'로 받은 지역은 오프라인에서도 보임
+- 장소 검색: 구글 Places API (New), 일본어 이름은 일본어로 한 번 더 받아 옴. 안 되면 OpenStreetMap Nominatim
