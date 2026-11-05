@@ -1261,9 +1261,10 @@ function viewPlan(){
   return `<section class="view">
     <div class="seg ${DAYS.length<=3?'days':''}" role="group" aria-label="날짜">${DAYS.map(x=>`<button class="pill" style="--c:var(${x.c})" data-day="${x.id}" aria-pressed="${x.id===d}"><span><i style="margin-right:5px;vertical-align:1px"></i>DAY ${x.id}</span><small>${esc(x.label)}</small></button>`).join('')}</div>
     ${nums.length||st.some(s=>hasLL(s.p))?`<div>${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg"><span><i></i>전철·버스</span><span><i class="taxi"></i>택시</span><span><i class="walk"></i>도보</span><span class="fine">도보·택시는 실제 길로, 전철은 직선으로 이어요</span></div></div>`:''}
-    <div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span><h2><button class="dt-btn" data-daytitlepop="${d}" aria-label="DAY ${d} 제목 바꾸기">${esc(day.title||'일정')}</button></h2><span class="date">${esc(day.label)}</span></div>
+    <div class="card dayboard" style="--c:var(${day.c})"><div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span><h2><button class="dt-btn" data-daytitlepop="${d}" aria-label="DAY ${d} 제목 바꾸기">${esc(day.title||'일정')}</button></h2><span class="date">${esc(day.label)}</span></div>
       <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 오른쪽 위 「추가」로 장소를 넣어 보세요.'}</p></div>
     <div>${fl&&d===1?flightRow:''}<ol class="stops">${list}</ol>${fl&&d!==1?flightRow:''}</div>
+      ${st.length?'<p class="fine plan-hint">길게 눌러 끌면 순서 변경 · 오른쪽으로 밀면 삭제</p>':''}</div>
   </section>`;
 }
 function placeList(){const s=savedSet();return Object.keys(PL).filter(id=>(state.sCat==='전체'||PL[id].cat===state.sCat)&&(!state.sOnly||s.has(id))).sort((a,b)=>CAT_LIST.indexOf(PL[a].cat)-CAT_LIST.indexOf(PL[b].cat));}
@@ -1381,6 +1382,10 @@ function viewPrep(){
       <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')}</span>`:''}</div>
   </section>`;
 }
+function stopDelPop(d,i){const s=planOf(d)[i];if(!s)return;const p=PL[s.p]||{n:''};
+  floatPop(`<div class="fp-h"><b>일정에서 뺄까요?</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
+    <p class="fine" style="margin:0">${esc(s.title||p.n)}${s.t?` · ${esc(s.t)}`:''}<br>장소와 즐겨찾기는 그대로 남아요.</p>
+    <div class="sp-acts"><button class="btn" data-closefp>취소</button><button class="btn del-fill" data-stopdelok="${d}|${i}">빼기</button></div>`);}
 /* edit one stop of the schedule: time, how long, name, memo, and how to get there */
 function stopPop(d,i){const s=planOf(d)[i];if(!s)return;const p=PL[s.p]||{n:''},mv=s.move||{};
   floatPop(`<div class="fp-h"><b>일정 고치기</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
@@ -1465,7 +1470,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1529,7 +1534,8 @@ document.addEventListener('click',async e=>{
     s.t=v('t');s.dur=v('dur');s.title=v('title');s.memo=v('memo');
     if($('#sp-how')){const how=v('how'),min=+v('min')||'',note=v('note');if(how||min||note)s.move={how:how||'train',min,note};else delete s.move;}
     setPlan(d,a);closeFloat();if(state.stopCtx&&$('#sheetRoot .sheet'))placeSheet(state.stopCtx.id);render();toast('일정을 고쳤어요.');}
-  else if(ds.stopdel){const [d,i]=ds.stopdel.split('|').map(Number),a=planOf(d);if(!a[i]||!confirm('이 일정을 뺄까요? 장소와 즐겨찾기는 그대로 남아요.'))return;
+  else if(ds.stopdel){const [d,i]=ds.stopdel.split('|').map(Number);stopDelPop(d,i);}
+  else if(ds.stopdelok){const [d,i]=ds.stopdelok.split('|').map(Number),a=planOf(d);if(!a[i])return;
     a.splice(i,1);setPlan(d,a);state.stopCtx=null;closeFloat();closeAllSheets();render();toast('일정에서 뺐어요.');}
   else if(ds.daytitlepop){const d=+ds.daytitlepop;floatPop(`<div class="fp-h"><b>DAY ${d} 제목</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
       <div class="fp-form"><input type="text" id="dtIn" value="${esc(dayOf(d).title||'')}" placeholder="예: 아사쿠사 · 스카이트리" autocomplete="off" aria-label="이날의 제목"><button class="btn acc" data-daytitlesave="${d}">저장</button></div>`);}
@@ -1672,9 +1678,16 @@ let dragOn=false,dragDone=0;
 document.addEventListener('pointerdown',e=>{const c=e.target.closest('.stop-card[data-stopi]');if(!c||e.button>0)return;
   const li=c.closest('li.stop'),x0=e.clientX;let ly=e.clientY,y0=e.clientY,hold;
   const off=()=>{clearTimeout(hold);document.removeEventListener('pointermove',pre);document.removeEventListener('pointerup',off);document.removeEventListener('pointercancel',off);};
-  const pre=ev=>{ly=ev.clientY;if(Math.hypot(ev.clientX-x0,ev.clientY-y0)>8)off();};
+  const pre=ev=>{ly=ev.clientY;const dx=ev.clientX-x0,dy=ev.clientY-y0;if(Math.hypot(dx,dy)>8){off();if(dx>0&&Math.abs(dx)>Math.abs(dy)*1.5)startSwipe(c,li,x0,+c.dataset.stopi);}};
   document.addEventListener('pointermove',pre);document.addEventListener('pointerup',off);document.addEventListener('pointercancel',off);
   hold=setTimeout(()=>{off();startDrag(li,+c.dataset.stopi,ly);},380);});
+// slide a card to the right to take it out of the day (asks first)
+function startSwipe(c,li,x0,i){let dx=0;dragOn=true;li.classList.add('swiping');c.style.transition='none';
+  const move=ev=>{dx=Math.max(0,ev.clientX-x0);c.style.transform=`translateX(${dx}px)`;li.classList.toggle('swipe-arm',dx>90);};
+  const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
+    dragOn=false;dragDone=Date.now();c.style.transition='transform .2s';c.style.transform='';setTimeout(()=>{li.classList.remove('swiping','swipe-arm');c.style.transition='';},200);
+    if(dx>90)stopDelPop(state.day,i);};
+  document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);}
 function startDrag(li,from,y0){
   const list=[...document.querySelectorAll('li.stop[data-si]')],s0=window.scrollY;let to=from;dragOn=true;
   if(navigator.vibrate)try{navigator.vibrate(20);}catch(_){}
@@ -1697,7 +1710,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v63';
+const APP_VER='v64';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

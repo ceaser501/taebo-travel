@@ -893,3 +893,13 @@ li.stop.drop-below{box-shadow:0 3px 0 var(--accent)}
 .shake{animation:shake .35s}
 .vpin input::placeholder,.vault .fsec input::placeholder{letter-spacing:normal;font-size:16px}
 .vpin .btn{border-radius:14px;padding:0 22px}
+/* schedule board: the day sits in its own box under the map */
+.dayboard{padding:16px 14px 12px;display:flex;flex-direction:column;gap:10px;background:color-mix(in srgb,var(--c) 5%,var(--card))}
+.plan-hint{text-align:center;margin:2px 0 0;font-size:12px}
+.stop-card{touch-action:pan-y;position:relative;z-index:1;background:inherit}
+li.stop.swiping .body{position:relative;border-radius:14px;background:#fde8ea}
+li.stop.swiping .body::before{content:'빼기';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:var(--no);opacity:.5}
+li.stop.swipe-arm .body::before{opacity:1}
+li.stop.swiping .stop-card{background:color-mix(in srgb,var(--c) 5%,var(--card));border-radius:14px}
+.btn.del-fill{background:var(--no);color:#fff;border-color:transparent}
+.dayboard{overflow-x:clip}li.stop.swiping .body{overflow:hidden}
