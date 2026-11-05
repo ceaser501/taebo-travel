@@ -140,7 +140,7 @@ const IC={
   up:'<path d="M6 15l6-6 6 6"/>',down:'<path d="M6 9l6 6 6-6"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>',fit:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',pen:'<path d="M4 20l4-1 11-11-3-3L5 16zM14 6l3 3"/>',
   sndon:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',sndoff:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
   speak:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
-  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',sync:'<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',sync:'<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>',
   bus:'<rect x="4" y="4" width="16" height="13" rx="3"/><path d="M4 11h16M7 17v3M17 17v3M8 14h.01M16 14h.01"/>',
   search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
   file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',expand:'<path d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6"/>',share:'<path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/>',
@@ -1141,7 +1141,8 @@ async function hydrateFiles(root){
 }
 function syncText(){const s=Sync.status,n=Sync.dirtyCount();
   return {synced:'둘 다 같은 내용이에요',syncing:'맞추는 중…',offline:n?`오프라인 · ${n}개는 연결되면 보내요`:'오프라인 · 이 휴대폰에 저장됨',pending:`보낼 것 ${n}개`,error:'잠시 후 다시 맞춰요',signedout:'다시 로그인이 필요해요',idle:'준비 중'}[s]||s;}
-const syncDot=()=>`<button class="syncdot s-${Sync.status}" data-settings aria-label="동기화 상태: ${syncText()}"><i></i>${Sync.status==='offline'?'오프라인':Sync.status==='synced'?'':Sync.status==='syncing'?'':'!'}</button>`;
+// settings button in the header; a small mark on it only when the phone is offline or has not synced
+const syncDot=()=>`<button class="syncdot gearbtn s-${Sync.status}" data-settings aria-label="설정 · 동기화 상태: ${syncText()}">${svg('gear')}${Sync.status==='synced'||Sync.status==='syncing'?'':'<b class="sbadge"></b>'}</button>`;
 function totals(){const t={sum:0,by:{}};expenses().forEach(e=>{const v=toKRW(e);t.sum+=v;t.by[e.cat]=(t.by[e.cat]||0)+v;});return t;}
 function catBar(t,base){return `<div class="bar">${Object.keys(XCAT).filter(k=>t.by[k]).map(k=>`<i style="width:${(t.by[k]/base*100).toFixed(2)}%;background:var(${XCAT[k]})"></i>`).join('')}</div>`;}
 function heroArt(){return `<svg class="art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6cbf7"/><stop offset=".7" stop-color="#dcdcf8"/><stop offset="1" stop-color="#f6e2e2"/></linearGradient></defs><rect width="400" height="200" fill="url(#hD)"/>${cloud(-20,24,.8,.8)}${cloud(300,130,1.2,1)}<path d="M170 120 C 230 100, 262 70, 250 52 C 242 40, 226 44, 222 56 C 218 44, 202 40, 194 52 C 182 70, 214 100, 222 112 C 240 132, 300 90, 350 40" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><g transform="translate(352 38) rotate(-45)">${planeTop('#fff','#b9c3ea')}</g></svg>`;}
@@ -1716,7 +1717,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v68';
+const APP_VER='v69';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
