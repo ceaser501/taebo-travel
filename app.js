@@ -122,7 +122,7 @@ function importTemplate(){
 }
 /* ---------- small UI helpers ---------- */
 const IC={
-  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
   bed:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5M7 11.5a1.5 1.5 0 1 0 0-.01"/>',plane:'<path d="M2 16l20-6-3-3-7 3-5-5-2 1 3 6-4 2-2-1-1 1z"/>',nav:'<path d="M3 11l18-8-8 18-2-8z"/>',pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   memo:'<path d="M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5"/>',taxi:'<path d="M5 17h14v-5l-2-5H7l-2 5zM5 12h14M8 17v2M16 17v2M10 4h4"/>',walk:'<circle cx="13" cy="4.5" r="1.5"/><path d="M10 21l2-6 3 3v3M9 12l2-4 3 1 2 3M11 8l-2 5"/>',train:'<rect x="6" y="3" width="12" height="13" rx="3"/><path d="M6 10h12M9 20l-2 1M15 20l2 1M9 16l-1 4M15 16l1 4"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',yen:'<path d="M6 4l6 8 6-8M12 12v8M8 13h8M8 16h8"/>',talk:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',home:'<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
@@ -551,7 +551,7 @@ const shHead=(title,sub,lead='')=>`<div class="sh-head">${lead}<div class="m"><h
 let wakeLock=null;
 async function keepAwake(on){try{if(on&&'wakeLock' in navigator)wakeLock=await navigator.wakeLock.request('screen');else if(!on&&wakeLock){await wakeLock.release();wakeLock=null;}}catch(e){}}
 function openOverlay(html,awake){const el=$('#overlay');if(el.hidden&&byTap())history.pushState({k:'ov'},'',location.href);el.innerHTML=html;el.hidden=false;document.body.style.overflow='hidden';if(awake)keepAwake(true);hydrateFiles(el);const b=el.querySelector('.ov-x');if(b)b.focus({preventScroll:true});}
-function closeOverlay(fromBack){if(fromBack!==true)stepBack('ov');const el=$('#overlay');el.hidden=true;el.innerHTML='';document.body.style.overflow='';keepAwake(false);if('speechSynthesis' in window)speechSynthesis.cancel();}
+function closeOverlay(fromBack){if(fromBack!==true)stepBack('ov');if(rec){try{rec.abort();}catch(e){}rec=null;}const wasTalk=$('#overlay .interp,#overlay .ocr')&&$('#trForm');const el=$('#overlay');el.hidden=true;el.innerHTML='';document.body.style.overflow='';keepAwake(false);if('speechSynthesis' in window)speechSynthesis.cancel();if(wasTalk)talkSheet('');}
 
 /* ---------- Japanese sign rows and full-screen sign ---------- */
 function signRows(id){
@@ -574,6 +574,8 @@ function talkSheet(msg){
   openSheet(`${shHead('일본어 회화','한국어로 쓰면 일본어로, 일본어를 쓰면 뜻을 달아 목록에 넣어요.')}
     <form id="trForm" class="srow"><input type="text" id="trIn" class="sinput" placeholder="예: 이거 맵나요? / 辛いですか" autocomplete="off" enterkeyhint="done"><button class="btn acc" type="submit">번역</button></form>
     <p class="fine" id="trMsg" ${msg?'':'hidden'}>${esc(msg||'')}</p>
+    <div class="ttools"><label class="ttool">${svg('camera')}<span><b>사진 번역</b><small>간판·메뉴를 찍어요</small></span><input type="file" id="ocrIn" accept="image/*" capture="environment" hidden></label>
+      <button class="ttool" data-interp>${svg('mic')}<span><b>대화 통역</b><small>말하면 바로 번역</small></span></button></div>
     <div class="signs">${allPhrases().map((p,i)=>`<div class="sign tap" data-bigphrase="${i}" ${p[3]?`data-hold="${esc(p[3])}"`:''} role="button" tabindex="0" aria-label="${esc(p[2])} 크게 보기"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
       <button class="say-zone" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}<span>듣기</span></button></div>`).join('')}</div>
     <p class="fine">카드를 누르면 크게 보여요. 길게 누르면 지울 수 있어요.</p>
@@ -664,6 +666,68 @@ async function translateText(text){
   return toKo?{ja:text,ko:out}:{ja:out,ko:text};
 }
 let kuroP=null;
+// a phrase whose Japanese and Korean are already known (from a photo or the interpreter)
+async function savePhrase(ja,ko){let kana='';try{kana=await readingOf(ja);}catch(e){}Sync.put('phrase',uid(),{ja,kana,ko,by:me(),at:new Date().toISOString()});cloudTTS(ja,false).catch(()=>{});}
+
+/* ---------- photo translation: Cloud Vision reads the Japanese, Cloud Translation turns it into Korean ---------- */
+async function ocrImage(file){
+  openOverlay(`<div class="ocr"><div class="ov-top"><b>사진 번역</b><button class="ov-x" data-closeov aria-label="닫기">×</button></div><div id="ocrBody"><p class="fine" style="text-align:center;padding:30px 0">글자를 읽는 중…</p></div></div>`);
+  const body=()=>$('#ocrBody');
+  try{
+    if(!navigator.onLine)throw new Error('offline');
+    const blob=await downscale(file,1600),url=URL.createObjectURL(blob);
+    const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
+    const r=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION'}],imageContext:{languageHints:['ja']}}]})});
+    if(r.status===403)throw new Error('vision-off');if(!r.ok)throw new Error('http');
+    const j=await r.json(),text=((j.responses&&j.responses[0]&&j.responses[0].fullTextAnnotation)||{}).text||'';
+    const lines=[...new Set(text.split('\n').map(x=>x.trim()).filter(x=>x&&/[\u3040-\u30ff\u4e00-\u9fff]/.test(x)))].slice(0,20);
+    if(!lines.length){if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진"><p class="fine" style="text-align:center">일본어를 찾지 못했어요. 글자가 크게 나오게 다시 찍어 보세요.</p>`;return;}
+    const tr=await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:lines,source:'ja',target:'ko',format:'text'})});
+    if(!tr.ok)throw new Error(tr.status===403?'disabled':'http');
+    const ko=(await tr.json()).data.translations.map(x=>x.translatedText);
+    state.ocr=lines.map((l,i)=>[l,ko[i]||'']);
+    if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진">
+      <div class="ocr-all"><b>${esc(ko.join(' '))}</b></div>
+      <div class="ocr-lines">${state.ocr.map(([a,b],i)=>`<div class="ol"><button class="ol-m" data-say="${esc(a)}"><span class="ja" lang="ja" translate="no">${esc(a)}</span><span class="ko">${esc(b)}</span></button><button class="btn sm" data-ocrsave="${i}">${svg('plus')}</button></div>`).join('')}</div>
+      <p class="fine">줄을 누르면 일본어로 들려줘요. +를 누르면 회화 목록에 넣어요.</p>`;
+  }catch(e){if(body())body().innerHTML=`<p class="fine" style="text-align:center;padding:24px 0">${e.message==='vision-off'?'사진 번역이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Vision API를 켜고 API 키 제한에 추가해 주세요.':e.message==='offline'?'사진 번역은 인터넷이 필요해요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.'}</p>`;}
+}
+
+/* ---------- interpreter: the phone listens (Web Speech), translates and reads the result aloud ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;var rec=null;
+function speakKo(text){if(!('speechSynthesis' in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='ko-KR';const v=speechSynthesis.getVoices().find(x=>/^ko/i.test(x.lang));if(v)u.voice=v;u.rate=1;speechSynthesis.speak(u);}
+function interpSheet(){
+  state.interp=state.interp||[];
+  openOverlay(`<div class="interp"><div class="ov-top"><b>대화 통역</b><button class="ov-x" data-closeov aria-label="닫기">×</button></div>
+    <div class="ip-log" id="ipLog">${ipLogHTML()}</div>
+    <div class="ip-live" id="ipLive" hidden></div>
+    ${SR?`<div class="ip-btns"><button class="ip-b ja" data-listen="ja">${svg('mic')}<b>직원 말 듣기</b><small>일본어 → 한국어</small></button><button class="ip-b ko" data-listen="ko">${svg('mic')}<b>내가 말하기</b><small>한국어 → 일본어</small></button></div>
+      <p class="fine" style="text-align:center">버튼을 누르고 말이 끝나면 자동으로 번역해서 읽어 줘요.</p>`
+     :`<p class="fine" style="text-align:center">이 브라우저는 음성 인식을 지원하지 않아요. Chrome으로 열어 주세요.</p>`}</div>`);
+  const l=$('#ipLog');if(l)l.scrollTop=l.scrollHeight;
+}
+const ipLogHTML=()=>state.interp.length?state.interp.map((x,i)=>`<div class="ip-m ${x.from}"><div class="src" ${x.from==='ja'?'lang="ja"':''}>${esc(x.src)}</div><div class="dst" ${x.from==='ko'?'lang="ja"':''}>${esc(x.dst)}</div>
+  <div class="ip-a"><button data-ipsay="${i}">${svg('speak')}다시 듣기</button>${x.from==='ja'?`<button data-ipsave="${i}">${svg('plus')}회화에 넣기</button>`:`<button data-ipbig="${i}">${svg('expand')}크게 보여주기</button>`}</div></div>`).join(''):'<p class="fine" style="text-align:center;padding:30px 0">직원이 일본어로 말할 때 「직원 말 듣기」를 누르세요.<br>내가 할 말은 「내가 말하기」로 한국어로 말하면 돼요.</p>';
+function ipSay(x){if(x.from==='ja')speakKo(x.dst);else speak(x.dst);}
+function listen(from){
+  if(!SR)return;if(rec){try{rec.abort();}catch(e){}rec=null;}
+  if(!navigator.onLine){toast('통역은 인터넷이 필요해요.');return;}
+  if('speechSynthesis' in window)speechSynthesis.cancel();
+  const live=$('#ipLive'),btn=document.querySelector(`[data-listen="${from}"]`);
+  rec=new SR();rec.lang=from==='ja'?'ja-JP':'ko-KR';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  let text='';
+  document.querySelectorAll('[data-listen]').forEach(b=>b.classList.toggle('on',b===btn));
+  if(live){live.hidden=false;live.textContent=from==='ja'?'듣는 중… (일본어)':'듣는 중… (한국어)';}
+  rec.onresult=e=>{text=[...e.results].map(r=>r[0].transcript).join('');if(live)live.textContent=text;};
+  rec.onerror=e=>{if(live)live.textContent=e.error==='not-allowed'?'마이크 권한을 허용해 주세요.':e.error==='no-speech'?'말소리를 듣지 못했어요. 다시 눌러 주세요.':'다시 눌러 주세요.';};
+  rec.onend=async()=>{rec=null;document.querySelectorAll('[data-listen]').forEach(b=>b.classList.remove('on'));
+    if(!text.trim())return;if(live)live.textContent='번역하는 중…';
+    try{const {ja,ko}=await translateText(text);const x=from==='ja'?{from,src:ja,dst:ko}:{from,src:ko,dst:ja};state.interp.push(x);
+      const l=$('#ipLog');if(l){l.innerHTML=ipLogHTML();l.scrollTop=l.scrollHeight;}if(live)live.hidden=true;ipSay(x);}
+    catch(e){if(live)live.textContent='번역하지 못했어요. 다시 눌러 주세요.';}};
+  try{rec.start();}catch(e){if(live)live.textContent='다시 눌러 주세요.';}
+}
 function loadKuromoji(){
   if(kuroP)return kuroP;
   kuroP=new Promise((res,rej)=>{const go=()=>kuromoji.builder({dicPath:'vendor/kuromoji-0.1.2/dict/'}).build((e,t)=>e?rej(e):res(t));
@@ -1181,7 +1245,7 @@ function viewTickets(){
 }
 function viewPrep(){
   const mine=prepItems(),checks=checkSet(),done=mine.filter(m=>checks.has('u:'+m.id)).length,cs=contacts();
-  const addRow=(form,cat,ph)=>`<form class="addrow" data-addform="${form}" data-cat="${esc(cat)}"><input type="text" placeholder="${ph}" autocomplete="off" aria-label="${esc(cat)}에 추가"><button class="btn sm" type="submit">${svg('plus')}</button></form>`;
+  const addRow=(form,cat,ph)=>`<form class="addin" data-addform="${form}" data-cat="${esc(cat)}"><input type="text" placeholder="${ph}" autocomplete="off" aria-label="${esc(cat)}에 추가"><button class="btn sm" type="submit">${svg('plus')}</button></form>`;
   return `<section class="view">
     <div><div class="sec-h"><h2>준비물</h2><span class="mono" style="font-weight:600">${done}/${mine.length}</span></div><div class="bar"><i style="width:${mine.length?done/mine.length*100:0}%;background:var(--accent)"></i></div>
       <p class="fine">길게 누르면 지울 수 있어요.</p>
@@ -1191,7 +1255,7 @@ function viewPrep(){
     <div><div class="sec-h"><h2>연락처</h2></div>
       ${CONTACT_CATS.map(c=>{const a=cs.filter(x=>contactCat(x)===c);return `<div class="pcat"><div class="grp">${esc(c)}</div>
         ${a.map(x=>`<div class="crow" data-hold="${x.id}" data-holdkind="contact"><div class="cm"><b>${esc(x.name)}</b><span class="mono">${esc(x.tel)}</span></div>${x.tel?`<a class="btn sm" href="tel:${esc(x.tel.replace(/[^+\d]/g,''))}">${svg('phone')}전화</a>`:''}</div>`).join('')}
-        <form class="addrow two-in" data-addform="contact" data-cat="${esc(c)}"><input type="text" placeholder="${c==='긴급'?'예: 구급차':c==='숙소'?'예: 호텔 프런트':'이름'}" autocomplete="off" aria-label="이름"><input type="tel" placeholder="전화번호" autocomplete="off" aria-label="전화번호"><button class="btn sm" type="submit">${svg('plus')}</button></form></div>`;}).join('')}</div>
+        <form class="addin two-in" data-addform="contact" data-cat="${esc(c)}"><input type="text" placeholder="${c==='긴급'?'예: 구급차':c==='숙소'?'예: 호텔 프런트':'이름'}" autocomplete="off" aria-label="이름"><input type="tel" placeholder="전화번호" autocomplete="off" aria-label="전화번호"><button class="btn sm" type="submit">${svg('plus')}</button></form></div>`;}).join('')}</div>
     <div class="card setup"><b>인터넷 없이 쓰려면 (출발 전에 한 번)</b>
       <ul class="fine" style="margin:0;padding-left:18px"><li>오프라인 지도 받기: 등록한 장소 주변 지도와 일본어 음성을 휴대폰에 저장해요.</li><li>티켓 탭에서 티켓을 한 번씩 열어 두기: 사진이 휴대폰에 저장돼요.</li></ul>
       <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')}</span>`:''}</div>
@@ -1260,7 +1324,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1327,6 +1391,12 @@ document.addEventListener('click',async e=>{
   else if(ds.sonly!==undefined){state.sOnly=!state.sOnly;render();}
   else if(ds.sview){state.sView=ds.sview;render();}
   else if(ds.tool){toolSheet(ds.tool);}
+  else if(ds.interp!==undefined){interpSheet();}
+  else if(ds.listen){listen(ds.listen);}
+  else if(ds.ipsay){const x=state.interp[+ds.ipsay];if(x)ipSay(x);}
+  else if(ds.ipsave){const x=state.interp[+ds.ipsave];if(x){await savePhrase(x.src,x.dst);toast('회화 목록에 넣었어요.');}}
+  else if(ds.ipbig){const x=state.interp[+ds.ipbig];if(x){let k='';try{k=await readingOf(x.dst);}catch(e){}bigPhrase([x.dst,k,x.src]);}}
+  else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.rdays){state.rateDays=+ds.rdays;rateSheet();}
   else if(ds.quick){$('#yenIn').value=(+ds.quick).toLocaleString('ko-KR');$('#yenIn').dispatchEvent(new Event('input',{bubbles:true}));}
   else if(ds.cur){state.form.cur=ds.cur;keep(['amtIn','titleIn']);}
@@ -1398,6 +1468,7 @@ document.addEventListener('change',async e=>{
   if(t.dataset.check){const s=checkSet();t.checked?s.add(t.dataset.check):s.delete(t.dataset.check);setChecks(s);render();}
   if(t.id==='budgetIn'){const v=parseInt(t.value.replace(/[^0-9]/g,''),10);if(v>0)setSettings({budget:v});render();}
   if(t.id==='rateIn'){const r=parseFloat(t.value);if(r>0)setSettings({rate:r/100});}
+  if(t.id==='ocrIn'&&t.files&&t.files[0]){const f=t.files[0];t.value='';ocrImage(f);return;}
   if(t.id==='photoIn'&&t.files&&t.files[0]){try{const b=await downscale(t.files[0],1400);state.dform.photoBlob=b;state.dform.photoURL=URL.createObjectURL(b);state.derr='';}catch(err){state.derr='이 사진은 열 수 없어요. 다른 사진을 골라 주세요.';}keep(['diaryText']);}
   if(t.id==='tFileIn'&&t.files){for(const f of t.files){if(f.size>15*1024*1024){toast(f.name+' 은(는) 15MB보다 커서 뺐어요.');continue;}state.tf.newFiles.push({blob:f,name:f.name,url:f.type.startsWith('image/')?URL.createObjectURL(f):''});}$('#tFiles').innerHTML=filesEditHTML();hydrateFiles($('#tFiles'));t.value='';}
 });

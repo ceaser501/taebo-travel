@@ -682,11 +682,11 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .pcat{background:var(--card,#fff);border:1px solid var(--line);border-radius:16px;padding:4px 12px 10px;margin-top:10px}
 .pcat .grp{margin-top:8px}
 .pcat .grp .mono{color:var(--mute);font-weight:500;margin-left:4px}
-.addrow{display:flex;gap:6px;margin-top:8px}
-.addrow input{flex:1;min-width:0;border:1px dashed var(--line);border-radius:12px;padding:9px 12px;background:var(--soft);font:inherit;font-size:14.5px;color:inherit}
-.addrow input:focus{border-style:solid;background:#fff}
-.addrow.two-in input[type=tel]{flex:.9}
-.addrow .btn{flex:none;width:42px;padding:0}
+.addin{display:flex;gap:6px;margin-top:8px}
+.addin input{flex:1;min-width:0;border:1px dashed var(--line);border-radius:12px;padding:9px 12px;background:var(--soft);font:inherit;font-size:14.5px;color:inherit}
+.addin input:focus{border-style:solid;background:#fff}
+.addin.two-in input[type=tel]{flex:.9}
+.addin .btn{flex:none;width:42px;padding:0}
 .chk[data-hold],.crow{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .chk.held,.crow.held{background:var(--accent-soft);border-radius:10px}
 .crow{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px dashed var(--line)}
@@ -694,3 +694,33 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .crow .cm b{font-size:15px}
 .crow .cm span{font-size:13px;color:var(--mute)}
 .crow .btn svg{width:15px;height:15px}
+/* talk tools: photo translation and interpreter */
+.ttools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 10px}
+.ttool{display:flex;align-items:center;gap:10px;background:var(--accent-soft);border:0;border-radius:16px;padding:12px;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.ttool svg{width:24px;height:24px;flex:none;stroke:var(--accent);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ttool span{display:flex;flex-direction:column}.ttool b{font-size:14.5px}.ttool small{font-size:11.5px;color:var(--mute)}
+.ov-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.ov-top b{font-size:19px}
+.ocr,.interp{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px;min-height:100%}
+.ocr-img{width:100%;max-height:240px;object-fit:cover;border-radius:14px}
+.ocr-all{background:var(--accent-soft);border-radius:14px;padding:12px 14px;font-size:16px;line-height:1.5}
+.ocr-lines{display:flex;flex-direction:column}
+.ol{display:flex;align-items:center;gap:8px;border-top:1px dashed var(--line);padding:8px 0}
+.ol-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;padding:0}
+.ol-m .ja{font-size:17px;font-weight:600}.ol-m .ko{font-size:14px;color:var(--mute)}
+.interp{height:100%}
+.ip-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px;min-height:200px}
+.ip-m{border-radius:18px;padding:12px 14px;max-width:88%;display:flex;flex-direction:column;gap:4px}
+.ip-m.ja{background:#fff;border:1px solid var(--line);align-self:flex-start}
+.ip-m.ko{background:var(--accent-soft);align-self:flex-end}
+.ip-m .src{font-size:13.5px;color:var(--mute)}
+.ip-m .dst{font-size:20px;font-weight:700;line-height:1.4}
+.ip-a{display:flex;gap:6px;margin-top:2px}
+.ip-a button{border:0;background:rgba(90,111,227,.1);color:var(--accent);border-radius:10px;padding:5px 9px;font:inherit;font-size:12.5px;display:flex;align-items:center;gap:4px;cursor:pointer}
+.ip-a svg{width:14px;height:14px}
+.ip-live{background:#232849;color:#fff;border-radius:14px;padding:12px 14px;font-size:17px;text-align:center}
+.ip-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ip-b{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;border-radius:20px;padding:16px 8px;font:inherit;cursor:pointer;color:#fff}
+.ip-b.ja{background:#e2566f}.ip-b.ko{background:var(--accent)}
+.ip-b svg{width:28px;height:28px;stroke:#fff;fill:none;stroke-width:2}
+.ip-b b{font-size:16px}.ip-b small{font-size:12px;opacity:.85}
+.ip-b.on{animation:pulse 1.2s ease-in-out infinite;box-shadow:0 0 0 6px rgba(255,255,255,.4) inset}
