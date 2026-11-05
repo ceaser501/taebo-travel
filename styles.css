@@ -930,3 +930,8 @@ li.stop.swiping .body{background:var(--card)}
 li.stop.swiping .body::before{content:none}
 li.stop.swipe-arm .body{background:#fde8ea;border-color:var(--no)}
 li.stop.dragging{opacity:1}
+/* each traveller's own colour on ticket badges and the filter */
+.tpax[style*="--pc"]{color:#fff;background:var(--pc)}
+.paxpick button.pc i{width:8px;height:8px;border-radius:50%;background:var(--pc)}
+.paxpick button.pc[aria-pressed="true"]{background:var(--pc);border-color:var(--pc);box-shadow:none;color:#fff}
+.paxpick button.pc[aria-pressed="true"] i{background:#fff}

@@ -57,6 +57,10 @@ const DIRS={out:'가는 편',in:'오는 편',etc:'기타'};
 // who a ticket belongs to is a plain name, so a companion who hasn't joined the app yet can still have tickets
 // each person's own name on tickets, so their phone opens the ticket tab on their own tickets
 const paxMap=()=>(Sync.get('paxof','set')||{}).map||{};
+// each traveller's colour: the colour they chose in their profile; someone who hasn't joined yet gets a colour nobody uses
+function paxColor(name){const m=paxMap(),uid=Object.keys(m).find(u=>m[u]===name);if(uid&&Sync.members.some(x=>x.user_id===uid))return member(uid).color;
+  const used=new Set(Object.keys(m).filter(u=>Sync.members.some(x=>x.user_id===u)).map(u=>member(u).color)),free=COLORS.filter(c=>!used.has(c));
+  const others=[...new Set(tickets().map(t=>t.pax).filter(Boolean))].filter(n=>!Object.values(m).includes(n)).sort();return free[Math.max(0,others.indexOf(name))%Math.max(1,free.length)]||'#9aa0bd';}
 // my tickets are the ones under my name; an older saved pairing is only a fallback
 const myPax=()=>{const n=member(me()).display_name;if(n&&tickets().some(t=>t.pax===n))return n;return paxMap()[me()]||'';};
 const paxNames=()=>[...new Set([...tickets().map(t=>t.pax),...Sync.members.map(m=>m.display_name)].filter(Boolean))];
@@ -1353,12 +1357,12 @@ function viewTickets(){
   const all=tickets(),names=[...new Set(all.map(t=>t.pax).filter(Boolean))],sel=state.tpax===null?myPax():state.tpax,who=names.includes(sel)?sel:'';
   const tk=who?all.filter(t=>!t.pax||t.pax===who):all,slots=slotStatus().filter(s=>!s.t),f=flights();
   const card=t=>{const img=(t.files||[]).find(x=>x.mime!=='application/pdf'),f=t.fl,air=t.type==='항공권'&&f&&(f.fromCity||f.toCity||f.no);
-    const top=`<span class="k">${t.pax?`<span class="tpax">${esc(t.pax)}</span>`:''}${esc(ticketKind(t))} · ${t.type==='숙소'&&t.stay?`${dayDate(t.stay.inDay||t.day)} – ${dayDate(t.stay.outDay||DAYS.length)}`:dayDate(t.day)}${!air&&t.type!=='숙소'&&t.time?' · '+esc(t.time):''}</span>`;
+    const top=`<span class="k">${t.pax?`<span class="tpax" style="--pc:${paxColor(t.pax)}">${esc(t.pax)}</span>`:''}${esc(ticketKind(t))} · ${t.type==='숙소'&&t.stay?`${dayDate(t.stay.inDay||t.day)} – ${dayDate(t.stay.outDay||DAYS.length)}`:dayDate(t.day)}${!air&&t.type!=='숙소'&&t.time?' · '+esc(t.time):''}</span>`;
     if(air){const a=apCode(f.fromCity)||f.fromCity||'출발',z=apCode(f.toCity)||f.toCity||'도착',sub=[f.no,t.seat&&'좌석 '+t.seat].filter(Boolean).join(' · ');
       return `<button class="card tcard air" data-showticket="${t.id}"><span class="m">${top}<span class="route"><b>${esc(a)}</b><span class="mono">${esc(f.dep||'')}</span><span class="to">→</span><b>${esc(z)}</b><span class="mono">${esc(f.arr||'')}</span></span>${sub?`<span class="s mono">${esc(sub)}</span>`:''}</span></button>`;}
     return `<button class="card tcard" data-showticket="${t.id}">${img?`<span class="tc-thumb"><img data-file="${esc(img.path)}" alt=""></span>`:''}<span class="m">${top}<b>${esc(t.title)}</b>${t.code||t.seat?`<span class="s mono">${esc([t.code,t.seat&&'좌석 '+t.seat].filter(Boolean).join(' · '))}</span>`:''}</span></button>`;};
   return `<section class="view">
-    ${names.length>1?`<div class="catpick paxpick" role="group" aria-label="누구 티켓">${['',...names].map(n=>`<button type="button" data-tpaxf="${esc(n)}" aria-pressed="${who===n}">${n?esc(n):'전체'}</button>`).join('')}</div>`:''}
+    ${names.length>1?`<div class="catpick paxpick" role="group" aria-label="누구 티켓">${['',...names].map(n=>`<button type="button" data-tpaxf="${esc(n)}" aria-pressed="${who===n}" ${n?`class="pc" style="--pc:${paxColor(n)}"`:''}>${n?`<i></i>${esc(n)}`:'전체'}</button>`).join('')}</div>`:''}
     ${TICKET_TYPES.map(ty=>{const a=tk.filter(t=>t.type===ty),need=slots.filter(s=>s.type===ty);if(!a.length&&!need.length)return '';
       return `<div><div class="sec-h"><h2>${ty}</h2></div><div class="stack">${a.map(card).join('')}${need.map(s=>`<button class="card tslot" data-slot="${esc(s.slot)}"><span class="tc-thumb">${svg('plus')}</span><span class="m"><span class="k">DAY ${s.day}${s.time?' · '+esc(s.time):''}</span><b>${esc(s.title)}</b><span class="s">${esc(s.hint)}</span></span></button>`).join('')}</div></div>`;}).join('')}
     <button class="btn acc" data-addticket>${svg('plus')}다른 티켓 추가</button>
@@ -1712,7 +1716,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v66';
+const APP_VER='v67';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
