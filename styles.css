@@ -629,3 +629,20 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .say-zone:active{background:var(--accent-soft)}
 @keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
 .sign.tap{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* dates and longer text look like the other fields */
+.stack input[type=date],.stack textarea{width:100%;min-width:0;max-width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;font:inherit;font-size:15px;color:inherit;-webkit-appearance:none;appearance:none;min-height:44px}
+.stack textarea{resize:vertical;line-height:1.5}
+.tform .two>div{min-width:0}
+/* settings: one row per thing, action on the right */
+.lrow{display:flex;align-items:center;gap:10px;min-height:44px;width:100%;background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left}
+.lrow+.lrow{border-top:1px dashed var(--line);padding-top:10px}
+.lrow .lm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lrow .lm b{font-size:15px}
+.lrow .lm span{font-size:12.5px;color:var(--mute)}
+.lrow.tap{cursor:pointer}
+.lrow>svg{width:16px;height:16px;flex:none;stroke:var(--mute);fill:none;stroke-width:2}
+.lrow .btn.sm{flex:none}
+.code-s{font-weight:700;color:var(--ink,#2b2f45);letter-spacing:.06em}
+.btn.danger-t{color:var(--no)}
+.fsec .colors{display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap}
+.fsec .colors{flex-direction:row!important}

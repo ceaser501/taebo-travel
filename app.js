@@ -442,7 +442,7 @@ function sfxFly(c,delay=0,dur=4.2){
 }
 const introTools=label=>`<div class="itools"><button class="snd" data-sound aria-pressed="${state.sound}" aria-label="${state.sound?'효과음 끄기':'효과음 켜기'}">${svg(state.sound?'sndon':'sndoff','')}</button><button class="skip" data-skip>${label}</button></div>`;
 function toggleSound(){state.sound=!state.sound;LS.set('sound',state.sound);if(!state.sound&&actx){try{actx.suspend();}catch(e){}}else audio(true);
-  document.querySelectorAll('[data-sound]').forEach(b=>{b.setAttribute('aria-pressed',state.sound);b.setAttribute('aria-label',state.sound?'효과음 끄기':'효과음 켜기');if(b.classList.contains('snd'))b.innerHTML=svg(state.sound?'sndon':'sndoff','');else b.textContent=state.sound?'효과음 끄기':'효과음 켜기';});}
+  document.querySelectorAll('[data-sound]').forEach(b=>{b.setAttribute('aria-pressed',state.sound);b.setAttribute('aria-label',state.sound?'효과음 끄기':'효과음 켜기');if(b.classList.contains('snd'))b.innerHTML=svg(state.sound?'sndon':'sndoff','');else b.textContent=state.sound?'켜짐':'꺼짐';});}
 
 /* ===================== intro ===================== */
 let introTimers=[];
@@ -761,15 +761,19 @@ function toolSheet(k){
 /* ---------- trip setup ---------- */
 function tripSheet(){
   const t=trip(),stays=Object.keys(PL).filter(id=>PL[id].cat==='숙소');
-  openSheet(`${shHead('여행 정보','두 분 모두에게 똑같이 보여요')}
-    <form id="tripForm" class="stack" novalidate>
-      <label class="f" for="trTitle">여행 이름</label><input type="text" id="trTitle" value="${esc(t.title)}" placeholder="예: 도쿄 태교여행">
-      <label class="f" for="trIntro">인트로 첫 문구 (줄바꿈 가능)</label><textarea id="trIntro" rows="2" placeholder="예: 엄마 아빠 딱복이랑&#10;떠나는 첫 비행">${esc(t.intro||'')}</textarea>
-      <div class="two"><div><label class="f" for="trCity">도시</label><input type="text" id="trCity" value="${esc(t.city)}" placeholder="예: 도쿄"></div>
-        <div><label class="f" for="trStart">출발일</label><input type="date" id="trStart" value="${esc(t.start)}"></div></div>
-      <label class="f" for="trNights">기간</label><select id="trNights">${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${+t.nights===n?'selected':''}>${n}박 ${n+1}일</option>`).join('')}</select>
-      <label class="f" for="trHotel">숙소</label><select id="trHotel"><option value="">${stays.length?'고르기':'숙소를 장소로 먼저 등록해 주세요'}</option>${stays.map(id=>`<option value="${id}" ${t.hotelId===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select>
-      <button type="button" class="btn ghost" data-newstay>${svg('search')}숙소 찾아서 등록</button>
+  openSheet(`${shHead('여행 정보','두 사람 모두에게 똑같이 보여요')}
+    <form id="tripForm" class="tform stack" novalidate>
+      <section class="fsec"><h4>여행</h4>
+        <div><label class="f" for="trTitle">이름</label><input type="text" id="trTitle" value="${esc(t.title)}" placeholder="예: 도쿄로 떠나는 태교여행"></div>
+        <div><label class="f" for="trCity">도시</label><input type="text" id="trCity" value="${esc(t.city)}" placeholder="예: 도쿄"></div></section>
+      <section class="fsec"><h4>날짜</h4>
+        <div class="two"><div><label class="f" for="trStart">출발일</label><input type="date" id="trStart" value="${esc(t.start)}"></div>
+          <div><label class="f" for="trNights">기간</label><select id="trNights">${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${+t.nights===n?'selected':''}>${n}박 ${n+1}일</option>`).join('')}</select></div></div></section>
+      <section class="fsec"><h4>숙소</h4>
+        <select id="trHotel"><option value="">${stays.length?'고르기':'아직 등록한 숙소가 없어요'}</option>${stays.map(id=>`<option value="${id}" ${t.hotelId===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select>
+        <button type="button" class="btn" data-newstay>${svg('search')}숙소 찾아서 등록</button></section>
+      <section class="fsec"><h4>인트로 첫 문구</h4>
+        <textarea id="trIntro" rows="2" placeholder="예: 엄마 아빠 딱복이랑&#10;떠나는 첫 비행">${esc(t.intro||'')}</textarea></section>
       <p class="err" id="trErr" hidden></p>
       <button class="btn acc" type="submit">저장</button>
     </form>`);
@@ -782,24 +786,29 @@ function saveTrip(){
 }
 /* ---------- settings ---------- */
 function settingsSheet(){
-  const m=Sync.meta,mine=member(me());
-  openSheet(`${shHead('우리 여행',esc(trip().title))}
-    <div class="sh-acts"><button class="btn acc" data-tripsetup>${svg('pen')}여행 정보</button></div>
-    <div class="invite"><div><div class="k">초대 코드</div><div class="code mono">${esc(m.inviteCode||'—')}</div></div><button class="btn sm" data-copy="${esc(m.inviteCode||'')}">복사</button></div>
-    <p class="fine">함께 쓸 사람은 앱에 가입한 뒤 '초대 코드로 참여'에 이 코드를 넣으면 돼요.</p>
-    <div><div class="grp">함께하는 사람</div>${Sync.members.map(x=>`<div class="mrow">${avatar(x.user_id)}<b>${esc(x.display_name)}</b>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}</div>
-    <div class="names"><label>내 이름<input id="myName" value="${esc(mine.display_name)}" maxlength="12"></label><label>내 색<span class="colors">${COLORS.map(c=>`<button type="button" class="cdot" data-mycolor="${c}" aria-pressed="${mine.color===c}" style="--c:${c}" aria-label="색 ${c}"></button>`).join('')}</span></label></div>
-    <button class="btn pri" data-saveprofile>이름 저장</button>
-    ${(()=>{const ns=[...new Set(tickets().map(t=>t.pax).filter(Boolean))],cur=myPax();return ns.length?`<div><div class="grp">티켓에서 나는</div><div class="catpick">${ns.map(n=>`<button type="button" data-mypax="${esc(n)}" aria-pressed="${cur===n}">${esc(n)}</button>`).join('')}</div><p class="fine">티켓 탭을 열면 내 티켓이 먼저 보여요.</p></div>`:'';})()}
-    <div class="grp">오프라인 준비</div><div class="sync-row"><span>${LS.get('offlineMapAt','')?'지도 받아 둠 · '+new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요'}</span><button class="btn sm" data-offlinemap>오프라인 지도 받기</button></div>
-    <div class="grp">동기화</div><div class="sync-row"><span>${syncText()}</span><button class="btn sm" data-syncnow>${svg('sync')}지금 동기화</button></div>
-    <div class="sh-acts"><button class="btn" data-sound aria-pressed="${state.sound}">${state.sound?'효과음 끄기':'효과음 켜기'}</button><button class="btn" data-replay>인트로 다시 보기</button></div>
-    ${!Object.keys(PL).length?'<button class="btn ghost" data-importtpl>도쿄 예시 불러오기</button>':''}
-    ${Object.keys(PL).length||Sync.list('ticket').length?'<button class="btn ghost danger" data-wipeall>예시·기존 내용 지우고 새로 시작 (항공권은 남겨요)</button>':''}
-    <button class="btn ghost" data-signout>로그아웃</button>
-    <p class="fine">로그아웃하면 이 휴대폰에 저장된 여행 데이터도 지워져요. 서버에 올라간 내용은 그대로 남아요.</p>`);
+  const m=Sync.meta,mine=member(me()),T=trip(),ns=[...new Set(tickets().map(t=>t.pax).filter(Boolean))],cur=myPax(),off=LS.get('offlineMapAt','');
+  const row=(label,sub,right)=>`<div class="lrow"><div class="lm"><b>${label}</b>${sub?`<span>${sub}</span>`:''}</div>${right}</div>`;
+  openSheet(`${shHead('우리 여행','')}<div class="tform stack">
+    <section class="fsec"><h4>여행</h4>
+      <button class="lrow tap" data-tripsetup><div class="lm"><b>${esc(T.title)}</b><span>${esc([T.city,rangeText()].filter(Boolean).join(' · '))}</span></div>${svg('chev')}</button></section>
+    <section class="fsec"><h4>함께하는 사람</h4>
+      ${Sync.members.map(x=>`<div class="lrow">${avatar(x.user_id)}<div class="lm"><b>${esc(x.display_name)}</b></div>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}
+      ${row('초대 코드',`<span class="mono code-s">${esc(m.inviteCode||'—')}</span> · 가입 후 '초대 코드로 참여'에 입력`,`<button class="btn sm" data-copy="${esc(m.inviteCode||'')}">복사</button>`)}</section>
+    <section class="fsec"><h4>내 정보</h4>
+      <div><label class="f" for="myName">이름</label><input type="text" id="myName" value="${esc(mine.display_name)}" maxlength="12"></div>
+        <div><label class="f">색</label><span class="colors">${COLORS.map(c=>`<button type="button" class="cdot" data-mycolor="${c}" aria-pressed="${mine.color===c}" style="--c:${c}" aria-label="색 ${c}"></button>`).join('')}</span></div>
+      ${ns.length?`<div><label class="f">티켓에서 나는</label><div class="seg">${ns.map(n=>`<button type="button" data-mypax="${esc(n)}" aria-pressed="${cur===n}">${esc(n)}</button>`).join('')}</div></div>`:''}
+      <button class="btn pri" data-saveprofile>저장</button></section>
+    <section class="fsec"><h4>앱</h4>
+      ${row('동기화',esc(syncText()),`<button class="btn sm" data-syncnow>${svg('sync')}지금</button>`)}
+      ${row('오프라인 지도·음성',off?'받아 둠 · '+new Date(off).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요',`<button class="btn sm" data-offlinemap>받기</button>`)}
+      ${row('효과음','',`<button class="btn sm" data-sound aria-pressed="${state.sound}">${state.sound?'켜짐':'꺼짐'}</button>`)}
+      ${row('인트로','',`<button class="btn sm" data-replay>다시 보기</button>`)}</section>
+    <section class="fsec"><h4>데이터</h4>
+      ${!Object.keys(PL).length?row('도쿄 예시','장소 20여 곳과 2박 3일 일정',`<button class="btn sm" data-importtpl>불러오기</button>`):''}
+      ${Object.keys(PL).length||Sync.list('ticket').length?row('새로 시작','항공권만 남기고 모두 지워요',`<button class="btn sm danger-t" data-wipeall>지우기</button>`):''}
+      ${row('로그아웃','이 휴대폰의 데이터만 지워져요',`<button class="btn sm danger-t" data-signout>로그아웃</button>`)}</section></div>`);
 }
-
 /* ---------- flights ---------- */
 function flightSheet(){
   const f=flights(),row=(k,lbl,x)=>`<div class="fl-block"><div class="grp" style="margin-top:0">${lbl}</div>
