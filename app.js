@@ -470,7 +470,7 @@ const finaleSC=()=>`<div class="sc final"><svg class="art" viewBox="0 0 400 800"
   <g id="hdots" fill="#fff"></g>
   <path id="hs" d="M200 560 ${HEART_LOOP}${HEART_TAIL}" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" mask="url(#pmask)" style="stroke-dasharray:3000;stroke-dashoffset:3000"/>
   <g filter="url(#psh)"><g id="aplane" transform="translate(-60 900)"><g transform="scale(1.8)">${planeTop('#ffffff','#d4d9f3')}</g></g></g></svg>
-  <div class="txt"><h2 class="rise">${esc(trip().title)}</h2><div class="en rise d1">${esc(rangeText())}</div></div>
+  <div class="txt"><h2 class="rise" data-i="title">${esc(trip().title)}</h2><div class="en rise d1" data-i="range">${esc(rangeText())}</div></div>
   <button class="cta go-a rise d3" data-enter>여행 시작하기 ${svg('chev')}</button></div>`;
 // the intro's boarding pass shows the real way-out flight: codes big, cities small, then date, time and my seat
 const apCode=x=>((x||'').match(/\b[A-Z]{3}\b/)||[''])[0];
@@ -487,10 +487,10 @@ function introHTML(){
     <div class="sc"><div class="porthole"><svg viewBox="0 0 210 300" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9cff8"/><stop offset=".55" stop-color="#e3dcf7"/><stop offset=".75" stop-color="#ffd9c6"/><stop offset="1" stop-color="#fff1e6"/></linearGradient></defs>
         <rect width="210" height="300" fill="url(#pw)"/><circle cx="140" cy="205" r="34" fill="#fff6e6" opacity=".9"/>
         <g class="drift">${cloud(-10,200,1.1,1)}${cloud(110,230,1.4,1)}${cloud(200,200,1.1,1)}${cloud(320,230,1.4,1)}${cloud(40,90,.6,.7)}${cloud(250,90,.6,.7)}</g></svg><div class="shade"></div></div>
-      <div class="txt" style="top:calc(470px + env(safe-area-inset-top,0px));text-align:center"><h2 class="rise">${introLine()}</h2><div class="en rise d1">${esc(rangeText())}</div></div></div>
+      <div class="txt" style="top:calc(470px + env(safe-area-inset-top,0px));text-align:center"><h2 class="rise" data-i="line">${introLine()}</h2><div class="en rise d1" data-i="range">${esc(rangeText())}</div></div></div>
     <div class="sc"><svg class="art" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice"><rect width="400" height="800" fill="#e8ecfb"/>${cloud(-30,90,1.3,.9)}${cloud(240,170,1,.8)}${cloud(-50,620,2.4,1)}${cloud(200,680,2.6,1)}</svg>
       <div class="txt" style="top:calc(120px + env(safe-area-inset-top,0px))"><h2 class="rise">탑승권이<br>도착했어요</h2><p class="rise d1">표를 끊으면 바로 출발해요</p></div>
-      <button class="ticket" data-tear aria-label="표를 끊고 출발하기" style="--stub:#5a6fe3;--tk:#7c83ad;--tv:#232849;bottom:calc(36% + env(safe-area-inset-bottom,0px))"><div class="main">${passHTML()}</div>
+      <button class="ticket" data-tear aria-label="표를 끊고 출발하기" style="--stub:#5a6fe3;--tk:#7c83ad;--tv:#232849;bottom:calc(36% + env(safe-area-inset-bottom,0px))"><div class="main" data-i="pass">${passHTML()}</div>
         <div class="stub"><span class="pulse">탭해서<br>표 끊기</span></div></button></div>
     ${finaleSC()}
   </div>`;
@@ -517,6 +517,10 @@ function showIntro(){
 // a new app version that arrived while the intro was playing is switched to here, without playing the intro again
 let pendingReload=false;
 const reloadSkippingIntro=()=>{try{sessionStorage.setItem('tt:skipIntro','1');}catch(e){}location.reload();};
+// the intro is drawn from what this phone saved last time; once the sync brings newer trip info, swap the words in place
+function refreshIntro(){const el=$('#intro');if(!el||el.hidden)return;rebuild();
+  const set=(k,h)=>el.querySelectorAll(`[data-i="${k}"]`).forEach(n=>{if(n.innerHTML!==h)n.innerHTML=h;});
+  set('line',introLine());set('range',esc(rangeText()));set('pass',passHTML());set('title',esc(trip().title));}
 function finishIntro(){if(pendingReload){reloadSkippingIntro();return;}const el=$('#intro');clearTimers();el.hidden=true;el.innerHTML='';document.body.style.overflow='';enter();}
 
 /* ===================== sheets & overlays ===================== */
@@ -1289,7 +1293,7 @@ pushGuard();
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS[h]&&h!==state.tab&&!GATED.has(h))go(h);});
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.values(maps).forEach(m=>{try{m.invalidateSize({animate:false});}catch(e){}}),150);});
 // re-render when the other person's changes arrive, unless someone is typing
-Sync.on(what=>{const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#main').contains(a);
+Sync.on(what=>{if(what!=='status'&&what!=='files')refreshIntro();const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#main').contains(a);
   if(what==='status'){const d=document.querySelector('.syncdot');if(d)d.outerHTML=syncDot();return;}
   if(what==='files'){hydrateFiles($('#main'));return;}
   if(!typing&&!GATED.has(state.tab)&&$('#sheetRoot').innerHTML==='')render();});
@@ -1305,6 +1309,6 @@ rebuild();
 // the intro plays every time the app is opened, signed in or not; it hands over to enter() when done.
 // the one exception is the reload that swaps in a new version, so the intro never plays twice in a row
 let skipIntro=false;try{skipIntro=sessionStorage.getItem('tt:skipIntro')==='1';sessionStorage.removeItem('tt:skipIntro');}catch(e){}
-if(skipIntro)enter();else showIntro();
+if(skipIntro)enter();else{showIntro();if(Sync.meta.tripId)Sync.syncNow();}
 
 
