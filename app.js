@@ -1449,7 +1449,10 @@ document.addEventListener('click',async e=>{
   else if(ds.manualplace!==undefined){placeForm(null,state.search.forDay);}
   else if(ds.pickres!==undefined){const r=state.search.results[+ds.pickres];if(r){if(r.gid&&!r.jp){t.disabled=true;r.jp=await googleJaName(r.gid);}placeForm({...r,signs:r.jp?[[r.jp,r.kana,r.n]]:[]},state.search.forDay);}}
   else if(ds.editplace){placeForm({id:ds.editplace,...Sync.get('place',ds.editplace)},0);}
-  else if(ds.delplace){const id=ds.delplace;DAYS.forEach(d=>{const a=planOf(d.id);if(a.some(x=>x.p===id))setPlan(d.id,a.filter(x=>x.p!==id));});Sync.remove('place',id);if(trip().hotelId===id)Sync.put('trip','info',{...trip(),hotelId:''});closeSheet();toast('장소를 지웠어요.');render();}
+  else if(ds.delplace){const id=ds.delplace,used=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>'DAY '+d.id),hotel=trip().hotelId===id;
+    // deleting a place also takes it out of the schedule, so say exactly what goes with it
+    if(!confirm(`「${PL[id]?PL[id].n:'이 장소'}」을(를) 지울까요?${used.length?`\n${used.join(', ')} 일정에서도 빠져요.`:''}${hotel?'\n여행의 숙소 설정도 지워져요.':''}\n즐겨찾기에서만 빼려면 즐겨찾기 탭에서 길게 누르세요.`))return;
+    DAYS.forEach(d=>{const a=planOf(d.id);if(a.some(x=>x.p===id))setPlan(d.id,a.filter(x=>x.p!==id));});Sync.remove('place',id);if(trip().hotelId===id)Sync.put('trip','info',{...trip(),hotelId:''});closeSheet();toast('장소를 지웠어요.');render();}
   else if(ds.pfcat){state.pf.cat=ds.pfcat;document.querySelectorAll('[data-pfcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const r=$('#pfSafeRow');if(r)r.hidden=!/맛집|카페/.test(ds.pfcat);}
   else if(ds.pfwalk!==undefined){state.pf.walk=+ds.pfwalk;document.querySelectorAll('[data-pfwalk]').forEach(b=>b.setAttribute('aria-pressed',b===t));}
   else if(ds.pfsafe!==undefined){state.pf.safe=ds.pfsafe;document.querySelectorAll('[data-pfsafe]').forEach(b=>b.setAttribute('aria-pressed',b===t));}
