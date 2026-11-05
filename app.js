@@ -141,6 +141,40 @@ function speak(text,slow){
 /* ---------- Japanese signs ---------- */
 const signsOf=id=>{const p=PL[id];if(!p)return [];const s=(p.signs||[]).filter(x=>x&&x[0]);return s.length?s:(p.jp?[[p.jp,p.kana||'',p.n]]:[]);};
 const mainSign=id=>signsOf(id)[0]||null;
+/* Korean pronunciation guide from a kana reading, e.g. トイレは どこですか → 토이레와 도코데스카.
+   Kanji can't be read this way, so places without a kana reading show no guide. */
+const KR_V={a:0,i:20,u:13,e:5,o:8,ya:2,yu:17,yo:12,wa:9,we:15,wi:16,ye:7};
+const KR_C={'':11,k:15,g:0,s:9,z:12,t:16,d:3,n:2,h:18,b:7,p:17,m:6,r:5,y:11,w:11,j:12,ch:14,ts:14,f:18,v:7};
+const KANA={あ:'a',い:'i',う:'u',え:'e',お:'o',か:'ka',き:'ki',く:'ku',け:'ke',こ:'ko',が:'ga',ぎ:'gi',ぐ:'gu',げ:'ge',ご:'go',さ:'sa',し:'si',す:'su',せ:'se',そ:'so',ざ:'za',じ:'ji',ず:'zu',ぜ:'ze',ぞ:'zo',
+  た:'ta',ち:'chi',つ:'tsu',て:'te',と:'to',だ:'da',ぢ:'ji',づ:'zu',で:'de',ど:'do',な:'na',に:'ni',ぬ:'nu',ね:'ne',の:'no',は:'ha',ひ:'hi',ふ:'hu',へ:'he',ほ:'ho',ば:'ba',び:'bi',ぶ:'bu',べ:'be',ぼ:'bo',
+  ぱ:'pa',ぴ:'pi',ぷ:'pu',ぺ:'pe',ぽ:'po',ま:'ma',み:'mi',む:'mu',め:'me',も:'mo',や:'ya',ゆ:'yu',よ:'yo',ら:'ra',り:'ri',る:'ru',れ:'re',ろ:'ro',わ:'wa',を:'o',ゔ:'vu'};
+function krSyl(c,v){const cho=KR_C[c]??11;let jung=KR_V[v]??0;if(c==='ch'&&v==='i'||c==='j'&&v==='i'||c==='s'&&v==='i')jung=20;if(c==='ts'&&v==='u'||c==='s'&&v==='u'||c==='z'&&v==='u')jung=18;return String.fromCharCode(0xAC00+(cho*21+jung)*28);}
+function kanaToKo(kana){
+  if(!kana||!/[\u3040-\u30ff]/.test(kana))return '';
+  const h=kana.replace(/[\u30a1-\u30f6]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
+  let out='',prevV='';
+  const addJong=j=>{if(!out)return;const c=out.charCodeAt(out.length-1);if(c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28===0)out=out.slice(0,-1)+String.fromCharCode(c+j);};
+  for(let i=0;i<h.length;i++){
+    const ch=h[i],nx=h[i+1]||'';
+    if(ch===' '||ch==='　'){out+=' ';prevV='';continue;}
+    if(ch==='ー'){prevV='';continue;}
+    if(ch==='ん'){addJong(4);prevV='';continue;}
+    if(ch==='っ'){addJong(19);prevV='';continue;}
+    // particles は/へ at the end of a word read as wa/e
+    if((ch==='は'||ch==='へ')&&(nx===' '||nx==='　'||nx==='')&&out){out+=ch==='は'?'와':'에';prevV='a';continue;}
+    // long vowels (おう, ゅう) read as one long sound: drop the う
+    if(ch==='う'&&(prevV==='o'||prevV==='u')&&out){continue;}
+    const r=KANA[ch];if(!r){if(!/[ぁぃぅぇぉゃゅょ]/.test(ch))out+=ch;continue;}
+    let c=r.replace(/[aiueo]+$/,''),v=r.slice(c.length);
+    if(c==='y'||c==='w'){v=c+v;c='';}
+    if(nx&&'ゃゅょ'.includes(nx)){v={ゃ:'ya',ゅ:'yu',ょ:'yo'}[nx];if(c==='ch'||c==='j'||c==='s')v=v.slice(1);if(c==='s'){c='s';v={a:'ya',u:'yu',o:'yo'}[v];}i++;}
+    else if(nx&&'ぁぃぅぇぉ'.includes(nx)){v={ぁ:'a',ぃ:'i',ぅ:'u',ぇ:'e',ぉ:'o'}[nx];if(c===''&&r==='u'){c='w';v=v==='i'?'wi':v==='e'?'we':'o';}else if(c==='h'&&r==='hu'){c='f';v={a:'wa',i:'wi',e:'we',o:'o',u:'u'}[v];}else if(c==='ch'||c==='j'||c==='s'){v=v==='e'?'ye':v;}i++;}
+    if(c==='f')c='h';
+    out+=krSyl(c,v);prevV=v.slice(-1);
+  }
+  return out.replace(/\s+/g,' ').trim();
+}
+const koSay=(kana,ja)=>kanaToKo(kana)||kanaToKo(ja);
 const askOf=sg=>[sg[0]+'はどこですか？',(sg[1]||sg[0])+'は どこですか',sg[2]+'는 어디예요?'];
 const hotelPhrase=()=>{const h=hotelId(),sg=h&&mainSign(h);return sg?[sg[0]+'までお願いします',(sg[1]||sg[0])+' まで おねがいします',PL[h].n+'까지 가 주세요 (택시)']:null;};
 const allPhrases=()=>{const h=hotelPhrase();return h?[...PHRASES,h]:PHRASES;};
@@ -408,18 +442,18 @@ function signRows(id){
   const rows=signsOf(id);
   if(!rows.length)return `<p class="fine">일본어 이름이 아직 없어요. '고치기'에서 간판에 쓰인 일본어를 넣으면 발음 듣기와 크게 보기가 생겨요.</p>`;
   return `<div class="signs">${rows.map((s,i)=>`<div class="sign">
-      <div class="sj"><span class="ja" lang="ja">${esc(s[0])}</span>${s[1]?`<span class="kana" lang="ja">${esc(s[1])}</span>`:''}<span class="ko">${esc(s[2]||'')}</span></div>
+      <div class="sj"><span class="ja" lang="ja" translate="no">${esc(s[0])}</span>${s[1]?`<span class="kana" lang="ja" translate="no">${esc(s[1])}</span>`:''}${koSay(s[1],s[0])?`<span class="pron">${esc(koSay(s[1],s[0]))}</span>`:''}<span class="ko">${esc(s[2]||'')}</span></div>
       <div class="sa"><button class="icon-btn" data-say="${esc(s[0])}" aria-label="${esc(s[2]||s[0])} 일본어로 듣기">${svg('speak')}</button><button class="icon-btn" data-bigsign="${id}|${i}" aria-label="${esc(s[2]||s[0])} 크게 보기">${svg('expand')}</button></div></div>`).join('')}</div>`;
 }
 function bigSign(id,i,ask){
   const s=signsOf(id)[i];if(!s)return;const a=askOf([s[0],s[1],s[2]||PL[id].n]),show=ask?a:s;
   openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button>
     <div class="bs-mode"><button data-bigsign="${id}|${i}" aria-pressed="${!ask}">간판 대조</button><button data-bigask="${id}|${i}" aria-pressed="${!!ask}">어디예요? 묻기</button></div>
-    <div class="bs-ja" lang="ja">${esc(show[0])}</div><div class="bs-kana" lang="ja">${esc(show[1]||'')}</div><div class="bs-ko">${esc(show[2]||'')}</div>
+    <div class="bs-ja" lang="ja" translate="no">${esc(show[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(show[1]||'')}</div>${koSay(show[1],show[0])?`<div class="bs-pron">${esc(koSay(show[1],show[0]))}</div>`:''}<div class="bs-ko">${esc(show[2]||'')}</div>
     <div class="bs-acts"><button class="btn acc" data-say="${esc(show[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(show[0])}">천천히</button></div>
     <p class="fine">${ask?'화면을 보여 주거나 듣기를 눌러 길을 물어보세요.':'간판·안내판에 이 글자가 있는지 맞춰 보세요.'}</p></div>`);
 }
-function bigPhrase(i){const p=allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja">${esc(p[0])}</div><div class="bs-kana" lang="ja">${esc(p[1])}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(p[0])}">천천히</button></div></div>`);}
+function bigPhrase(i){const p=allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(p[0])}">천천히</button></div></div>`);}
 
 /* ---------- place detail ---------- */
 function placeSheet(id){
@@ -561,7 +595,7 @@ function toolSheet(k){
     <div class="conv"><div><label for="yenIn">엔</label><input id="yenIn" inputmode="numeric" value="1000"></div><div class="eq">=</div><div><label for="wonOut">원</label><input id="wonOut" value="${Math.round(1000*r).toLocaleString('ko-KR')}" readonly></div></div>
     <div class="quick">${[500,1000,3000,5000,10000].map(v=>`<button class="btn sm ghost" data-quick="${v}">${yen(v)}</button>`).join('')}</div>
     <div class="rate"><label for="rateIn">100엔 =</label><input id="rateIn" inputmode="decimal" value="${(r*100).toFixed(0)}">원 · 둘이 같은 환율을 써요</div>`);}
-  if(k==='talk')openSheet(`${shHead('일본어 회화','누르면 듣기, 오른쪽 버튼은 크게 보여주기예요.')}<div class="signs">${allPhrases().map((p,i)=>`<div class="sign"><div class="sj"><span class="ja" lang="ja">${esc(p[0])}</span><span class="kana" lang="ja">${esc(p[1])}</span><span class="ko">${esc(p[2])}</span></div><div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button><button class="icon-btn" data-bigphrase="${i}" aria-label="${esc(p[2])} 크게 보기">${svg('expand')}</button></div></div>`).join('')}</div>`);
+  if(k==='talk')openSheet(`${shHead('일본어 회화','누르면 듣기, 오른쪽 버튼은 크게 보여주기예요.')}<div class="signs">${allPhrases().map((p,i)=>`<div class="sign"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span><span class="kana" lang="ja" translate="no">${esc(p[1])}</span><span class="pron">${esc(koSay(p[1],p[0]))}</span><span class="ko">${esc(p[2])}</span></div><div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button><button class="icon-btn" data-bigphrase="${i}" aria-label="${esc(p[2])} 크게 보기">${svg('expand')}</button></div></div>`).join('')}</div>`);
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
     openSheet(`${shHead('숙소로 돌아가기',esc(PL[h].n),thumb(h))}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>

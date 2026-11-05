@@ -548,3 +548,6 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .gpin .glabel{position:absolute;left:100%;margin-left:4px;background:rgba(255,255,255,.94);box-shadow:0 1px 4px rgba(30,40,90,.2);font-family:var(--f-body);font-weight:700;font-size:12.5px;color:var(--ink);padding:2px 7px;border-radius:7px}
 .offbadge{display:none;position:absolute;left:10px;top:10px;z-index:600;background:var(--ink);color:#fff;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px}
 .offline-map .offbadge{display:block}
+/* Korean pronunciation guide under Japanese text */
+.sj .pron{font-size:13.5px;font-weight:600;color:var(--ink2)}
+.bs-pron{font-size:clamp(18px,5vw,24px);font-weight:700;color:#3d436e}
