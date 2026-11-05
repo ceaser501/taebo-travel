@@ -1243,15 +1243,42 @@ function viewPlan(){
 }
 function placeList(){const s=savedSet();return Object.keys(PL).filter(id=>(state.sCat==='전체'||PL[id].cat===state.sCat)&&(!state.sOnly||s.has(id))).sort((a,b)=>CAT_LIST.indexOf(PL[a].cat)-CAT_LIST.indexOf(PL[b].cat));}
 /* ===================== favorites: places found but not yet put in the schedule ===================== */
+// Google's live details for a saved place (rating, type, price, open now, photos), kept on the phone for a few hours
+const GPI_FIELDS='rating,userRatingCount,primaryTypeDisplayName,priceRange,currentOpeningHours.openNow,currentOpeningHours.nextOpenTime,currentOpeningHours.nextCloseTime,photos.name,googleMapsUri';
+async function placeInfo(gid,force){const k='gpi:'+gid,c=LS.get(k,null);if(c&&!force&&Date.now()-c.at<4*3600000)return c.d;if(!navigator.onLine)return c?c.d:null;
+  try{const r=await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(gid)}?languageCode=ko`,{headers:{'X-Goog-Api-Key':GMAPS_KEY,'X-Goog-FieldMask':GPI_FIELDS}});if(!r.ok)return c?c.d:null;
+    const d=await r.json();LS.set(k,{at:Date.now(),d});return d;}catch(e){return c?c.d:null;}}
+const gPhoto=(name,w)=>`https://places.googleapis.com/v1/${name}/media?maxWidthPx=${w||480}&key=${GMAPS_KEY}`;
+const tkyTime=iso=>new Date(iso).toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Tokyo'});
+const tkyDay=d=>new Date(d).toLocaleDateString('ko-KR',{weekday:'short',timeZone:'Asia/Tokyo'});
+function openText(o){if(!o)return '';
+  if(o.openNow)return `<span class="op on">영업 중</span>${o.nextCloseTime?` · ${tkyTime(o.nextCloseTime)}에 영업 종료`:''}`;
+  return `<span class="op off">영업 종료</span>${o.nextOpenTime?` · ${tkyDay(o.nextOpenTime)!==tkyDay(Date.now())?tkyDay(o.nextOpenTime)+' ':''}${tkyTime(o.nextOpenTime)}에 영업 시작`:''}`;}
+const priceText=pr=>{if(!pr||!pr.startPrice)return '';const a=+pr.startPrice.units,b=pr.endPrice&&+pr.endPrice.units;return '¥'+a.toLocaleString('ko-KR')+(b?'~'+b.toLocaleString('ko-KR'):'~');};
+const stars=r=>`<span class="stars" aria-label="별점 ${r}"><i style="width:${(r/5*100).toFixed(0)}%"></i></span>`;
+function gcardInner(id,d){const p=PL[id],c=CAT[p.cat]||CAT['기타'];
+  const type=(d&&d.primaryTypeDisplayName&&d.primaryTypeDisplayName.text)||p.d||'',pr=d&&priceText(d.priceRange);
+  return `<div class="gc-top"><b>${esc(p.n)}</b><span class="gc-cat" style="--c:var(${c.c})">${esc(p.cat)}</span></div>
+    ${d&&d.rating?`<div class="gc-r"><span>${d.rating.toFixed(1)}</span>${stars(d.rating)}<span class="cnt">(${(d.userRatingCount||0).toLocaleString('ko-KR')}개)</span></div>`:''}
+    <div class="gc-t">${esc([type,pr].filter(Boolean).join(' · '))}</div>
+    ${d&&d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}
+    ${d&&d.photos&&d.photos.length?`<div class="gc-ph">${d.photos.slice(0,4).map(ph=>`<img loading="lazy" src="${gPhoto(ph.name)}" alt="">`).join('')}</div>`:!d&&navigator.onLine?'<div class="gc-ph wait"><i></i><i></i><i></i></div>':''}`;}
+/* ===================== favorites: places found but not yet put in the schedule ===================== */
 function viewFav(){
-  const sv=savedSet(),ids=[...sv].filter(id=>PL[id]),inPlan=new Set(DAYS.flatMap(d=>planOf(d.id).map(s=>s.p)));
+  const ids=[...savedSet()].filter(id=>PL[id]);
+  setTimeout(fillFavCards,0);
   return `<section class="view">
-    ${ids.length?`<p class="fine">찾아 둔 곳을 모아 두는 곳이에요. 누르면 자세히 보고 일정에 넣을 수 있어요. 길게 누르면 빼요.</p>
-    <div class="favs">${ids.map(id=>{const p=PL[id],c=CAT[p.cat]||CAT['기타'],sg=mainSign(id),jp=(sg&&sg[0])||p.jp||'',days=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>d.id);
-      return `<button class="card favc" data-place="${id}" data-hold="${id}" data-holdkind="fav"><span class="thumb" style="--c:var(${c.c})">${svg(c.ic,'')}</span><span class="m"><b>${esc(p.n)}</b><span class="s">${esc(p.cat)}${jp?` · <span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${p.area?`<span class="s">${esc(p.area)}</span>`:''}</span>${days.length?`<span class="chip">DAY ${days.join('·')}</span>`:''}</button>`;}).join('')}</div>`
+    ${ids.length?`<p class="fine">누르면 구글 지도에서 자세한 정보와 길찾기를 볼 수 있어요. 길게 누르면 빼요. 일정에는 일정 탭의 「장소 넣기」로 넣어요.</p>
+    <div class="favs">${ids.map(id=>{const p=PL[id],c0=p.gid&&LS.get('gpi:'+p.gid,null);
+      return `<a class="card gcard" href="${placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}" data-hold="${id}" data-holdkind="fav">${gcardInner(id,c0&&c0.d)}</a>`;}).join('')}</div>`
     :`<div class="card empty-fav"><b>아직 즐겨찾기가 없어요</b><p class="fine">오른쪽 위 「추가」에 구글 지도 공유 링크를 붙여 넣거나 장소 이름을 쓰면 여기 모여요. 나중에 하나씩 일정에 넣으면 돼요.</p><button class="btn acc" data-addfav>${svg('plus')}추가</button></div>`}
   </section>`;
 }
+// fills each card with Google's details, a few at a time
+async function fillFavCards(){const cards=[...document.querySelectorAll('[data-gcard]')];let k=0;
+  const work=async()=>{while(k<cards.length){const el=cards[k++],id=el.dataset.gcard,p=PL[id];if(!p||!p.gid)continue;
+    const d=await placeInfo(p.gid);if(d&&el.isConnected){el.innerHTML=gcardInner(id,d);if(d.googleMapsUri)el.href=d.googleMapsUri;}}};
+  await Promise.all([work(),work(),work()]);}
 function addFavPop(){
   floatPop(`<div class="fp-h"><b>즐겨찾기 추가</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
     <form class="fp-form" data-addform="fav"><input type="text" placeholder="구글 지도 공유 링크 또는 장소 이름" autocomplete="off" aria-label="링크 또는 이름"><button class="btn acc" type="submit">찾기</button></form>

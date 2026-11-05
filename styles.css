@@ -782,3 +782,17 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .favc .m b{font-size:15.5px}.favc .m .s{font-size:13px;color:var(--mute)}
 .favc.held{outline:2px solid var(--accent)}
 .empty-fav{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+/* favorites look like a Google Maps list */
+.gcard{display:flex;flex-direction:column;gap:4px;padding:14px 14px 12px;text-decoration:none;color:inherit;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.gcard.held{outline:2px solid var(--accent)}
+.gc-top{display:flex;align-items:flex-start;gap:8px}.gc-top b{flex:1;font-size:17px;line-height:1.35}
+.gc-cat{flex:none;font-size:11.5px;font-weight:700;color:var(--c);background:color-mix(in srgb,var(--c) 14%,#fff);border-radius:999px;padding:3px 8px;margin-top:2px}
+.gc-r{display:flex;align-items:center;gap:5px;font-size:14px}.gc-r .cnt{color:var(--mute)}
+.stars{position:relative;display:inline-block;width:76px;height:14px;background:linear-gradient(90deg,#dadce0 0 100%);-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 76 14'><g fill='black'><path id='s' d='M7 0l2.1 4.3 4.7.7-3.4 3.3.8 4.7L7 10.8 2.8 13l.8-4.7L.2 5l4.7-.7z'/><use href='%23s' x='15.5'/><use href='%23s' x='31'/><use href='%23s' x='46.5'/><use href='%23s' x='62'/></g></svg>") 0 0/76px 14px no-repeat;mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 76 14'><g fill='black'><path id='s' d='M7 0l2.1 4.3 4.7.7-3.4 3.3.8 4.7L7 10.8 2.8 13l.8-4.7L.2 5l4.7-.7z'/><use href='%23s' x='15.5'/><use href='%23s' x='31'/><use href='%23s' x='46.5'/><use href='%23s' x='62'/></g></svg>") 0 0/76px 14px no-repeat}
+.stars i{position:absolute;inset:0 auto 0 0;background:#f5b400}
+.gc-t{font-size:14px;color:var(--mute)}
+.gc-o{font-size:14px;color:var(--mute)}.gc-o .op{font-weight:700}.gc-o .on{color:#188038}.gc-o .off{color:#d93025}
+.gc-ph{display:flex;gap:8px;overflow-x:auto;margin:6px -14px 0;padding:0 14px;scrollbar-width:none}
+.gc-ph::-webkit-scrollbar{display:none}
+.gc-ph img{flex:none;width:120px;height:120px;object-fit:cover;border-radius:14px;background:var(--soft)}
+.gc-ph.wait i{flex:none;width:120px;height:120px;border-radius:14px;background:var(--soft)}
