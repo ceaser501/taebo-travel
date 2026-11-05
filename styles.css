@@ -952,3 +952,10 @@ li.stop[data-si] .memo svg{stroke:currentColor}
 body.dragging-now li.leg-li{opacity:0}
 @keyframes legnew{0%{background:color-mix(in srgb,var(--c) 22%,transparent)}100%{background:transparent}}
 li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
+/* header: title (+ D-day) left, action, settings gear at the far right */
+.top h1{display:flex;align-items:center;gap:8px;min-width:0}
+.top h1 .dday{font-size:12px;padding:3px 9px;flex:none}
+.syncdot.gearbtn{width:40px;height:40px;background:none}
+.syncdot.gearbtn svg{width:24px;height:24px}
+.syncdot.gearbtn .sbadge{top:6px;right:6px}
+.top .btn.sm{height:40px}
