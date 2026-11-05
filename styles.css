@@ -796,3 +796,8 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .gc-ph::-webkit-scrollbar{display:none}
 .gc-ph img{flex:none;width:120px;height:120px;object-fit:cover;border-radius:14px;background:var(--soft)}
 .gc-ph.wait i{flex:none;width:120px;height:120px;border-radius:14px;background:var(--soft)}
+.addr-l span:last-child{white-space:pre-line;min-width:0;overflow-wrap:anywhere}
+.btn{min-width:0;max-width:100%}
+.btn>span,.btn{overflow-wrap:anywhere}
+.sh-head .m{min-width:0}
+.sh-head h3,.sh-head .s{overflow-wrap:anywhere}

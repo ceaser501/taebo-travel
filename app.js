@@ -792,8 +792,8 @@ function placeSheet(id){
   openSheet(`${shHead(esc(p.n),`${jpName?`<span class="jp-n" lang="ja" translate="no">${esc(jpName)}</span>${p.en?`<span class="en-n"> · ${esc(p.en)}</span>`:''}<br>`:p.en?`<span class="en-n">${esc(p.en)}</span><br>`:''}<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
     <div style="display:flex;gap:6px;flex-wrap:wrap">${safeChip(p)}${days.map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}${!hasLL(id)?'<span class="chip">지도 위치 없음</span>':''}</div>
     <div><div class="grp" style="margin-top:0">일본어 간판 · 발음</div>${signRows(id)}
-      ${sg?`<button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}「${esc(sg[0])}」 어디예요? 물어보기</button>`:''}</div>
-    ${p.addr?`<div class="addr-l"><span class="k">주소</span><span>${esc(p.addr)}</span></div>`:p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
+      ${sg?`<button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}여기 어디예요? 물어보기</button>`:''}</div>
+    ${p.addr?`<div class="addr-l"><span class="k">주소</span><span>${esc(p.addr.replace(/^日本[、,]\s*/,'').replace(/^(〒\d{3}-\d{4})\s*/,'$1\n'))}</span></div>`:p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
     <dl class="facts">${p.walk?`<dt>걷는 양</dt><dd>${walkHTML(p.walk)}</dd>`:''}${p.price?`<dt>가격대</dt><dd class="mono">${'¥'.repeat(p.price)}<span style="color:var(--soft2)">${'¥'.repeat(4-p.price)}</span></dd>`:''}</dl>
     ${p.tips&&p.tips.length?`<div class="note"><h4>임산부 팁</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${placeSearch(id)}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
