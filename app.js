@@ -135,7 +135,9 @@ if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pick
    falling back to the phone's own voice. The phone voice reads the kana reading, so a non-Japanese voice
    doesn't read kanji with Korean readings (卵 → 란, 水天宮 → 수천궁). */
 const TTS_VOICE='ja-JP-Neural2-B';
-let ttsCloudOff=false,ttsAudio=null;
+// after a refusal, wait a few minutes before asking Google again (the API may have just been switched on)
+let ttsOffUntil=0,ttsAudio=null;
+const ttsOff=()=>Date.now()<ttsOffUntil;
 const ttsKey=(text,slow)=>`tts/${TTS_VOICE}/${slow?'s':'n'}/${text}`;
 function kanaFor(text){
   for(const p of allPhrases())if(p[0]===text&&p[1])return p[1];
@@ -145,7 +147,7 @@ function kanaFor(text){
 async function cloudTTS(text,slow){
   const r=await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({input:{text},voice:{languageCode:'ja-JP',name:TTS_VOICE},audioConfig:{audioEncoding:'MP3',speakingRate:slow?0.75:0.95}})});
-  if(r.status===403||r.status===400){ttsCloudOff=true;throw new Error('tts '+r.status);}
+  if(r.status===403||r.status===400){ttsOffUntil=Date.now()+3*60*1000;throw new Error('tts '+r.status);}
   if(!r.ok)throw new Error('tts '+r.status);
   const j=await r.json(),bin=atob(j.audioContent),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
   const blob=new Blob([u8],{type:'audio/mpeg'});await FileCache.put(ttsKey(text,slow),blob);return blob;
@@ -155,7 +157,7 @@ async function speak(text,slow){
   if('speechSynthesis' in window)speechSynthesis.cancel();
   try{
     let blob=await FileCache.get(ttsKey(text,slow));
-    if(!blob&&navigator.onLine&&!ttsCloudOff)blob=await cloudTTS(text,slow);
+    if(!blob&&navigator.onLine&&!ttsOff())blob=await cloudTTS(text,slow);
     if(blob){ttsAudio=new Audio(URL.createObjectURL(blob));await ttsAudio.play();return;}
   }catch(e){console.warn('tts',e);}
   deviceSpeak(text,slow);
@@ -169,11 +171,11 @@ function deviceSpeak(text,slow){
 }
 // save the voice for every phrase and place sign ahead of the trip
 async function saveOfflineVoices(onProgress){
-  if(ttsCloudOff||!navigator.onLine)return {done:0,total:0,off:ttsCloudOff};
+  if(ttsOff()||!navigator.onLine)return {done:0,total:0,off:ttsOff()};
   const texts=new Set();allPhrases().forEach(p=>texts.add(p[0]));Object.keys(PL).forEach(id=>signsOf(id).forEach((sg,i)=>{texts.add(sg[0]);if(i===0)texts.add(askOf(sg)[0]);}));
   const list=[...texts];let done=0;
-  for(const t of list){if(ttsCloudOff)break;try{if(!(await FileCache.get(ttsKey(t,false))))await cloudTTS(t,false);}catch(e){}done++;onProgress&&onProgress(done,list.length);}
-  return {done,total:list.length,off:ttsCloudOff};
+  for(const t of list){if(ttsOff())break;try{if(!(await FileCache.get(ttsKey(t,false))))await cloudTTS(t,false);}catch(e){}done++;onProgress&&onProgress(done,list.length);}
+  return {done,total:list.length,off:ttsOff()};
 }
 /* ---------- Japanese signs ---------- */
 const signsOf=id=>{const p=PL[id];if(!p)return [];const s=(p.signs||[]).filter(x=>x&&x[0]);return s.length?s:(p.jp?[[p.jp,p.kana||'',p.n]]:[]);};
