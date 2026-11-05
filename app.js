@@ -787,7 +787,9 @@ function bigPhrase(i){const p=Array.isArray(i)?i:allPhrases()[i];if(!p)return;op
 /* ---------- place detail ---------- */
 function placeSheet(id){
   const p=PL[id];if(!p)return;const days=DAYS.filter(d=>planOf(d.id).some(s=>s.p===id)).map(d=>d.id),saved=savedSet(),tks=tickets().filter(t=>t.place===id),sg=mainSign(id),c=CAT[p.cat]||CAT['기타'];
-  openSheet(`${shHead(esc(p.n),`<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
+  // the name as written in Japanese (and English, if known) sits right under the Korean name
+  const jpName=(sg&&sg[0])||p.jp||'';
+  openSheet(`${shHead(esc(p.n),`${jpName?`<span class="jp-n" lang="ja" translate="no">${esc(jpName)}</span>${p.en?`<span class="en-n"> · ${esc(p.en)}</span>`:''}<br>`:p.en?`<span class="en-n">${esc(p.en)}</span><br>`:''}<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
     <div style="display:flex;gap:6px;flex-wrap:wrap">${safeChip(p)}${days.map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}${!hasLL(id)?'<span class="chip">지도 위치 없음</span>':''}</div>
     <div><div class="grp" style="margin-top:0">일본어 간판 · 발음</div>${signRows(id)}
       ${sg?`<button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}「${esc(sg[0])}」 어디예요? 물어보기</button>`:''}</div>

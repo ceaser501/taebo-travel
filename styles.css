@@ -771,3 +771,4 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .en-box b{font-size:16px}.en-box span{font-size:14px;color:var(--mute)}
 .addr-l{display:flex;gap:10px;align-items:baseline;background:var(--soft);border-radius:12px;padding:10px 12px;font-size:14.5px}
 .addr-l .k{flex:none;font-size:12px;font-weight:700;color:var(--mute);background:#fff;border-radius:6px;padding:2px 7px}
+.jp-n{font-size:15px;font-weight:600;color:var(--ink,#2b2f45);font-family:"Hiragino Sans","Noto Sans JP",var(--f-body)}
