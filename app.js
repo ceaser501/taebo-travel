@@ -795,9 +795,9 @@ function ticketForm(t){
         <div class="two"><div><label class="f" for="tDepT">출발 터미널</label><input type="text" id="tDepT" value="${esc(fl.term||'')}" placeholder="예: 1"></div>
           <div><label class="f" for="tArrT">도착 터미널</label><input type="text" id="tArrT" value="${esc(fl.arrTerm||'')}" placeholder="예: 2"></div></div>
       </div>
-      <label class="f" for="tTitle">이름<span class="opt" id="tTitleOpt" ${air?'':'hidden'}> (비우면 공항으로 채워요)</span></label><input type="text" id="tTitle" value="${esc(tf.title)}" placeholder="${air?'예: 도쿄 가는 비행기':'예: 시부야 스카이 16:00 입장'}">
+      <div id="tTitleBox" ${air?'hidden':''}><label class="f" for="tTitle">이름</label><input type="text" id="tTitle" value="${esc(tf.title)}" placeholder="예: 시부야 스카이 16:00 입장"></div>
       <div class="catpick" role="group" aria-label="날짜">${DAYS.map(d=>`<button type="button" data-tday="${d.id}" aria-pressed="${tf.day===d.id}">DAY ${d.id}</button>`).join('')}</div>
-      <div class="two"><div id="tTimeBox" ${air?'hidden':''}><label class="f" for="tTime">시간</label><input type="time" id="tTime" value="${esc(tf.time)}"></div>
+      <div class="two" id="tGen" ${air?'hidden':''}><div><label class="f" for="tTime">시간</label><input type="time" id="tTime" value="${esc(tf.time)}"></div>
         <div><label class="f" for="tPlace">장소</label><select id="tPlace"><option value="">선택 안 함</option>${Object.keys(PL).map(id=>`<option value="${id}" ${tf.place===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select></div></div>
       <div class="two"><div><label class="f" for="tCode">예약 번호</label><input type="text" id="tCode" value="${esc(tf.code)}" placeholder="예: Q2TL65" autocomplete="off" autocapitalize="characters"></div>
         <div><label class="f" for="tSeat">좌석 (선택)</label><input type="text" id="tSeat" value="${esc(tf.seat||'')}" placeholder="예: 23A" autocomplete="off" autocapitalize="characters"></div></div>
@@ -815,7 +815,9 @@ function filesEditHTML(){const tf=state.tf;return [...tf.files.map((f,i)=>`<div 
 async function saveTicket(){
   const tf=state.tf,err=$('#tErr'),air=tf.type==='항공권',v=id=>$('#'+id).value.trim();
   const fl=air?{no:v('tNo').toUpperCase(),fromCity:v('tFrom'),toCity:v('tTo'),dep:v('tDep'),arr:v('tArr'),dur:v('tDur')||durText(spanMin(v('tDep'),v('tArr'))),term:v('tDepT'),arrTerm:v('tArrT')}:null;
-  const title=v('tTitle')||(air&&(fl.fromCity||fl.toCity||fl.no)?flightLabel(fl):'');
+  // a flight's name is made from its airports and flight number, so it never needs typing
+  const title=air?(fl.fromCity||fl.toCity||fl.no?flightLabel(fl):''):v('tTitle');
+  if(!title&&air){err.textContent='편명이나 출발·도착 공항을 적어 주세요.';err.hidden=false;$('#tNo').focus();return;}
   if(!title){err.textContent='티켓 이름을 적어 주세요.';err.hidden=false;$('#tTitle').focus();return;}
   if(!tf.files.length&&!tf.newFiles.length&&!$('#tCode').value.trim()){err.textContent='사진·PDF를 올리거나 예약 번호를 적어 주세요.';err.hidden=false;return;}
   const files=[...tf.files];
@@ -823,7 +825,7 @@ async function saveTicket(){
     try{files.push({path:await Sync.addFile(f.blob,ext),name:f.name,mime:f.blob.type||'image/jpeg'});}catch(e){err.textContent='이 휴대폰 저장 공간이 부족해 파일을 저장하지 못했어요.';err.hidden=false;return;}}
   const id=tf.id||uid(),dir=air?tf.dir||'':'';
   const slot=air&&(dir==='out'||dir==='in')?'flight-'+dir:(tf.slot&&tf.slot.startsWith('flight-')?'':tf.slot||'');
-  Sync.put('ticket',id,{type:tf.type,title,day:tf.day,time:air?fl.dep:$('#tTime').value,place:$('#tPlace').value,code:v('tCode').toUpperCase(),seat:v('tSeat').toUpperCase(),memo:v('tMemo'),files,slot,dir,fl,at:tf.at||new Date().toISOString()});
+  Sync.put('ticket',id,{type:tf.type,title,day:tf.day,time:air?fl.dep:$('#tTime').value,place:air?'':$('#tPlace').value,code:v('tCode').toUpperCase(),seat:v('tSeat').toUpperCase(),memo:v('tMemo'),files,slot,dir,fl,at:tf.at||new Date().toISOString()});
   // a flight ticket for the way out or back also fills in the trip's flight info, which the schedule uses
   if(dir==='out'||dir==='in'){const f=flights();f[dir]={...f[dir],...fl};applyFlights(f.out,f.in);}
   closeSheet();toast('티켓을 저장했어요. 인터넷이 없어도 열려요.');render();
@@ -1131,7 +1133,7 @@ document.addEventListener('click',async e=>{
   else if(ds.showticket){closeSheet();showTicket(ds.showticket);}
   else if(ds.editticket){closeOverlay();ticketForm({id:ds.editticket,...Sync.get('ticket',ds.editticket)});}
   else if(ds.delticket){Sync.remove('ticket',ds.delticket);closeSheet();render();toast('티켓을 지웠어요.');}
-  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권';$('#tFlight').hidden=!air;$('#tTimeBox').hidden=air;$('#tTitleOpt').hidden=!air;}
+  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권';$('#tFlight').hidden=!air;$('#tGen').hidden=air;$('#tTitleBox').hidden=air;}
   else if(ds.tdir){state.tf.dir=ds.tdir;document.querySelectorAll('[data-tdir]').forEach(b=>b.setAttribute('aria-pressed',b===t));
     if(ds.tdir!=='etc'){const f=flights()[ds.tdir],day=ds.tdir==='out'?1:DAYS.length;state.tf.day=day;document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===day));
       [['tNo','no'],['tFrom','fromCity'],['tTo','toCity'],['tDep','dep'],['tArr','arr'],['tDur','dur'],['tDepT','term'],['tArrT','arrTerm']].forEach(([i,k])=>{const el=$('#'+i);if(el&&!el.value&&f[k])el.value=f[k];});}}
