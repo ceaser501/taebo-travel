@@ -797,7 +797,7 @@ function placeSheet(id){
     <dl class="facts">${p.walk?`<dt>걷는 양</dt><dd>${walkHTML(p.walk)}</dd>`:''}${p.price?`<dt>가격대</dt><dd class="mono">${'¥'.repeat(p.price)}<span style="color:var(--soft2)">${'¥'.repeat(4-p.price)}</span></dd>`:''}</dl>
     ${p.tips&&p.tips.length?`<div class="note"><h4>임산부 팁</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${placeSearch(id)}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
-      <button class="btn" data-heart="${id}" aria-pressed="${saved.has(id)}">${svg('heart')}${saved.has(id)?'저장됨':'저장'}</button><button class="btn pri" data-addto="${id}">${svg('plus')}일정에 추가</button></div>
+      <button class="btn" data-heart="${id}" aria-pressed="${saved.has(id)}">${svg('heart')}${saved.has(id)?'즐겨찾기됨':'즐겨찾기'}</button><button class="btn pri" data-addto="${id}">${svg('plus')}일정에 추가</button></div>
     <button class="btn ghost" data-editplace="${id}">${svg('pen')}장소 정보 고치기</button>`);
 }
 function addToSheet(id){openSheet(`${shHead('어느 날에 추가할까요?',esc(PL[id].n))}<div class="stack">${DAYS.map(d=>`<button class="btn" style="justify-content:flex-start" data-addday="${d.id}|${id}"><span class="mono" style="color:var(${d.c})">DAY ${d.id}</span> ${esc(d.label)}${d.title?' · '+esc(d.title):''}</button>`).join('')}</div>`);}
@@ -914,6 +914,7 @@ function savePlace(){
   if(pf.day){const a=planOf(pf.day),last=a[a.length-1],pos=last&&(isStay(last.p)||isAir(last.p))&&a.length>1?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(pf.day,a);state.day=pf.day;LS.set('day',pf.day);closeSheet();toast('장소를 등록하고 일정에 넣었어요.');go('plan');return;}
   if(state.stayMode&&pf.cat==='숙소'&&sheetStack.some(x=>x.html.includes('id="tStay"'))){state.stayMode=false;state.lastStay=id;
     for(let k=0;k<4&&!$('#tStay');k++)closeSheet();fillStays();toast('숙소를 등록했어요.');return;}
+  if(state.favMode){state.favMode=false;const sv=savedSet();sv.add(id);setSaved(sv);closeAllSheets();toast('즐겨찾기에 넣었어요.');render();return;}
   state.stayMode=false;closeSheet();toast(pf.id?'고쳤어요.':'장소를 등록했어요.');render();
 }
 // the stay picker in the ticket form, refreshed after a new 숙소 is registered
@@ -1172,12 +1173,12 @@ const INTRO_DEFAULT='엄마 아빠 딱복이랑\n떠나는 첫 비행';
 const introLine=()=>{const t=(trip().intro||(tripInfo()?'':INTRO_DEFAULT)).trim();return t?t.split('\n').map(esc).join('<br>'):`${esc(whenPhrase())},<br>${esc(trip().city||'여행')}에 가요`;};
 const whenPhrase=()=>{const s=startDate();if(!s)return '곧';const n=new Date();const diff=(s.getFullYear()-n.getFullYear())*12+s.getMonth()-n.getMonth();return diff<=0?'이번 달':diff===1?'다음 달':`${s.getMonth()+1}월`;};
 const admitText=()=>{const names=Sync.members.map(m=>m.display_name);const baby=/태교/.test(trip().title);const all=[...names,...(baby?['아가']:[])];return all.length?`ADMIT ${all.length} · ${all.join(' · ')}`:'BOARDING PASS';};
-const TITLES={plan:'일정',tickets:'티켓',diary:'우리의 기록',money:'가계부',places:'장소',prep:'준비물 · 연락처'};
+const TITLES={fav:'즐겨찾기',plan:'일정',tickets:'티켓',diary:'우리의 기록',money:'가계부',places:'장소',prep:'준비물 · 연락처'};
 function header(){
   if(state.tab==='auth'||state.tab==='onboard')return `<h1>여행 같이 쓰기</h1>`;
   if(state.tab==='places')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>장소</h1>${syncDot()}<button class="btn sm acc" data-newplace="0">${svg('plus')}찾기</button>`;
   if(state.tab==='prep')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>${TITLES.prep}</h1>${syncDot()}`;
-  const right=state.tab==='plan'?`<button class="btn sm ${state.edit?'pri':''}" data-edit>${state.edit?'완료':'편집'}</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:state.tab==='home'?`<span class="dday">${ddayTxt()}</span>`:'';
+  const right=state.tab==='plan'?`<button class="btn sm ${state.edit?'pri':''}" data-edit>${state.edit?'완료':'편집'}</button>`:state.tab==='fav'?`<button class="btn sm acc" data-addfav>${svg('plus')}추가</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:state.tab==='home'?`<span class="dday">${ddayTxt()}</span>`:'';
   return `<h1>${state.tab==='home'?esc(trip().title):TITLES[state.tab]}</h1>${syncDot()}${right}`;
 }
 function viewHome(){
@@ -1241,6 +1242,39 @@ function viewPlan(){
   </section>`;
 }
 function placeList(){const s=savedSet();return Object.keys(PL).filter(id=>(state.sCat==='전체'||PL[id].cat===state.sCat)&&(!state.sOnly||s.has(id))).sort((a,b)=>CAT_LIST.indexOf(PL[a].cat)-CAT_LIST.indexOf(PL[b].cat));}
+/* ===================== favorites: places found but not yet put in the schedule ===================== */
+function viewFav(){
+  const sv=savedSet(),ids=[...sv].filter(id=>PL[id]),inPlan=new Set(DAYS.flatMap(d=>planOf(d.id).map(s=>s.p)));
+  return `<section class="view">
+    ${ids.length?`<p class="fine">찾아 둔 곳을 모아 두는 곳이에요. 누르면 자세히 보고 일정에 넣을 수 있어요. 길게 누르면 빼요.</p>
+    <div class="favs">${ids.map(id=>{const p=PL[id],c=CAT[p.cat]||CAT['기타'],sg=mainSign(id),jp=(sg&&sg[0])||p.jp||'',days=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>d.id);
+      return `<button class="card favc" data-place="${id}" data-hold="${id}" data-holdkind="fav"><span class="thumb" style="--c:var(${c.c})">${svg(c.ic,'')}</span><span class="m"><b>${esc(p.n)}</b><span class="s">${esc(p.cat)}${jp?` · <span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${p.area?`<span class="s">${esc(p.area)}</span>`:''}</span>${days.length?`<span class="chip">DAY ${days.join('·')}</span>`:''}</button>`;}).join('')}</div>`
+    :`<div class="card empty-fav"><b>아직 즐겨찾기가 없어요</b><p class="fine">오른쪽 위 「추가」에 구글 지도 공유 링크를 붙여 넣거나 장소 이름을 쓰면 여기 모여요. 나중에 하나씩 일정에 넣으면 돼요.</p><button class="btn acc" data-addfav>${svg('plus')}추가</button></div>`}
+  </section>`;
+}
+function addFavPop(){
+  floatPop(`<div class="fp-h"><b>즐겨찾기 추가</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
+    <form class="fp-form" data-addform="fav"><input type="text" placeholder="구글 지도 공유 링크 또는 장소 이름" autocomplete="off" aria-label="링크 또는 이름"><button class="btn acc" type="submit">찾기</button></form>
+    <p class="fine" id="fpMsg">구글 지도 앱에서 「공유 → 링크 복사」한 걸 붙여 넣으면 돼요.</p>`);}
+// a Google Maps share link is opened on our server (browsers can't follow it), then read for the place name and position
+async function readMapsLink(link){
+  const {data,error}=await Sync.sb.functions.invoke('maps-link',{body:{url:link}});
+  if(error||!data||!data.url)throw new Error('link');
+  const u=data.url,m=/\/maps\/place\/([^/@?]+)/.exec(u),q=new URL(u).searchParams.get('q')||new URL(u).searchParams.get('query');
+  let name=m?decodeURIComponent(m[1].replace(/\+/g,' ')):(q&&!/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(q)?q:'');
+  return {name,ll:parseMapsLink(u),url:u};}
+async function addFavFrom(text){
+  const msg=$('#fpMsg'),say=m=>{if(msg)msg.textContent=m;};
+  let q=text,ll=null;
+  if(/^https?:\/\//.test(text)){
+    if(!navigator.onLine){say('링크를 읽으려면 인터넷이 필요해요.');return;}
+    say('링크를 읽는 중…');
+    try{const r=await readMapsLink(text);q=r.name;ll=r.ll;}catch(e){say('이 링크를 읽지 못했어요. 장소 이름으로 찾아 주세요.');return;}
+    if(!q&&ll){closeFloat();state.favMode=true;placeForm({n:'',ll},0);return;}
+    if(!q){say('이 링크에서 장소를 찾지 못했어요. 장소 이름으로 찾아 주세요.');return;}
+  }
+  closeFloat();state.favMode=true;searchSheet(0);const i=$('#searchQ');if(i)i.value=q;runSearch(q);
+}
 function viewPlaces(){
   const cats=['전체',...CAT_LIST],list=placeList(),saved=savedSet();
   return `<section class="view"><div style="display:flex;flex-direction:column;gap:10px">
@@ -1329,7 +1363,7 @@ function viewOnboard(){
     <button class="btn ghost" data-signout>다른 계정으로 로그인</button></section>`;
 }
 /* ===================== render & events ===================== */
-const VIEWS={home:viewHome,plan:viewPlan,tickets:viewTickets,diary:viewDiary,money:viewMoney,places:viewPlaces,prep:viewPrep,auth:viewAuth,onboard:viewOnboard};
+const VIEWS={home:viewHome,fav:viewFav,plan:viewPlan,tickets:viewTickets,diary:viewDiary,money:viewMoney,places:viewPlaces,prep:viewPrep,auth:viewAuth,onboard:viewOnboard};
 const GATED=new Set(['auth','onboard']);
 function render(){
   rebuild();
@@ -1362,7 +1396,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1437,6 +1471,8 @@ document.addEventListener('click',async e=>{
   else if(ds.aisave){const it=state.ocrAi&&state.ocrAi.items[+ds.aisave];if(it){await savePhrase(it.ja,it.ko);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.addpop){addPop(ds.addpop);}
+  else if(ds.addfav!==undefined){addFavPop();}
+  else if(ds.delfav){closeHoldPop();const sv=savedSet();sv.delete(ds.delfav);setSaved(sv);render();}
   else if(ds.popcat){state.popCat=ds.popcat;document.querySelectorAll('[data-popcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const i=document.querySelector('#fpop input');if(i)i.focus();}
   else if(ds.closefp!==undefined){closeFloat();}
   else if(ds.rdays){state.rateDays=+ds.rdays;rateSheet();}
@@ -1483,6 +1519,7 @@ document.addEventListener('submit',async e=>{
   if(id==='searchForm'){const q=$('#searchQ').value.trim();if(q)runSearch(q);}
   if(id==='trForm'){const v=$('#trIn').value.trim();if(v)addPhrase(v);}
   const af=e.target.dataset&&e.target.dataset.addform;
+  if(af==='fav'){const v=e.target.querySelector('input').value.trim();if(v)addFavFrom(v);return;}
   if(af==='prep'||af==='contact'){const ins=[...e.target.querySelectorAll('input')],[a,b]=ins.map(x=>x.value.trim()),cat=state.popCat;
     if(af==='prep'&&a)Sync.put('prep',uid(),{t:a,cat,at:new Date().toISOString()});
     else if(af==='contact'&&(a||b))Sync.put('contact',uid(),{name:a||b,tel:b,cat,at:new Date().toISOString()});else return;
@@ -1533,7 +1570,7 @@ const closeHoldPop=()=>{const x=$('#holdpop');if(x)x.remove();document.querySele
 document.addEventListener('pointerdown',e=>{const c=e.target.closest('[data-hold]');if(!e.target.closest("#holdpop"))closeHoldPop();if(!c||e.target.closest('button'))return;holdFired=false;holdXY=[e.clientX,e.clientY];
   clearTimeout(holdT);holdT=setTimeout(()=>{holdFired=true;if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}
     const r=c.getBoundingClientRect(),pop=document.createElement('div');pop.id='holdpop';pop.className='holdpop';
-    const kind=c.dataset.holdkind||'phrase',msg={phrase:'이 문장을 지울까요?',prep:'이 준비물을 지울까요?',contact:'이 연락처를 지울까요?'}[kind];
+    const kind=c.dataset.holdkind||'phrase',msg={phrase:'이 문장을 지울까요?',prep:'이 준비물을 지울까요?',contact:'이 연락처를 지울까요?',fav:'즐겨찾기에서 뺄까요?'}[kind];
     pop.innerHTML=`<span>${msg}</span><button type="button" data-holdno>취소</button><button type="button" class="del" data-del${kind}="${c.dataset.hold}">삭제</button>`;
     c.classList.add('held');pop.dataset.for='';document.body.appendChild(pop);},550);});
 ['pointerup','pointercancel','pointerleave'].forEach(k=>document.addEventListener(k,()=>clearTimeout(holdT)));
