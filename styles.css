@@ -808,3 +808,14 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .gc-in{flex:1;display:flex;align-items:center;gap:4px;font-size:13px;color:#188038;font-weight:600}
 .gc-in svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.4}
 .gcard.planned{opacity:.92}
+/* drag to reorder */
+.edit-ctl .drag{flex:1;touch-action:none;cursor:grab;display:flex;align-items:center;justify-content:center;gap:6px}
+.edit-ctl .drag svg{width:18px;height:18px}
+li.stop.dragging{position:relative;z-index:5;opacity:.92;box-shadow:0 12px 30px rgba(40,40,90,.22);border-radius:16px;background:var(--app);transition:none}
+li.stop.drop-above{box-shadow:0 -3px 0 var(--accent)}
+li.stop.drop-below{box-shadow:0 3px 0 var(--accent)}
+/* Google info at the top of a place */
+.ginfo{display:flex;flex-direction:column;gap:4px}
+.ginfo .gc-ph{margin:0 -18px 6px;padding:0 18px}
+.ginfo .gc-ph img,.ginfo .gc-ph.wait i{width:150px;height:150px}
+body.dragging-now{-webkit-user-select:none;user-select:none}

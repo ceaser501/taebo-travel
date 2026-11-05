@@ -128,7 +128,7 @@ function importTemplate(){
 }
 /* ---------- small UI helpers ---------- */
 const IC={
-  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',check:'<path d="M5 12.5l4.5 4.5L19 7"/>',mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',grip:'<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3.2"/>',check:'<path d="M5 12.5l4.5 4.5L19 7"/>',mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
   bed:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5M7 11.5a1.5 1.5 0 1 0 0-.01"/>',plane:'<path d="M2 16l20-6-3-3-7 3-5-5-2 1 3 6-4 2-2-1-1 1z"/>',nav:'<path d="M3 11l18-8-8 18-2-8z"/>',pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   memo:'<path d="M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5"/>',taxi:'<path d="M5 17h14v-5l-2-5H7l-2 5zM5 12h14M8 17v2M16 17v2M10 4h4"/>',walk:'<circle cx="13" cy="4.5" r="1.5"/><path d="M10 21l2-6 3 3v3M9 12l2-4 3 1 2 3M11 8l-2 5"/>',train:'<rect x="6" y="3" width="12" height="13" rx="3"/><path d="M6 10h12M9 20l-2 1M15 20l2 1M9 16l-1 4M15 16l1 4"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',yen:'<path d="M6 4l6 8 6-8M12 12v8M8 13h8M8 16h8"/>',talk:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',home:'<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
@@ -785,12 +785,20 @@ async function addPhrase(text){
 function bigPhrase(i){const p=Array.isArray(i)?i:allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button></div></div>`);}
 
 /* ---------- place detail ---------- */
+function gInfoHTML(d){if(!d)return navigator.onLine?'<div class="gc-ph wait"><i></i><i></i><i></i></div>':'';
+  const type=(d.primaryTypeDisplayName&&d.primaryTypeDisplayName.text)||'',pr=priceText(d.priceRange);
+  return `${d.photos&&d.photos.length?`<div class="gc-ph">${d.photos.slice(0,6).map(ph=>`<img loading="lazy" src="${gPhoto(ph.name,600)}" alt="">`).join('')}</div>`:''}
+    ${d.rating?`<div class="gc-r"><span>${d.rating.toFixed(1)}</span>${stars(d.rating)}<span class="cnt">(${(d.userRatingCount||0).toLocaleString('ko-KR')}개)</span></div>`:''}
+    ${type||pr?`<div class="gc-t">${esc([type,pr].filter(Boolean).join(' · '))}</div>`:''}
+    ${d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}`;}
+async function fillGInfo(id){const el=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`),p=PL[id];if(!el||!p||!p.gid)return;const d=await placeInfo(p.gid);const e2=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`);if(e2)e2.innerHTML=gInfoHTML(d)||'';}
 function placeSheet(id){
   const p=PL[id];if(!p)return;const days=DAYS.filter(d=>planOf(d.id).some(s=>s.p===id)).map(d=>d.id),saved=savedSet(),tks=tickets().filter(t=>t.place===id),sg=mainSign(id),c=CAT[p.cat]||CAT['기타'];
   // the name as written in Japanese (and English, if known) sits right under the Korean name
   const jpName=(sg&&sg[0])||p.jp||'';
   openSheet(`${shHead(esc(p.n),`${jpName?`<span class="jp-n" lang="ja" translate="no">${esc(jpName)}</span>${p.en?`<span class="en-n"> · ${esc(p.en)}</span>`:''}<br>`:p.en?`<span class="en-n">${esc(p.en)}</span><br>`:''}<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
     <div style="display:flex;gap:6px;flex-wrap:wrap">${safeChip(p)}${days.map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}${!hasLL(id)?'<span class="chip">지도 위치 없음</span>':''}</div>
+    ${p.gid?`<div class="ginfo" data-ginfo="${id}">${gInfoHTML(LS.get('gpi:'+p.gid,null)?.d)}</div>`:''}
     <div><div class="grp" style="margin-top:0">일본어 간판 · 발음</div>${signRows(id)}
       ${sg?`<button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}여기 어디예요? 물어보기</button>`:''}</div>
     ${p.addr?`<div class="addr-l"><span class="k">주소</span><span>${esc(p.addr.replace(/^日本[、,]\s*/,'').replace(/^(〒\d{3}-\d{4})\s*/,'$1\n'))}</span></div>`:p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
@@ -799,6 +807,7 @@ function placeSheet(id){
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${placeSearch(id)}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
       <button class="btn" data-heart="${id}" aria-pressed="${saved.has(id)}">${svg('heart')}${saved.has(id)?'즐겨찾기됨':'즐겨찾기'}</button><button class="btn pri" data-addto="${id}">${svg('plus')}일정에 추가</button></div>
     <button class="btn ghost" data-editplace="${id}">${svg('pen')}장소 정보 고치기</button>`);
+  fillGInfo(id);
 }
 function addToSheet(id){openSheet(`${shHead('어느 날에 추가할까요?',esc(PL[id].n))}<div class="stack">${DAYS.map(d=>`<button class="btn" style="justify-content:flex-start" data-addday="${d.id}|${id}"><span class="mono" style="color:var(${d.c})">DAY ${d.id}</span> ${esc(d.label)}${d.title?' · '+esc(d.title):''}</button>`).join('')}</div>`);}
 function pickPlaceSheet(d){
@@ -1221,11 +1230,11 @@ function viewPlan(){
       list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail"></div><div class="body">${state.edit?`<div class="leg-edit"><label class="f" for="mv${i}">이동</label><select id="mv${i}" data-movehow="${i}"><option value="">자동 (거리로 추정)</option>${Object.entries(HOW).filter(([k])=>k!=='subway').map(([k,v])=>`<option value="${k}" ${s.move&&s.move.how===k?'selected':''}>${v[0]}</option>`).join('')}<option value="subway" ${s.move&&s.move.how==='subway'?'selected':''}>지하철</option></select><input type="number" inputmode="numeric" min="0" max="600" id="mvm${i}" data-movemin="${i}" value="${s.move&&s.move.min?s.move.min:''}" placeholder="분" aria-label="이동 시간(분)"><input type="text" id="mvn${i}" data-movenote="${i}" value="${esc(s.move&&s.move.note||'')}" placeholder="메모 (예: 한조몬선 4정거장)" aria-label="이동 메모"></div>`
         :`<div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${placeDir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),s.p,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div>`}</div></li>`;}}
     const mark=home?`<span class="num home">숙소</span>`:air?`<span class="num air">${svg('plane','')}</span>`:`<span class="num">${n}</span>`;
-    list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail">${mark}</div><div class="body">
+    list+=`<li class="stop" data-si="${i}" style="--c:var(${day.c})"><div class="rail">${mark}</div><div class="body">
       ${state.edit?`<div class="stop-edit"><b>${esc(s.title||p.n)}</b><div class="se-row"><input type="time" data-stoptime="${i}" value="${esc(s.t||'')}" aria-label="시작 시간"><input type="text" data-stopdur="${i}" value="${esc(s.dur||'')}" placeholder="머무는 시간 (예: 1시간)" aria-label="머무는 시간"></div>
           <input type="text" data-stoptitle="${i}" value="${esc(s.title||'')}" placeholder="일정 이름 (비우면 장소 이름)" aria-label="일정 이름"></div>
         <div class="memo">${svg('memo','')}<textarea data-memo="${i}" aria-label="메모" placeholder="메모를 남겨 보세요">${esc(s.memo||'')}</textarea></div>
-        <div class="edit-ctl"><button data-mv="${i}|-1" ${i===0?'disabled':''} aria-label="위로">${svg('up')}</button><button data-mv="${i}|1" ${i===st.length-1?'disabled':''} aria-label="아래로">${svg('down')}</button><button class="del" data-del="${i}">${svg('x')}빼기</button></div>`
+        <div class="edit-ctl"><button class="drag" data-drag="${i}" aria-label="끌어서 순서 바꾸기">${svg('grip')}끌어서 순서 바꾸기</button><button class="del" data-del="${i}">${svg('x')}빼기</button></div>`
       :`<button class="stop-card" data-place="${s.p}"><div class="nm">${esc(s.title||p.n)}</div>
         <div class="meta"><span class="cat" style="--c:var(${c.c})">${esc(p.cat)}</span>${(()=>{const jp=(sg&&sg[0])||p.jp||'',nm=s.title&&s.title!==p.n?p.n:'';return nm||jp?`<span>${esc(nm)}${jp?`${nm?' ':''}<span class="jp-p" lang="ja" translate="no">(${esc(jp)})</span>`:''}</span>`:'';})()}</div>
         <div class="when"><b>${s.t||'시간 미정'}</b>${s.dur?`<span>${esc(s.dur)}</span>`:''}</div></button>
@@ -1616,6 +1625,18 @@ document.addEventListener('click',e=>{if(e.target.id==='fpop')closeFloat();});
 // the click that ends a long press must not also open the card
 document.addEventListener('click',e=>{if(holdFired&&e.target.closest('[data-hold]')){holdFired=false;e.stopPropagation();e.preventDefault();}
   if(e.target.closest('[data-holdno]')){closeHoldPop();}},true);
+/* drag a stop by its handle to a new place in the day */
+document.addEventListener('pointerdown',e=>{const h=e.target.closest('[data-drag]');if(!h)return;e.preventDefault();
+  const li=h.closest('li.stop'),list=[...document.querySelectorAll('li.stop[data-si]')],from=+h.dataset.drag,y0=e.clientY,s0=window.scrollY;let to=from;
+  li.classList.add('dragging');document.body.classList.add('dragging-now');try{h.setPointerCapture(e.pointerId);}catch(_){}
+  const move=ev=>{const dy=ev.clientY-y0+(window.scrollY-s0);li.style.transform=`translateY(${dy}px)`;
+    if(ev.clientY<90)window.scrollBy(0,-14);else if(ev.clientY>innerHeight-140)window.scrollBy(0,14);
+    to=from;list.forEach(o=>{if(o===li)return;const j=+o.dataset.si,r=o.getBoundingClientRect(),mid=r.top+r.height/2;if(j<from&&ev.clientY<mid)to=Math.min(to,j);if(j>from&&ev.clientY>mid)to=Math.max(to,j);});
+    list.forEach(o=>{const j=+o.dataset.si;o.classList.toggle('drop-above',to<from&&j===to);o.classList.toggle('drop-below',to>from&&j===to);});};
+  const up=()=>{h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);
+    li.style.transform='';li.classList.remove('dragging');document.body.classList.remove('dragging-now');list.forEach(o=>o.classList.remove('drop-above','drop-below'));
+    if(to!==from){const a=planOf(state.day);a.splice(to,0,a.splice(from,1)[0]);setPlan(state.day,a);render();}};
+  h.addEventListener('pointermove',move);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);});
 /* Android back button: close what is open, then go home, then exit only on a second press */
 let backAt=0;
 const pushGuard=()=>history.pushState({k:'guard'},'',location.href);
