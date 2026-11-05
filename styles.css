@@ -903,3 +903,11 @@ li.stop.swipe-arm .body::before{opacity:1}
 li.stop.swiping .stop-card{background:color-mix(in srgb,var(--c) 5%,var(--card));border-radius:14px}
 .btn.del-fill{background:var(--no);color:#fff;border-color:transparent}
 .dayboard{overflow-x:clip}li.stop.swiping .body{overflow:hidden}
+/* category picker: one compact row */
+.cattiles{grid-template-columns:repeat(7,1fr);gap:2px;background:var(--card);border-radius:16px;padding:8px 4px}
+.cattiles button{padding:2px 0;gap:4px;border:0;background:none;border-radius:12px}
+.cattiles .ct-i{width:34px;height:34px}
+.cattiles .ct-i svg{width:18px;height:18px}
+.cattiles .ct-t{font-size:10.5px;letter-spacing:-.02em}
+.cattiles button[aria-pressed="true"]{background:none}
+.cattiles button[aria-pressed="true"] .ct-i{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 25%,transparent)}
