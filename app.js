@@ -131,12 +131,49 @@ function toast(msg){const el=$('#toast');el.textContent=msg;el.hidden=false;clea
 let jaVoice=null;
 function pickVoice(){if(!('speechSynthesis' in window))return;const vs=speechSynthesis.getVoices();jaVoice=vs.find(v=>/^ja(-|_|$)/i.test(v.lang)&&/Kyoko|O-ren|Google|Siri/i.test(v.name))||vs.find(v=>/^ja/i.test(v.lang))||null;}
 if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
-function speak(text,slow){
+/* Japanese speech: natural Google Cloud voice (saved on the phone after first play, so it also works offline),
+   falling back to the phone's own voice. The phone voice reads the kana reading, so a non-Japanese voice
+   doesn't read kanji with Korean readings (卵 → 란, 水天宮 → 수천궁). */
+const TTS_VOICE='ja-JP-Neural2-B';
+let ttsCloudOff=false,ttsAudio=null;
+const ttsKey=(text,slow)=>`tts/${TTS_VOICE}/${slow?'s':'n'}/${text}`;
+function kanaFor(text){
+  for(const p of allPhrases())if(p[0]===text&&p[1])return p[1];
+  for(const id of Object.keys(PL))for(const sg of signsOf(id)){if(sg[0]===text&&sg[1])return sg[1];const a=askOf(sg);if(a[0]===text)return a[1];}
+  return '';
+}
+async function cloudTTS(text,slow){
+  const r=await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({input:{text},voice:{languageCode:'ja-JP',name:TTS_VOICE},audioConfig:{audioEncoding:'MP3',speakingRate:slow?0.75:0.95}})});
+  if(r.status===403||r.status===400){ttsCloudOff=true;throw new Error('tts '+r.status);}
+  if(!r.ok)throw new Error('tts '+r.status);
+  const j=await r.json(),bin=atob(j.audioContent),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+  const blob=new Blob([u8],{type:'audio/mpeg'});await FileCache.put(ttsKey(text,slow),blob);return blob;
+}
+async function speak(text,slow){
+  if(ttsAudio){try{ttsAudio.pause();}catch(e){}}
+  if('speechSynthesis' in window)speechSynthesis.cancel();
+  try{
+    let blob=await FileCache.get(ttsKey(text,slow));
+    if(!blob&&navigator.onLine&&!ttsCloudOff)blob=await cloudTTS(text,slow);
+    if(blob){ttsAudio=new Audio(URL.createObjectURL(blob));await ttsAudio.play();return;}
+  }catch(e){console.warn('tts',e);}
+  deviceSpeak(text,slow);
+}
+function deviceSpeak(text,slow){
   if(!('speechSynthesis' in window)){toast('이 브라우저는 음성 읽기를 지원하지 않아요.');return;}
   pickVoice();
-  if(!jaVoice&&speechSynthesis.getVoices().length) toast('휴대폰에 일본어 음성이 없으면 발음이 어색해요. 설정에서 일본어 음성을 받아 두세요.');
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text);u.lang='ja-JP';u.rate=slow?0.7:0.9;if(jaVoice)u.voice=jaVoice;speechSynthesis.speak(u);
+  const say=jaVoice?text:(kanaFor(text)||text);
+  if(!jaVoice&&speechSynthesis.getVoices().length)toast('휴대폰 음성으로 읽고 있어요. 인터넷이 되면 자연스러운 목소리로 바뀌어요.');
+  const u=new SpeechSynthesisUtterance(say);u.lang='ja-JP';u.rate=slow?0.7:0.9;if(jaVoice)u.voice=jaVoice;speechSynthesis.speak(u);
+}
+// save the voice for every phrase and place sign ahead of the trip
+async function saveOfflineVoices(onProgress){
+  if(ttsCloudOff||!navigator.onLine)return {done:0,total:0,off:ttsCloudOff};
+  const texts=new Set();allPhrases().forEach(p=>texts.add(p[0]));Object.keys(PL).forEach(id=>signsOf(id).forEach((sg,i)=>{texts.add(sg[0]);if(i===0)texts.add(askOf(sg)[0]);}));
+  const list=[...texts];let done=0;
+  for(const t of list){if(ttsCloudOff)break;try{if(!(await FileCache.get(ttsKey(t,false))))await cloudTTS(t,false);}catch(e){}done++;onProgress&&onProgress(done,list.length);}
+  return {done,total:list.length,off:ttsCloudOff};
 }
 /* ---------- Japanese signs ---------- */
 const signsOf=id=>{const p=PL[id];if(!p)return [];const s=(p.signs||[]).filter(x=>x&&x[0]);return s.length?s:(p.jp?[[p.jp,p.kana||'',p.n]]:[]);};
@@ -227,7 +264,9 @@ async function saveOfflineMap(btn){
     const worker=async()=>{while(list.length){const u=list.pop();try{const r=await fetch(u);if(!r.ok)fail++;}catch(e){fail++;}done++;if(btn&&done%10===0)btn.textContent=`지도 받는 중… ${done}/${want.size}`;}};
     await Promise.all(Array.from({length:6},worker));
     LS.set('offlineMapAt',new Date().toISOString());
-    toast(fail?`지도를 받았어요 (${want.size-fail}/${want.size}). 일부는 다시 받아 주세요.`:`장소 ${pts.length}곳 주변 지도를 받았어요. 인터넷 없이도 보여요.`);
+    const v=await saveOfflineVoices((d,n)=>{if(btn)btn.textContent=`일본어 음성 받는 중… ${d}/${n}`;});
+    if(v.total)LS.set('offlineVoiceAt',new Date().toISOString());
+    toast((fail?`지도를 받았어요 (${want.size-fail}/${want.size}). 일부는 다시 받아 주세요.`:`장소 ${pts.length}곳 주변 지도를 받았어요.`)+(v.total&&!v.off?` 일본어 음성 ${v.done}개도 받았어요.`:v.off?' 자연스러운 음성은 아직 꺼져 있어요.':''));
   }catch(e){toast('지도를 받지 못했어요. 잠시 뒤 다시 해 주세요.');}
   finally{if(btn){btn.disabled=false;btn.textContent='오프라인 지도 받기';}}
 }
@@ -885,7 +924,7 @@ function viewPrep(){
       <div class="grp">우리가 추가한 것</div>${mine.map(m=>`<div class="chk"><input type="checkbox" id="c-u${m.id}" data-check="u:${m.id}" ${checks.has('u:'+m.id)?'checked':''}><label for="c-u${m.id}" style="flex:1"><div class="t">${esc(m.t)}</div></label><button class="x" data-delprep="${m.id}" aria-label="${esc(m.t)} 빼기">×</button></div>`).join('')}
       <form id="prepForm" class="srow" style="margin-top:8px"><input type="text" id="prepIn" class="sinput" placeholder="예: 보조 배터리" autocomplete="off"><button class="btn" type="submit">${svg('plus')}추가</button></form></div>
     <div class="card setup"><b>인터넷 없이 쓰려면 (출발 전에 한 번)</b>
-      <ul class="fine" style="margin:0;padding-left:18px"><li>오프라인 지도 받기: 등록한 장소 주변 지도를 휴대폰에 저장해요.</li><li>티켓 탭에서 티켓을 한 번씩 열어 두기: 사진이 휴대폰에 저장돼요.</li><li>휴대폰 설정에서 일본어 음성 받기: 발음 듣기가 오프라인에서도 돼요.</li></ul>
+      <ul class="fine" style="margin:0;padding-left:18px"><li>오프라인 지도 받기: 등록한 장소 주변 지도와 일본어 음성을 휴대폰에 저장해요.</li><li>티켓 탭에서 티켓을 한 번씩 열어 두기: 사진이 휴대폰에 저장돼요.</li><li>받아 둔 음성이 없을 때를 대비해 휴대폰 설정에서 일본어 음성도 받아 두면 좋아요.</li></ul>
       <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')} · 장소를 새로 등록했다면 다시 받아 주세요</span>`:''}</div>
     <div class="note" style="background:var(--warn-soft)"><h4>임산부 탑승 규정</h4><ul><li>보통 32주 무렵부터 의사 소견서를 요구하고, 36주 이후 탑승을 제한해요. 항공사 규정을 확인하세요.</li><li>안전벨트는 배 아래, 골반 위로 낮게 매세요.</li></ul></div>
     <div><div class="sec-h"><h2>긴급 연락처</h2></div><div class="sos"><div class="card"><div class="k">구급차 · 소방</div><div class="v">119</div></div><div class="card"><div class="k">경찰</div><div class="v">110</div></div><div class="card" style="grid-column:1/-1"><div class="k">외교부 영사콜센터 (24시간)</div><div class="v">+82-2-3210-0404</div></div></div>
