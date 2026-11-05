@@ -589,3 +589,13 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .tcard .route b{font-size:20px;letter-spacing:.02em}
 .tcard .route .mono{font-size:15px;color:var(--ink,#2b2f45)}
 .tcard .route .to{color:var(--mute);margin:0 4px}
+.fline{display:flex;align-items:baseline;gap:5px;white-space:nowrap;font-size:14px}
+.fline b{font-family:var(--f-mono);font-size:16.5px;font-weight:700;display:inline!important}
+.fline .mono{font-family:var(--f-mono);font-size:14px}
+.fline .to{color:var(--mute);margin:0 3px}
+.rsv-row .r{margin-left:auto;font-size:12.5px;color:var(--mute);white-space:nowrap;flex:none}
+.rsv-row .r.add{color:var(--accent);font-weight:600}
+.rsv-row .m .s{display:block}
+.flight .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.flight .m .s{font-size:12.5px;color:var(--mute)}
+.flight>svg:last-child{width:16px;height:16px;flex:none;stroke:var(--mute);fill:none;stroke-width:2}
