@@ -984,7 +984,8 @@ function settingsSheet(){
       ${row('동기화',esc(syncText()),`<button class="btn sm" data-syncnow>${svg('sync')}지금</button>`)}
       ${row('오프라인 지도·음성',off?'받아 둠 · '+new Date(off).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요',`<button class="btn sm" data-offlinemap>받기</button>`)}
       ${row('효과음','',`<button class="btn sm" data-sound aria-pressed="${state.sound}">${state.sound?'켜짐':'꺼짐'}</button>`)}
-      ${row('인트로','',`<button class="btn sm" data-replay>다시 보기</button>`)}</section>
+      ${row('인트로','',`<button class="btn sm" data-replay>다시 보기</button>`)}
+      ${row('앱 버전',APP_VER+' · 새 기능이 안 보이면 눌러 주세요',`<button class="btn sm" data-forceupdate>새로 받기</button>`)}</section>
     <section class="fsec"><h4>데이터</h4>
       ${!Object.keys(PL).length?row('도쿄 예시','장소 20여 곳과 2박 3일 일정',`<button class="btn sm" data-importtpl>불러오기</button>`):''}
       ${Object.keys(PL).length||Sync.list('ticket').length?row('새로 시작','항공권만 남기고 모두 지워요',`<button class="btn sm danger-t" data-wipeall>지우기</button>`):''}
@@ -1434,7 +1435,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1516,6 +1517,7 @@ document.addEventListener('click',async e=>{
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.addpop){addPop(ds.addpop);}
   else if(ds.addfav!==undefined){addFavPop();}
+  else if(ds.forceupdate!==undefined){forceUpdate();}
   else if(ds.favhide!==undefined){LS.set('favHide',ds.favhide==='1');render();}
   else if(ds.delfav){closeHoldPop();const sv=savedSet();sv.delete(ds.delfav);setSaved(sv);render();}
   else if(ds.popcat){state.popCat=ds.popcat;document.querySelectorAll('[data-popcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const i=document.querySelector('#fpop input');if(i)i.focus();}
@@ -1637,6 +1639,14 @@ document.addEventListener('pointerdown',e=>{const h=e.target.closest('[data-drag
     li.style.transform='';li.classList.remove('dragging');document.body.classList.remove('dragging-now');list.forEach(o=>o.classList.remove('drop-above','drop-below'));
     if(to!==from){const a=planOf(state.day);a.splice(to,0,a.splice(from,1)[0]);setPlan(state.day,a);render();}};
   h.addEventListener('pointermove',move);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);});
+// the version shown in settings, so it's easy to tell whether a phone has the latest app
+const APP_VER='v58';
+// throw away the saved app files (not trip data, tickets or maps) and load everything fresh
+async function forceUpdate(){toast('새 버전을 받는 중…');
+  try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
+  try{const ks=await caches.keys();await Promise.all(ks.filter(k=>k.startsWith('taebo-travel-')).map(k=>caches.delete(k)));}catch(e){}
+  try{sessionStorage.setItem('tt:skipIntro','1');}catch(e){}
+  location.replace(location.pathname+'?r='+Date.now()+location.hash);}
 /* Android back button: close what is open, then go home, then exit only on a second press */
 let backAt=0;
 const pushGuard=()=>history.pushState({k:'guard'},'',location.href);
