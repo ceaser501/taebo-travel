@@ -90,10 +90,10 @@ function slotStatus(){const tk=tickets();return ticketSlots().map(s=>({...s,t:tk
 
 /* import the Tokyo example as editable trip data */
 function wipeAll(){
-  if(!confirm('장소·일정·티켓·지출·일기·준비물·항공편을 모두 지울까요?\n둘 다의 화면에서 지워지고 되돌릴 수 없어요.'))return;
-  ['place','plan','ticket','exp','diary','prep','phrase','saved','checks','phrasehide'].forEach(k=>Sync.list(k).forEach(x=>x&&x.id&&Sync.remove(k,x.id)));
+  if(!confirm('장소·일정·지출·일기·준비물과 항공권이 아닌 티켓을 모두 지울까요?\n항공편과 항공권은 남겨요. 둘 다의 화면에서 지워지고 되돌릴 수 없어요.'))return;
+  ['place','plan','exp','diary','prep','phrase','saved','checks','phrasehide'].forEach(k=>Sync.list(k).forEach(x=>x&&x.id&&Sync.remove(k,x.id)));
+  Sync.list('ticket').forEach(t=>t.type!=='항공권'&&Sync.remove('ticket',t.id));
   ['saved','checks','phrasehide'].forEach(k=>Sync.get(k,'set')&&Sync.remove(k,'set'));
-  Sync.put('flights','trip',FLIGHT0);
   const T=trip();Sync.put('trip','info',{...T,hotelId:'',dayTitles:{}});
   closeSheet();state.day=1;state.edit=false;toast('모두 지웠어요. 이제 새로 채워 보세요.');render();
 }
@@ -448,21 +448,29 @@ const clearTimers=()=>{introTimers.forEach(clearTimeout);introTimers=[];};
 const at=(ms,fn)=>introTimers.push(setTimeout(fn,ms));
 const finaleSC=()=>`<div class="sc final"><svg class="art" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="skyA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9c8f6"/><stop offset=".6" stop-color="#cfe0fb"/><stop offset="1" stop-color="#f1e6f7"/></linearGradient></defs>
   <rect width="400" height="800" fill="url(#skyA)"/>${cloud(-40,120,1.6,.75)}${cloud(250,240,1.2,.6)}${cloud(-20,560,2,.85)}${cloud(230,640,2.4,.9)}${cloud(120,420,1,.5)}
-  <path id="hp" d="M-40 860 C 40 760, 120 620, 200 560 C 280 500, 340 420, 300 360 C 268 314, 214 330, 200 372 C 186 330, 132 314, 100 360 C 60 420, 120 500, 200 560 C 260 604, 330 520, 460 300" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" style="stroke-dasharray:3000;stroke-dashoffset:3000"/>
+  <path id="hp" d="M-40 860 C 40 760, 120 620, 200 560 C 280 500, 340 420, 300 360 C 268 314, 214 330, 200 372 C 186 330, 132 314, 100 360 C 60 420, 120 500, 200 560 C 240 592, 280 660, 320 670 C 380 684, 420 560, 470 330" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" style="stroke-dasharray:3000;stroke-dashoffset:3000"/>
   <g id="aplane" transform="translate(-60 900)"><g transform="scale(1.4)">${planeTop('#ffffff','#b9c3ea')}</g></g></svg>
   <div class="txt"><h2 class="rise">${esc(trip().title)}</h2><div class="en rise d1">${esc(rangeText())}</div></div>
   <button class="cta go-a rise d3" data-enter>여행 시작하기 ${svg('chev')}</button></div>`;
+// the intro's boarding pass shows the real way-out flight: codes big, cities small, then date, time and my seat
+const apCode=x=>((x||'').match(/\b[A-Z]{3}\b/)||[''])[0];
+const apName=x=>(x||'').replace(/\b[A-Z]{3}\b/,'').trim();
+function passHTML(){const f=flights().out,a=DAYS[0],mine=tickets().find(t=>t.dir==='out'&&t.seat&&(!t.pax||t.pax===myPax()));
+  const from=apCode(f.fromCity)||apName(f.fromCity)||'서울',to=apCode(f.toCity)||apName(f.toCity)||trip().city||'여행지';
+  const names=apCode(f.fromCity)||apCode(f.toCity)?`${apName(f.fromCity)||f.fromCity} → ${apName(f.toCity)||f.toCity}`:'';
+  const cell=(k,v)=>v?`<div><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`:'';
+  return `<div class="k">BOARDING PASS${f.no?' · '+esc(f.no):''}</div><div class="v route">${esc(from)}<span class="ar">${svg('plane')}</span>${esc(to)}</div>${names?`<div class="nm">${esc(names)}</div>`:''}
+    <div class="row">${cell('DATE',a&&a.date?fmtMD(a.date):'')}${cell('TIME',f.dep)}${cell('SEAT',mine&&mine.seat)}${!f.dep&&!(mine&&mine.seat)?cell('DAYS',DAYS.length+'일'):''}</div>`;}
 function introHTML(){
   return `<div class="intro introD" data-intro role="dialog" aria-label="여행 인트로">
     ${introTools('건너뛰기')}
     <div class="sc"><div class="porthole"><svg viewBox="0 0 210 300" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9cff8"/><stop offset=".55" stop-color="#e3dcf7"/><stop offset=".75" stop-color="#ffd9c6"/><stop offset="1" stop-color="#fff1e6"/></linearGradient></defs>
         <rect width="210" height="300" fill="url(#pw)"/><circle cx="140" cy="205" r="34" fill="#fff6e6" opacity=".9"/>
         <g class="drift">${cloud(-10,200,1.1,1)}${cloud(110,230,1.4,1)}${cloud(200,200,1.1,1)}${cloud(320,230,1.4,1)}${cloud(40,90,.6,.7)}${cloud(250,90,.6,.7)}</g></svg><div class="shade"></div></div>
-      <div class="txt" style="top:calc(470px + env(safe-area-inset-top,0px));text-align:center"><h2 class="rise">${esc(whenPhrase())},<br>${esc(trip().city||'여행')}에 가요</h2><div class="en rise d1">${esc(flights().out.fromCity||'')} → ${esc(trip().city||'')}</div></div></div>
+      <div class="txt" style="top:calc(470px + env(safe-area-inset-top,0px));text-align:center"><h2 class="rise">${esc(whenPhrase())},<br>${esc(trip().city||'여행')}에 가요</h2><div class="en rise d1">${esc(rangeText())}</div></div></div>
     <div class="sc"><svg class="art" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice"><rect width="400" height="800" fill="#e8ecfb"/>${cloud(-30,90,1.3,.9)}${cloud(240,170,1,.8)}${cloud(-50,620,2.4,1)}${cloud(200,680,2.6,1)}</svg>
       <div class="txt" style="top:calc(120px + env(safe-area-inset-top,0px))"><h2 class="rise">탑승권이<br>도착했어요</h2><p class="rise d1">표를 끊으면 바로 출발해요</p></div>
-      <button class="ticket" data-tear aria-label="표를 끊고 출발하기" style="--stub:#5a6fe3;--tk:#7c83ad;--tv:#232849;bottom:calc(36% + env(safe-area-inset-bottom,0px))"><div class="main"><div class="k">${esc(admitText())}</div><div class="v">${esc(flights().out.fromCity||'서울')} → ${esc(trip().city||flights().out.toCity||'여행지')}</div>
-        <div class="row"><div><div class="k">DATE</div><div class="v">${esc(shortRange())}</div></div><div><div class="k">FLIGHT</div><div class="v">${esc(flights().out.no||'—')}</div></div><div><div class="k">DAYS</div><div class="v">${DAYS.length}일</div></div></div></div>
+      <button class="ticket" data-tear aria-label="표를 끊고 출발하기" style="--stub:#5a6fe3;--tk:#7c83ad;--tv:#232849;bottom:calc(36% + env(safe-area-inset-bottom,0px))"><div class="main">${passHTML()}</div>
         <div class="stub"><span class="pulse">탭해서<br>표 끊기</span></div></button></div>
     ${finaleSC()}
   </div>`;
@@ -484,7 +492,7 @@ function showIntro(){
   const toTicket=()=>{clearTimers();stage=1;show(1);};
   const tear=()=>{if(stage===2)return;stage=2;el.querySelector('[data-tear]').classList.add('torn');const c=audio(true);sfxTear(c);if(!reduced())sfxFly(c,0.8);
     at(reduced()?0:750,()=>{show(2);el._done=true;if(reduced())el._final();else flyHeart(el);});};
-  el._final=()=>{clearTimers();stage=2;show(2);el._done=true;const hp=el.querySelector('#hp');if(hp){hp.style.transition='none';hp.style.strokeDashoffset='0';}const ap=el.querySelector('#aplane');if(ap)ap.setAttribute('transform','translate(460 300) rotate(-50)');};
+  el._final=()=>{clearTimers();stage=2;show(2);el._done=true;const hp=el.querySelector('#hp');if(hp){hp.style.transition='none';hp.style.strokeDashoffset='0';}const ap=el.querySelector('#aplane');if(ap)ap.setAttribute('transform','translate(470 330) rotate(-78)');};
   el._tap=()=>{if(el._done){finishIntro();return;}if(stage===0)toTicket();else tear();};
   show(0);at(reduced()?1200:3600,toTicket);
 }
@@ -749,7 +757,7 @@ function settingsSheet(){
     <div class="grp">동기화</div><div class="sync-row"><span>${syncText()}</span><button class="btn sm" data-syncnow>${svg('sync')}지금 동기화</button></div>
     <div class="sh-acts"><button class="btn" data-sound aria-pressed="${state.sound}">${state.sound?'효과음 끄기':'효과음 켜기'}</button><button class="btn" data-replay>인트로 다시 보기</button></div>
     ${!Object.keys(PL).length?'<button class="btn ghost" data-importtpl>도쿄 예시 불러오기</button>':''}
-    ${Object.keys(PL).length||Sync.list('ticket').length?'<button class="btn ghost danger" data-wipeall>예시·기존 내용 모두 지우고 새로 시작</button>':''}
+    ${Object.keys(PL).length||Sync.list('ticket').length?'<button class="btn ghost danger" data-wipeall>예시·기존 내용 지우고 새로 시작 (항공권은 남겨요)</button>':''}
     <button class="btn ghost" data-signout>로그아웃</button>
     <p class="fine">로그아웃하면 이 휴대폰에 저장된 여행 데이터도 지워져요. 서버에 올라간 내용은 그대로 남아요.</p>`);
 }
@@ -1081,7 +1089,7 @@ function render(){
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===state.tab||(state.tab==='places'&&b.dataset.tab==='home')||(state.tab==='prep'&&b.dataset.tab==='home')));
   ['home','plan','places'].forEach(mountMap);hydrateFiles($('#main'));
 }
-function go(tab,scroll=true){if(!VIEWS[tab])tab='home';if(!Sync.meta.tripId&&!GATED.has(tab))tab='auth';closeSheet();state.tab=tab;state.edit=false;if(!GATED.has(tab)&&location.hash.slice(1)!==tab)history.replaceState(null,'','#'+tab);render();if(scroll)window.scrollTo(0,0);}
+function go(tab,scroll=true){if(!VIEWS[tab])tab='home';if(!Sync.meta.tripId&&!GATED.has(tab))tab='auth';closeSheet();state.tab=tab;state.edit=false;if(!GATED.has(tab)&&location.hash.slice(1)!==tab)history.replaceState(history.state,'','#'+tab);render();if(scroll)window.scrollTo(0,0);}
 async function enter(){
   if(Sync.meta.tripId){go(VIEWS[location.hash.slice(1)]&&!GATED.has(location.hash.slice(1))?location.hash.slice(1):'home',false);Sync.syncNow();return;}
   const s=await Sync.session();
@@ -1247,6 +1255,17 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(!$('#overlay').hidden)closeOverlay();else closeSheet();}
   if((e.key==='Enter'||e.key===' ')&&!$('#intro').hidden&&!e.target.closest('button')){e.preventDefault();$('#intro')._tap();}
 });
+/* Android back button: close what is open, then go home, then exit only on a second press */
+let backAt=0;
+const pushGuard=()=>history.pushState({guard:1},'','#'+(GATED.has(state.tab)?'':state.tab));
+window.addEventListener('popstate',()=>{
+  if(!$('#overlay').hidden){closeOverlay();pushGuard();return;}
+  if($('#sheetRoot').innerHTML){closeSheet();pushGuard();return;}
+  if($('#intro').hidden&&state.tab!=='home'&&!GATED.has(state.tab)){go('home');pushGuard();return;}
+  if(Date.now()-backAt<2200){history.back();return;}
+  backAt=Date.now();toast('뒤로 버튼을 한 번 더 누르면 앱이 꺼져요');pushGuard();
+});
+pushGuard();
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS[h]&&h!==state.tab&&!GATED.has(h))go(h);});
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.values(maps).forEach(m=>{try{m.invalidateSize({animate:false});}catch(e){}}),150);});
 // re-render when the other person's changes arrive, unless someone is typing

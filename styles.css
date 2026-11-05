@@ -572,3 +572,10 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .tpax{display:inline-block;align-self:flex-start;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 8px;margin-bottom:2px}
 .ts-pax{display:inline-block;font-size:13px;font-weight:700;color:#4a57c9;background:#e7eafc;border-radius:999px;padding:2px 10px;margin-bottom:4px}
 .paxpick{margin:0}
+.ticket .main{min-width:0}
+.ticket .v.route{display:flex;align-items:center;gap:8px;font-size:30px;line-height:1.15;white-space:nowrap}
+.ticket .v.route .ar{display:inline-flex;color:var(--tk,#a08aa8)}
+.ticket .v.route .ar svg{width:20px;height:20px}
+.ticket .nm{font-size:13px;color:var(--tk,#a08aa8);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ticket .row{gap:16px;margin-top:10px}
+.ticket .row .v{white-space:nowrap}

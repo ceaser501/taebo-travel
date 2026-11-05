@@ -34,7 +34,7 @@ const TPL_PLAN={
 // flights are entered in the app (trip settings); these are only the defaults shown before that
 const FLIGHT0={out:{fromCity:'인천',toCity:'',no:'',dep:'',arr:'',term:''},in:{fromCity:'',toCity:'인천',no:'',dep:'',arr:'',term:''}};
 const TPL_FLIGHTS={out:{fromCity:'인천',toCity:'나리타'},in:{fromCity:'나리타',toCity:'인천'}};
-const TPL_TRIP={title:'도쿄 태교여행',city:'도쿄',start:'2026-11-24',nights:2,hotelId:'hotel',dayTitles:{1:'아사쿠사 · 스카이트리',2:'메이지 신궁 · 시부야',3:'스이텐구 · 긴자'}};
+const TPL_TRIP={title:'도쿄로 떠나는 태교여행',city:'도쿄',start:'2026-11-24',nights:2,hotelId:'hotel',dayTitles:{1:'아사쿠사 · 스카이트리',2:'메이지 신궁 · 시부야',3:'스이텐구 · 긴자'}};
 const ZST={oshiage:[35.7103,139.8133],kinshicho:[35.6966,139.8150],sumiyoshi:[35.6890,139.8160],kiyosumi:[35.6818,139.7993],suitengumae:[35.6827,139.7856],mitsukoshimae:[35.6862,139.7737],otemachi:[35.6860,139.7640],jimbocho:[35.6958,139.7577],kudanshita:[35.6956,139.7514],hanzomon:[35.6833,139.7417],nagatacho:[35.6786,139.7400],aoyama1:[35.6727,139.7240],omotesando:[35.6654,139.7121],shibuya:[35.6580,139.7016]};
 const ZORDER=Object.keys(ZST);
 const ZNEAR={skytree:'oshiage',solamachi:'oshiage',hotel:'suitengumae',suitengu:'suitengumae',ningyoyaki:'suitengumae',omote:'omotesando',shibuya:'shibuya',ichiran:'shibuya',motomura:'shibuya'};
