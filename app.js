@@ -128,7 +128,7 @@ function importTemplate(){
 }
 /* ---------- small UI helpers ---------- */
 const IC={
-  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',check:'<path d="M5 12.5l4.5 4.5L19 7"/>',mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
   bed:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5M7 11.5a1.5 1.5 0 1 0 0-.01"/>',plane:'<path d="M2 16l20-6-3-3-7 3-5-5-2 1 3 6-4 2-2-1-1 1z"/>',nav:'<path d="M3 11l18-8-8 18-2-8z"/>',pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   memo:'<path d="M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5"/>',taxi:'<path d="M5 17h14v-5l-2-5H7l-2 5zM5 12h14M8 17v2M16 17v2M10 4h4"/>',walk:'<circle cx="13" cy="4.5" r="1.5"/><path d="M10 21l2-6 3 3v3M9 12l2-4 3 1 2 3M11 8l-2 5"/>',train:'<rect x="6" y="3" width="12" height="13" rx="3"/><path d="M6 10h12M9 20l-2 1M15 20l2 1M9 16l-1 4M15 16l1 4"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',yen:'<path d="M6 4l6 8 6-8M12 12v8M8 13h8M8 16h8"/>',talk:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',home:'<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
@@ -1265,19 +1265,21 @@ function gcardInner(id,d){const p=PL[id],c=CAT[p.cat]||CAT['기타'];
     ${d&&d.photos&&d.photos.length?`<div class="gc-ph">${d.photos.slice(0,4).map(ph=>`<img loading="lazy" src="${gPhoto(ph.name)}" alt="">`).join('')}</div>`:!d&&navigator.onLine?'<div class="gc-ph wait"><i></i><i></i><i></i></div>':''}`;}
 /* ===================== favorites: places found but not yet put in the schedule ===================== */
 function viewFav(){
-  const ids=[...savedSet()].filter(id=>PL[id]);
+  const all=[...savedSet()].filter(id=>PL[id]),inPlan=id=>DAYS.some(d=>planOf(d.id).some(x=>x.p===id)),hide=LS.get('favHide',false),ids=hide?all.filter(id=>!inPlan(id)):all,nIn=all.filter(inPlan).length;
   setTimeout(fillFavCards,0);
   return `<section class="view">
-    ${ids.length?`<p class="fine">누르면 구글 지도에서 자세한 정보와 길찾기를 볼 수 있어요. 길게 누르면 빼요. 일정에는 일정 탭의 「장소 넣기」로 넣어요.</p>
-    <div class="favs">${ids.map(id=>{const p=PL[id],c0=p.gid&&LS.get('gpi:'+p.gid,null);
-      return `<a class="card gcard" href="${placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}" data-hold="${id}" data-holdkind="fav">${gcardInner(id,c0&&c0.d)}</a>`;}).join('')}</div>`
+    ${all.length?`<div class="seg favseg" role="group" aria-label="보기"><button type="button" data-favhide="0" aria-pressed="${!hide}">전체 ${all.length}</button><button type="button" data-favhide="1" aria-pressed="${hide}">일정에 안 넣은 곳 ${all.length-nIn}</button></div>
+    <div class="favs">${ids.map(id=>{const p=PL[id],c0=p.gid&&LS.get('gpi:'+p.gid,null),days=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>d.id);
+      return `<div class="card gcard${days.length?' planned':''}" data-hold="${id}" data-holdkind="fav"><a class="gc-main" href="${placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}">${gcardInner(id,c0&&c0.d)}</a>
+        <div class="gc-acts">${days.length?`<span class="gc-in">${svg('check')}DAY ${days.join('·')} 일정에 있어요</span>`:''}<button class="btn sm ${days.length?'':'acc'}" data-addto="${id}">${svg('plus')}${days.length?'다른 날에도':'일정에 넣기'}</button></div></div>`;}).join('')||'<p class="fine empty">모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.</p>'}</div>
+    <p class="fine">카드를 누르면 구글 지도로 열려요. 길게 누르면 즐겨찾기에서 뺄 수 있고, 일정에 넣은 건 그대로 남아요.</p>`
     :`<div class="card empty-fav"><b>아직 즐겨찾기가 없어요</b><p class="fine">오른쪽 위 「추가」에 구글 지도 공유 링크를 붙여 넣거나 장소 이름을 쓰면 여기 모여요. 나중에 하나씩 일정에 넣으면 돼요.</p><button class="btn acc" data-addfav>${svg('plus')}추가</button></div>`}
   </section>`;
 }
 // fills each card with Google's details, a few at a time
 async function fillFavCards(){const cards=[...document.querySelectorAll('[data-gcard]')];let k=0;
   const work=async()=>{while(k<cards.length){const el=cards[k++],id=el.dataset.gcard,p=PL[id];if(!p||!p.gid)continue;
-    const d=await placeInfo(p.gid);if(d&&el.isConnected){el.innerHTML=gcardInner(id,d);if(d.googleMapsUri)el.href=d.googleMapsUri;}}};
+    const d=await placeInfo(p.gid);if(!el.isConnected)continue;if(d){el.innerHTML=gcardInner(id,d);if(d.googleMapsUri)el.href=d.googleMapsUri;}else{const w=el.querySelector('.gc-ph.wait');if(w)w.remove();}}};
   await Promise.all([work(),work(),work()]);}
 function addFavPop(){
   floatPop(`<div class="fp-h"><b>즐겨찾기 추가</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
@@ -1423,7 +1425,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1487,8 +1489,11 @@ document.addEventListener('click',async e=>{
   else if(ds.del){const a=planOf(state.day);a.splice(+ds.del,1);setPlan(state.day,a);render();}
   else if(ds.pick){pickPlaceSheet(+ds.pick);}
   else if(ds.addto){addToSheet(ds.addto);}
-  else if(ds.addday){const [d,id]=ds.addday.split('|'),a=planOf(+d),last=a[a.length-1],pos=(last&&(isStay(last.p)||isAir(last.p))&&a.length>1)?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(+d,a);closeSheet();state.day=+d;LS.set('day',state.day);go('plan');}
-  else if(ds.heart){const id=ds.heart,s=savedSet();s.has(id)?s.delete(id):s.add(id);setSaved(s);if($('#sheetRoot .sheet'))placeSheet(id);render();}
+  else if(ds.addday){const [d,id]=ds.addday.split('|'),a=planOf(+d),last=a[a.length-1],
+      // new stops go before the hotel/airport at the end of the day (on the last day, before check-out)
+      pos=(last&&(isStay(last.p)||isAir(last.p))&&(a.length>1||+d===DAYS.length))?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(+d,a);closeSheet();
+    if(state.tab==='fav'){toast(`DAY ${d} 일정에 넣었어요. 시간은 일정 탭에서 정해요.`);render();}else{state.day=+d;LS.set('day',state.day);go('plan');}}
+  else if(ds.heart){const id=ds.heart,s=savedSet();if(s.has(id)&&!confirm('즐겨찾기에서 뺄까요? 일정에 넣은 건 그대로 남아요.'))return;s.has(id)?s.delete(id):s.add(id);setSaved(s);if($('#sheetRoot .sheet'))placeSheet(id);render();}
   else if(ds.scat){state.sCat=ds.scat;render();}
   else if(ds.sonly!==undefined){state.sOnly=!state.sOnly;render();}
   else if(ds.sview){state.sView=ds.sview;render();}
@@ -1502,6 +1507,7 @@ document.addEventListener('click',async e=>{
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.addpop){addPop(ds.addpop);}
   else if(ds.addfav!==undefined){addFavPop();}
+  else if(ds.favhide!==undefined){LS.set('favHide',ds.favhide==='1');render();}
   else if(ds.delfav){closeHoldPop();const sv=savedSet();sv.delete(ds.delfav);setSaved(sv);render();}
   else if(ds.popcat){state.popCat=ds.popcat;document.querySelectorAll('[data-popcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const i=document.querySelector('#fpop input');if(i)i.focus();}
   else if(ds.closefp!==undefined){closeFloat();}

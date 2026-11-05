@@ -801,3 +801,10 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .btn>span,.btn{overflow-wrap:anywhere}
 .sh-head .m{min-width:0}
 .sh-head h3,.sh-head .s{overflow-wrap:anywhere}
+.favseg{margin-bottom:12px}
+.gcard{padding:0;gap:0}
+.gc-main{display:flex;flex-direction:column;gap:4px;padding:14px 14px 10px;text-decoration:none;color:inherit}
+.gc-acts{display:flex;align-items:center;gap:8px;padding:0 14px 12px;justify-content:flex-end}
+.gc-in{flex:1;display:flex;align-items:center;gap:4px;font-size:13px;color:#188038;font-weight:600}
+.gc-in svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.4}
+.gcard.planned{opacity:.92}
