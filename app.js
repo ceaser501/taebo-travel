@@ -57,7 +57,8 @@ const DIRS={out:'가는 편',in:'오는 편',etc:'기타'};
 // who a ticket belongs to is a plain name, so a companion who hasn't joined the app yet can still have tickets
 // each person's own name on tickets, so their phone opens the ticket tab on their own tickets
 const paxMap=()=>(Sync.get('paxof','set')||{}).map||{};
-const myPax=()=>{const m=paxMap()[me()];if(m)return m;const n=member(me()).display_name;return tickets().some(t=>t.pax===n)?n:'';};
+// my tickets are the ones under my name; an older saved pairing is only a fallback
+const myPax=()=>{const n=member(me()).display_name;if(n&&tickets().some(t=>t.pax===n))return n;return paxMap()[me()]||'';};
 const paxNames=()=>[...new Set([...tickets().map(t=>t.pax),...Sync.members.map(m=>m.display_name)].filter(Boolean))];
 // minutes between two HH:MM times (same time zone, next day if it wraps)
 const spanMin=(a,b)=>{if(!a||!b)return 0;const m=t=>{const [h,x]=t.split(':').map(Number);return h*60+x;};return (m(b)-m(a)+1440)%1440;};
@@ -82,7 +83,7 @@ function ticketSlots(){
   const f=flights(),out=[];
   out.push({slot:'flight-out',dir:'out',type:'항공권',title:flightLabel(f.out),day:1,time:f.out.dep,place:'',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'});
   if(DAYS.length>1)out.push({slot:'flight-in',dir:'in',type:'항공권',title:flightLabel(f.in),day:DAYS.length,time:f.in.dep,place:'',hint:'항공사 앱이나 메일의 모바일 탑승권 QR'});
-  const h=hotelId();if(h)out.push({slot:'hotel',type:'숙소',title:PL[h].n+' 예약 확인서',day:1,time:'',place:h,hint:'예약 번호가 보이는 화면'});
+  const h=hotelId();out.push({slot:'hotel',type:'숙소',title:h?PL[h].n:'숙소',day:1,time:'',place:h||'',hint:'예약 번호가 보이는 화면'});
   DAYS.forEach(d=>planOf(d.id).forEach(s=>{if(PL[s.p].ticket&&!out.some(o=>o.slot==='place:'+s.p))out.push({slot:'place:'+s.p,type:'입장권',title:PL[s.p].n,day:d.id,time:s.t||'',place:s.p,hint:'예매 메일의 QR 코드 화면'});}));
   return out;
 }
@@ -705,7 +706,7 @@ function parseMapsLink(u){
 }
 function placeForm(p,day){
   // p: existing place (with id) or a prefilled draft from search; day: add to this day after saving
-  const f=Object.assign({n:'',jp:'',kana:'',cat:'관광명소',area:'',d:'',walk:0,safe:'',ticket:false,ll:null,signs:[],tips:[]},p||{});
+  const f=Object.assign({n:'',jp:'',kana:'',cat:'관광명소',area:'',d:'',walk:0,safe:'',ticket:false,ll:null,signs:[],tips:[]},p||{});if(state.stayMode&&!f.id)f.cat='숙소';
   state.pf={id:f.id||'',gid:f.gid||'',day:day||0,ll:f.ll,cat:f.cat,walk:f.walk||0,safe:f.safe||'',ticket:!!f.ticket,signs:f.signs||[],tips:f.tips||[]};
   const extra=(f.signs||[]).slice(1);
   openSheet(`${shHead(f.id?'장소 고치기':'장소 등록',f.id?'':(day?`저장하면 DAY ${day} 일정에 들어가요`:'저장하면 장소 목록에 들어가요'))}
@@ -738,8 +739,13 @@ function savePlace(){
   if(pf.cat==='숙소'&&!PL[trip().hotelId])Sync.put('trip','info',{...trip(),hotelId:id});
   rebuild();
   if(pf.day){const a=planOf(pf.day),last=a[a.length-1],pos=last&&(isStay(last.p)||isAir(last.p))&&a.length>1?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(pf.day,a);state.day=pf.day;LS.set('day',pf.day);closeSheet();toast('장소를 등록하고 일정에 넣었어요.');go('plan');return;}
-  closeSheet();toast(pf.id?'고쳤어요.':'장소를 등록했어요.');render();
+  if(state.stayMode&&pf.cat==='숙소'&&sheetStack.some(x=>x.html.includes('id="tStay"'))){state.stayMode=false;state.lastStay=id;
+    for(let k=0;k<4&&!$('#tStay');k++)closeSheet();fillStays();toast('숙소를 등록했어요.');return;}
+  state.stayMode=false;closeSheet();toast(pf.id?'고쳤어요.':'장소를 등록했어요.');render();
 }
+// the stay picker in the ticket form, refreshed after a new 숙소 is registered
+function fillStays(){const el=$('#tStay');if(!el)return;const cur=state.lastStay||el.value,stays=Object.keys(PL).filter(id=>PL[id].cat==='숙소');
+  el.innerHTML=`<option value="">${stays.length?'숙소 고르기':'아직 등록한 숙소가 없어요'}</option>`+stays.map(id=>`<option value="${id}" ${id===cur?'selected':''}>${esc(PL[id].n)}</option>`).join('');state.lastStay='';}
 
 /* ---------- tools ---------- */
 function toolSheet(k){
@@ -769,9 +775,6 @@ function tripSheet(){
       <section class="fsec"><h4>날짜</h4>
         <div class="two"><div><label class="f" for="trStart">출발일</label><input type="date" id="trStart" value="${esc(t.start)}"></div>
           <div><label class="f" for="trNights">기간</label><select id="trNights">${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${+t.nights===n?'selected':''}>${n}박 ${n+1}일</option>`).join('')}</select></div></div></section>
-      <section class="fsec"><h4>숙소</h4>
-        <select id="trHotel"><option value="">${stays.length?'고르기':'아직 등록한 숙소가 없어요'}</option>${stays.map(id=>`<option value="${id}" ${t.hotelId===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select>
-        <button type="button" class="btn" data-newstay>${svg('search')}숙소 찾아서 등록</button></section>
       <section class="fsec"><h4>인트로 첫 문구</h4>
         <textarea id="trIntro" rows="2" placeholder="예: 엄마 아빠 딱복이랑&#10;떠나는 첫 비행">${esc(t.intro||'')}</textarea></section>
       <p class="err" id="trErr" hidden></p>
@@ -781,7 +784,7 @@ function tripSheet(){
 function saveTrip(){
   const v=id=>$('#'+id).value.trim(),err=$('#trErr');
   if(!v('trStart')){err.textContent='출발일을 골라 주세요.';err.hidden=false;return;}
-  Sync.put('trip','info',{...trip(),title:v('trTitle')||'우리 여행',intro:$('#trIntro').value.trim(),city:v('trCity'),start:v('trStart'),nights:+v('trNights')||2,hotelId:v('trHotel')});
+  Sync.put('trip','info',{...trip(),title:v('trTitle')||'우리 여행',intro:$('#trIntro').value.trim(),city:v('trCity'),start:v('trStart'),nights:+v('trNights')||2});
   rebuild();closeSheet();toast('여행 정보를 저장했어요.');render();
 }
 /* ---------- settings ---------- */
@@ -797,7 +800,7 @@ function settingsSheet(){
     <section class="fsec"><h4>내 정보</h4>
       <div><label class="f" for="myName">이름</label><input type="text" id="myName" value="${esc(mine.display_name)}" maxlength="12"></div>
         <div><label class="f">색</label><span class="colors">${COLORS.map(c=>`<button type="button" class="cdot" data-mycolor="${c}" aria-pressed="${mine.color===c}" style="--c:${c}" aria-label="색 ${c}"></button>`).join('')}</span></div>
-      ${ns.length?`<div><label class="f">티켓에서 나는</label><div class="seg">${ns.map(n=>`<button type="button" data-mypax="${esc(n)}" aria-pressed="${cur===n}">${esc(n)}</button>`).join('')}</div></div>`:''}
+
       <button class="btn pri" data-saveprofile>저장</button></section>
     <section class="fsec"><h4>앱</h4>
       ${row('동기화',esc(syncText()),`<button class="btn sm" data-syncnow>${svg('sync')}지금</button>`)}
@@ -840,14 +843,15 @@ function ticketForm(t){
   if(!tf.dir&&tf.slot&&tf.slot.startsWith('flight-'))tf.dir=tf.slot.slice(7);
   // older tickets kept the reservation number and seat together as "code · seat"
   if(!tf.seat&&/ · /.test(tf.code||'')){const [c,...r]=tf.code.split(' · ');tf.code=c;tf.seat=r.join(' · ');}
-  const fl={...(tf.dir&&tf.dir!=='etc'?flights()[tf.dir]:{}),...(tf.fl||{})},air=tf.type==='항공권';
-  state.tf={...tf,newFiles:[]};
+  const fl={...(tf.dir&&tf.dir!=='etc'?flights()[tf.dir]:{}),...(tf.fl||{})},air=tf.type==='항공권',stay=tf.type==='숙소',st=tf.stay||{};
+  if(stay&&!tf.place&&hotelId())tf.place=hotelId();
+  state.tf={...tf,newFiles:[]};state.lastStay=tf.place||'';
   // people are the names already used on tickets (plus this phone's own), never account nicknames
   const names=[...new Set([...tickets().map(x=>x.pax),myPax(),tf.pax].filter(Boolean))];
   const seg=(attr,items,cur)=>`<div class="seg" role="group">${items.map(([k,l])=>`<button type="button" ${attr}="${esc(k)}" aria-pressed="${cur===k}">${esc(l)}</button>`).join('')}</div>`;
   const daySel=(id,cur)=>`<select id="${id}">${DAYS.map(d=>`<option value="${d.id}" ${cur===d.id?'selected':''}>DAY ${d.id}${d.date?' · '+dayDate(d.id):''}</option>`).join('')}</select>`;
   const inp=(id,label,val,ph,extra='')=>`<div><label class="f" for="${id}">${label}</label><input type="text" id="${id}" value="${esc(val||'')}" placeholder="${ph}" autocomplete="off" ${extra}></div>`;
-  const tm=(id,label,val)=>`<div><label class="f" for="${id}">${label}</label><input type="time" id="${id}" value="${esc(val||'')}"></div>`;
+  const tm=(id,label,val)=>`<div>${label?`<label class="f" for="${id}">${label}</label>`:''}<input type="time" id="${id}" value="${esc(val||'')}"${label?'':' aria-label="시각"'}></div>`;
   const CAPS='autocapitalize="characters"';
   openSheet(`${shHead(t&&t.id?'티켓 수정':'티켓 추가','')}
     <form id="ticketForm" class="tform stack" novalidate>
@@ -861,13 +865,18 @@ function ticketForm(t){
         <div class="tleg"><span class="lg">출발</span><div class="three">${inp('tFrom','공항',fl.fromCity,'인천 ICN')}${tm('tDep','시각',fl.dep||tf.time)}${inp('tDepT','터미널',fl.term,'1')}</div></div>
         <div class="tleg"><span class="lg">도착</span><div class="three">${inp('tTo','공항',fl.toCity,'나리타 NRT')}${tm('tArr','시각',fl.arr)}${inp('tArrT','터미널',fl.arrTerm,'2')}</div></div>
         ${inp('tDur','비행시간',fl.dur,'비워 두면 시각으로 계산해요')}</section>
-      <section class="fsec" id="tGen" ${air?'hidden':''}><h4>정보</h4>
+      <section class="fsec" id="tStayBox" ${stay?'':'hidden'}><h4>숙소</h4>
+        <select id="tStay"></select>
+        <button type="button" class="btn" data-newstay>${svg('search')}숙소 찾아서 등록</button>
+        <div class="tleg"><span class="lg">체크인</span><div class="two"><div>${daySel('tInDay',st.inDay||tf.day||1)}</div>${tm('tInTime','',st.inTime||tf.time||'15:00')}</div></div>
+        <div class="tleg"><span class="lg">체크아웃</span><div class="two"><div>${daySel('tOutDay',st.outDay||DAYS.length)}</div>${tm('tOutTime','',st.outTime||'11:00')}</div></div></section>
+      <section class="fsec" id="tGen" ${air||stay?'hidden':''}><h4>정보</h4>
         ${inp('tTitle','이름',tf.title,'예: 시부야 스카이')}
         <div class="two"><div><label class="f" for="tDayG">날짜</label>${daySel('tDayG',tf.day)}</div>${tm('tTime','시간',tf.time)}</div>
         <div><label class="f" for="tPlace">장소</label><select id="tPlace"><option value="">선택 안 함</option>${Object.keys(PL).map(id=>`<option value="${id}" ${tf.place===id?'selected':''}>${esc(PL[id].n)}</option>`).join('')}</select></div></section>
       <section class="fsec"><h4>예약</h4>
         <div class="two">${inp('tCode','예약 번호',tf.code,'Q2TL65',CAPS)}${inp('tSeat','좌석',tf.seat,'4E',CAPS)}</div></section>
-      <section class="fsec"><h4 id="tFilesH">${air?'탑승권 이미지':'티켓 이미지'}</h4>
+      <section class="fsec"><h4 id="tFilesH">${air?'탑승권 이미지':stay?'예약 확인서':'티켓 이미지'}</h4>
         <div id="tFiles" class="tfiles">${filesEditHTML()}</div>
         <label class="btn photo-btn">${svg('camera')}사진 · PDF 올리기<input type="file" id="tFileIn" accept="image/*,application/pdf" multiple></label></section>
       <section class="fsec"><h4>메모</h4>
@@ -876,15 +885,17 @@ function ticketForm(t){
       <button class="btn acc" type="submit">저장</button>
       ${t&&t.id?`<button class="btn ghost danger" type="button" data-delticket="${t.id}">티켓 삭제</button>`:''}
     </form>`);
-  state.tf.id=t?t.id:null;state.tf.slot=t?t.slot:'';
+  state.tf.id=t?t.id:null;state.tf.slot=t?t.slot:'';fillStays();
 }
 function filesEditHTML(){const tf=state.tf;return [...tf.files.map((f,i)=>`<div class="tfile"><span class="tfi">${f.mime==='application/pdf'?svg('file'):`<img data-file="${esc(f.path)}" alt="">`}</span><span>${esc(f.name||'파일')}</span><button type="button" data-rmfile="o${i}" aria-label="빼기">×</button></div>`),
   ...tf.newFiles.map((f,i)=>`<div class="tfile"><span class="tfi">${f.blob.type==='application/pdf'?svg('file'):`<img src="${f.url}" alt="">`}</span><span>${esc(f.name)}</span><button type="button" data-rmfile="n${i}" aria-label="빼기">×</button></div>`)].join('');}
 async function saveTicket(){
-  const tf=state.tf,err=$('#tErr'),air=tf.type==='항공권',v=id=>$('#'+id).value.trim();tf.day=+$(air?'#tDayA':'#tDayG').value||1;
+  const tf=state.tf,err=$('#tErr'),air=tf.type==='항공권',stayT=tf.type==='숙소',v=id=>$('#'+id).value.trim();tf.day=+$(air?'#tDayA':stayT?'#tInDay':'#tDayG').value||1;
+  const stay=stayT?{inDay:+v('tInDay'),inTime:v('tInTime'),outDay:+v('tOutDay'),outTime:v('tOutTime')}:null,stayId=stayT?v('tStay'):'';
   const fl=air?{no:v('tNo').toUpperCase(),fromCity:v('tFrom'),toCity:v('tTo'),dep:v('tDep'),arr:v('tArr'),dur:v('tDur')||durText(spanMin(v('tDep'),v('tArr'))),term:v('tDepT'),arrTerm:v('tArrT')}:null;
   // a flight's name is made from its airports and flight number, so it never needs typing
-  const title=air?(fl.fromCity||fl.toCity||fl.no?flightLabel(fl):''):v('tTitle');
+  const title=air?(fl.fromCity||fl.toCity||fl.no?flightLabel(fl):''):stayT?(stayId&&PL[stayId]?PL[stayId].n:''):v('tTitle');
+  if(!title&&stayT){err.textContent='숙소를 고르거나 찾아서 등록해 주세요.';err.hidden=false;return;}
   if(!title&&air){err.textContent='편명이나 출발·도착 공항을 적어 주세요.';err.hidden=false;$('#tNo').focus();return;}
   if(!title){err.textContent='티켓 이름을 적어 주세요.';err.hidden=false;$('#tTitle').focus();return;}
   if(!tf.files.length&&!tf.newFiles.length&&!$('#tCode').value.trim()){err.textContent='사진·PDF를 올리거나 예약 번호를 적어 주세요.';err.hidden=false;return;}
@@ -892,13 +903,19 @@ async function saveTicket(){
   for(const f of tf.newFiles){const ext=(f.name.split('.').pop()||'').toLowerCase().slice(0,5)||(f.blob.type==='application/pdf'?'pdf':'jpg');
     try{files.push({path:await Sync.addFile(f.blob,ext),name:f.name,mime:f.blob.type||'image/jpeg'});}catch(e){err.textContent='이 휴대폰 저장 공간이 부족해 파일을 저장하지 못했어요.';err.hidden=false;return;}}
   const id=tf.id||uid(),dir=air?tf.dir||'':'';
-  const slot=air&&(dir==='out'||dir==='in')?'flight-'+dir:(tf.slot&&tf.slot.startsWith('flight-')?'':tf.slot||'');
-  Sync.put('ticket',id,{type:tf.type,title,day:tf.day,time:air?fl.dep:$('#tTime').value,place:air?'':$('#tPlace').value,code:v('tCode').toUpperCase(),seat:v('tSeat').toUpperCase(),pax:v('tPax'),memo:v('tMemo'),files,slot,dir,fl,at:tf.at||new Date().toISOString()});
+  const slot=air&&(dir==='out'||dir==='in')?'flight-'+dir:stayT?'hotel':(tf.slot&&(tf.slot.startsWith('flight-')||tf.slot==='hotel')?'':tf.slot||'');
+  Sync.put('ticket',id,{type:tf.type,title,day:tf.day,time:air?fl.dep:stayT?stay.inTime:$('#tTime').value,place:air?'':stayT?stayId:$('#tPlace').value,stay,code:v('tCode').toUpperCase(),seat:v('tSeat').toUpperCase(),pax:v('tPax'),memo:v('tMemo'),files,slot,dir,fl,at:tf.at||new Date().toISOString()});
   // a flight ticket for the way out or back also fills in the trip's flight info, which the schedule uses
   if(dir==='out'||dir==='in'){const f=flights();f[dir]={...f[dir],...fl};applyFlights(f.out,f.in);}
+  if(stayT&&stayId&&trip().hotelId!==stayId){Sync.put('trip','info',{...trip(),hotelId:stayId});rebuild();}
   closeSheet();toast('티켓을 저장했어요. 인터넷이 없어도 열려요.');render();
 }
 const termText=x=>x?(/^\d+$/.test(x)?`터미널 ${x}`:x):'';
+function stayBlock(t){const s=t.stay,p=PL[t.place],sg=t.place&&mainSign(t.place);
+  return `<div class="ts-fl"><div class="ap"><span class="tt">체크인</span><span class="tm mono">${esc(s.inTime||'--:--')}</span><b>${dayDate(s.inDay||t.day)}</b></div>
+    <div class="mid">${svg('bed')}<span>${s.outDay&&s.inDay?`${s.outDay-s.inDay}박`:''}</span></div>
+    <div class="ap"><span class="tt">체크아웃</span><span class="tm mono">${esc(s.outTime||'--:--')}</span><b>${dayDate(s.outDay||DAYS.length)}</b></div></div>
+    ${sg?`<div class="ts-code"><span class="k">택시 기사에게</span><span class="jp-big" lang="ja">${esc(sg[0])}</span></div>`:''}`;}
 function flightBlock(t){const f=t.fl;
   return `<div class="ts-fl"><div class="ap"><span class="tm mono">${esc(f.dep||'--:--')}</span><b>${esc(f.fromCity||'출발')}</b><span class="tt">${esc(termText(f.term))}</span></div>
     <div class="mid">${svg('plane')}${f.no?`<b class="mono">${esc(f.no)}</b>`:''}<span>${esc(f.dur||durText(spanMin(f.dep,f.arr)))}</span></div>
@@ -908,9 +925,9 @@ const ticketKind=t=>t.type==='항공권'&&t.dir&&t.dir!=='etc'?DIRS[t.dir]:t.typ
 function showTicket(id){
   const t=Sync.get('ticket',id);if(!t)return;const air=t.type==='항공권'&&t.fl&&(t.fl.fromCity||t.fl.toCity||t.fl.no);
   const files=(t.files||[]).map(f=>f.mime==='application/pdf'?`<a class="btn" data-pdf="${esc(f.path)}" href="#" target="_blank" rel="noopener">${svg('file')}${esc(f.name||'PDF')} 열기</a>`:`<img data-file="${esc(f.path)}" alt="${esc(t.title)} 티켓">`).join('');
-  openOverlay(`<div class="tshow"><div class="ts-top"><div>${t.pax?`<div class="ts-pax">${esc(t.pax)}</div>`:''}<div class="k">${esc(ticketKind(t))} · ${dayDate(t.day)}${!air&&t.time?' · '+esc(t.time):''}</div>${air?'':`<b>${esc(t.title)}</b>`}</div>
+  openOverlay(`<div class="tshow"><div class="ts-top"><div>${t.pax?`<div class="ts-pax">${esc(t.pax)}</div>`:''}<div class="k">${esc(ticketKind(t))} · ${t.type==='숙소'&&t.stay?`${dayDate(t.stay.inDay||t.day)} – ${dayDate(t.stay.outDay||DAYS.length)}`:dayDate(t.day)}${!air&&t.type!=='숙소'&&t.time?' · '+esc(t.time):''}</div>${air?'':`<b>${esc(t.title)}</b>`}</div>
       <div class="ts-btns"><button class="ov-x ts-edit" data-editticket="${esc(id)}" aria-label="티켓 수정">${svg('pen')}</button><button class="ov-x" data-closeov aria-label="닫기">×</button></div></div>
-    ${air?flightBlock(t):''}
+    ${air?flightBlock(t):''}${t.type==='숙소'&&t.stay?stayBlock(t):''}
     ${t.code||t.seat?`<div class="ts-codes">${t.code?`<div class="ts-code"><span class="k">예약 번호</span><span class="mono">${esc(t.code)}</span></div>`:''}${t.seat?`<div class="ts-code seat"><span class="k">좌석</span><span class="mono">${esc(t.seat)}</span></div>`:''}</div>`:''}
     ${files?`<div class="ts-files">${files}</div>`:''}
     ${t.memo?`<p class="ts-memo">${esc(t.memo)}</p>`:''}</div>`,true);
@@ -1075,7 +1092,7 @@ function viewTickets(){
   const all=tickets(),names=[...new Set(all.map(t=>t.pax).filter(Boolean))],sel=state.tpax===null?myPax():state.tpax,who=names.includes(sel)?sel:'';
   const tk=who?all.filter(t=>!t.pax||t.pax===who):all,slots=slotStatus().filter(s=>!s.t),f=flights();
   const card=t=>{const img=(t.files||[]).find(x=>x.mime!=='application/pdf'),f=t.fl,air=t.type==='항공권'&&f&&(f.fromCity||f.toCity||f.no);
-    const top=`<span class="k">${t.pax?`<span class="tpax">${esc(t.pax)}</span>`:''}${esc(ticketKind(t))} · ${dayDate(t.day)}${!air&&t.time?' · '+esc(t.time):''}</span>`;
+    const top=`<span class="k">${t.pax?`<span class="tpax">${esc(t.pax)}</span>`:''}${esc(ticketKind(t))} · ${t.type==='숙소'&&t.stay?`${dayDate(t.stay.inDay||t.day)} – ${dayDate(t.stay.outDay||DAYS.length)}`:dayDate(t.day)}${!air&&t.type!=='숙소'&&t.time?' · '+esc(t.time):''}</span>`;
     if(air){const a=apCode(f.fromCity)||f.fromCity||'출발',z=apCode(f.toCity)||f.toCity||'도착',sub=[f.no,t.seat&&'좌석 '+t.seat].filter(Boolean).join(' · ');
       return `<button class="card tcard air" data-showticket="${t.id}"><span class="m">${top}<span class="route"><b>${esc(a)}</b><span class="mono">${esc(f.dep||'')}</span><span class="to">→</span><b>${esc(z)}</b><span class="mono">${esc(f.arr||'')}</span></span>${sub?`<span class="s mono">${esc(sub)}</span>`:''}</span></button>`;}
     return `<button class="card tcard" data-showticket="${t.id}">${img?`<span class="tc-thumb"><img data-file="${esc(img.path)}" alt=""></span>`:''}<span class="m">${top}<b>${esc(t.title)}</b>${t.code||t.seat?`<span class="s mono">${esc([t.code,t.seat&&'좌석 '+t.seat].filter(Boolean).join(' · '))}</span>`:''}</span></button>`;};
@@ -1184,7 +1201,7 @@ document.addEventListener('click',async e=>{
   else if(ds.obcolor){state.onboard.color=ds.obcolor;keep(['obName','obCode']);}
   else if(ds.flights!==undefined){flightSheet();}
   else if(ds.newplace!==undefined){searchSheet(+ds.newplace||0);}
-  else if(ds.newstay!==undefined){searchSheet(0);}
+  else if(ds.newstay!==undefined){state.stayMode=true;searchSheet(0);}
   else if(ds.manualplace!==undefined){placeForm(null,state.search.forDay);}
   else if(ds.pickres!==undefined){const r=state.search.results[+ds.pickres];if(r){if(r.gid&&!r.jp){t.disabled=true;r.jp=await googleJaName(r.gid);}placeForm({...r,signs:r.jp?[[r.jp,r.kana,r.n]]:[]},state.search.forDay);}}
   else if(ds.editplace){placeForm({id:ds.editplace,...Sync.get('place',ds.editplace)},0);}
@@ -1204,7 +1221,7 @@ document.addEventListener('click',async e=>{
   else if(ds.showticket){showTicket(ds.showticket);}
   else if(ds.editticket){closeOverlay(true);state.reopenTicket={id:ds.editticket,depth:sheetStack.length+($('#sheetRoot').innerHTML?1:0)};ticketForm({id:ds.editticket,...Sync.get('ticket',ds.editticket)});}
   else if(ds.delticket){if(!confirm('이 티켓을 지울까요?'))return;state.reopenTicket=null;Sync.remove('ticket',ds.delticket);closeSheet();render();toast('티켓을 지웠어요.');}
-  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권';$('#tFlight').hidden=!air;$('#tGen').hidden=air;$('#tFilesH').textContent=air?'탑승권 이미지':'티켓 이미지';}
+  else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권',stay=ds.ttype==='숙소';$('#tFlight').hidden=!air;$('#tStayBox').hidden=!stay;$('#tGen').hidden=air||stay;$('#tFilesH').textContent=air?'탑승권 이미지':stay?'예약 확인서':'티켓 이미지';}
   else if(ds.tpax!==undefined){const box=$('#tPax');document.querySelectorAll('[data-tpax]').forEach(b=>b.setAttribute('aria-pressed',b===t));
     if(ds.tpax==='+'){box.value='';box.hidden=false;box.focus();}else{box.value=ds.tpax;box.hidden=true;}}
   else if(ds.tpaxf!==undefined){state.tpax=ds.tpaxf;render();}

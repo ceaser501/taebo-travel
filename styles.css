@@ -646,3 +646,4 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .btn.danger-t{color:var(--no)}
 .fsec .colors{display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap}
 .fsec .colors{flex-direction:row!important}
+.ts-code .jp-big{font-size:26px;font-weight:700;letter-spacing:.02em;text-align:center}
