@@ -986,11 +986,6 @@ function header(){
   const right=state.tab==='plan'?`<button class="btn sm ${state.edit?'pri':''}" data-edit>${state.edit?'완료':'편집'}</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:state.tab==='home'?`<span class="dday">${ddayTxt()}</span>`:'';
   return `<h1>${state.tab==='home'?esc(trip().title):TITLES[state.tab]}</h1>${syncDot()}${right}`;
 }
-function setupCard(){
-  return `<div class="card setup"><b>여행을 준비해 볼까요?</b><p class="fine">출발일·기간·숙소를 정하고, 가고 싶은 곳을 찾아 등록한 다음 날짜별 일정에 넣으면 돼요.</p>
-    <div class="sh-acts"><button class="btn acc" data-tripsetup>${svg('pen')}여행 정보 정하기</button><button class="btn" data-newplace="0">${svg('search')}장소 찾기</button></div>
-    ${!Object.keys(PL).length?`<button class="btn ghost" data-importtpl>${svg('flag')}도쿄 태교여행 예시 불러오기</button><p class="fine">예시를 불러오면 도쿄 장소 20여 곳과 2박 3일 일정이 들어와요. 모두 고치거나 지울 수 있어요.</p>`:''}</div>`;
-}
 function viewHome(){
   const all=PREP.flatMap(g=>g.items).length+prepItems().length,t=totals(),ds=diary(),last=ds[ds.length-1],checks=checkSet(),T=trip(),h=hotelId();
   const today=(()=>{const n=daysUntil();return n!=null&&n<=0&&n>-DAYS.length?1-n:1;})(),first=planOf(today).slice(0,4);
@@ -998,7 +993,6 @@ function viewHome(){
   return `<section class="view">
     <div class="hero">${heroArt()}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}${h?' · '+esc(PL[h].n):''}</p></div></div>
     ${installCard()}
-    ${!tripInfo()||!T.start||!nStops?setupCard():''}
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
       <button class="tool" data-tool="talk" style="--tc:#e6e6fd"><span class="ti">${svg('talk','')}</span><b>일본어 회화</b><small>듣기 · 크게 보여주기</small></button>
