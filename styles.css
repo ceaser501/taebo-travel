@@ -764,3 +764,5 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .chips button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;color:var(--ink2,#555);cursor:pointer}
 .chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
 .chips.fp-cats button{flex:none}
+.sj .ja.sm{font-size:17px}
+.sj .ja.xs{font-size:15px}

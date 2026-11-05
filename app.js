@@ -246,7 +246,9 @@ function kanaToKo(kana){
 }
 const koSay=(kana,ja)=>kanaToKo(kana)||kanaToKo(ja);
 const askOf=sg=>[sg[0]+'はどこですか？',(sg[1]||sg[0])+'は どこですか',sg[2]+'는 어디예요?'];
-const hotelPhrase=()=>{const h=hotelId(),sg=h&&mainSign(h);return sg?[sg[0]+'までお願いします',(sg[1]||sg[0])+' まで おねがいします',PL[h].n+'까지 가 주세요 (택시)']:null;};
+const hotelPhrase=()=>{const h=hotelId(),sg=h&&mainSign(h);return sg?[sg[0]+'までお願いします',(sg[1]||sg[0])+' まで おねがいします',PL[h].n.replace(/\s*\(.*\)\s*$/,'')+'까지 가 주세요 (택시)']:null;};
+// longer Japanese lines get a smaller size so a whole sentence fits on one line of a card
+const jaFit=t=>{const n=[...(t||'')].length;return n>16?' xs':n>11?' sm':'';};
 // our own phrases first (newest on top), then the built-in ones you haven't removed, then the taxi phrase for the hotel
 const myPhrases=()=>Sync.list('phrase').sort((a,b)=>(b.at||'').localeCompare(a.at||''));
 const hiddenPhrases=()=>new Set((Sync.get('phrasehide','set')||{ids:[]}).ids);
@@ -563,9 +565,9 @@ function closeOverlay(fromBack){if(fromBack!==true)stepBack('ov');if(rec){try{re
 function signRows(id){
   const rows=signsOf(id);
   if(!rows.length)return `<p class="fine">일본어 이름이 아직 없어요. '고치기'에서 간판에 쓰인 일본어를 넣으면 발음 듣기와 크게 보기가 생겨요.</p>`;
-  return `<div class="signs">${rows.map((s,i)=>`<div class="sign">
-      <div class="sj"><span class="ja" lang="ja" translate="no">${esc(s[0])}</span>${s[1]?`<span class="kana" lang="ja" translate="no">${esc(s[1])}</span>`:''}${koSay(s[1],s[0])?`<span class="pron">${esc(koSay(s[1],s[0]))}</span>`:''}<span class="ko">${esc(s[2]||'')}</span></div>
-      <div class="sa"><button class="icon-btn" data-say="${esc(s[0])}" aria-label="${esc(s[2]||s[0])} 일본어로 듣기">${svg('speak')}</button><button class="icon-btn" data-bigsign="${id}|${i}" aria-label="${esc(s[2]||s[0])} 크게 보기">${svg('expand')}</button></div></div>`).join('')}</div>`;
+  return `<div class="signs">${rows.map((s,i)=>`<div class="sign tap" data-bigsign="${id}|${i}" role="button" tabindex="0" aria-label="${esc(s[2]||s[0])} 크게 보기">
+      <div class="sj"><span class="ja${jaFit(s[0])}" lang="ja" translate="no">${esc(s[0])}</span>${s[1]?`<span class="kana" lang="ja" translate="no">${esc(s[1])}</span>`:''}${koSay(s[1],s[0])?`<span class="pron">${esc(koSay(s[1],s[0]))}</span>`:''}<span class="ko">${esc(s[2]||'')}</span></div>
+      <button class="say-zone" data-say="${esc(s[0])}" aria-label="${esc(s[2]||s[0])} 일본어로 듣기">${svg('speak')}<span>듣기</span></button></div>`).join('')}</div>`;
 }
 function bigSign(id,i,ask){
   const s=signsOf(id)[i];if(!s)return;const a=askOf([s[0],s[1],s[2]||PL[id].n]),show=ask?a:s;
@@ -582,7 +584,7 @@ function talkSheet(msg){
     <p class="fine" id="trMsg" ${msg?'':'hidden'}>${esc(msg||'')}</p>
     <div class="ttools"><label class="ttool">${svg('camera')}<span><b>사진 번역</b><small>간판·메뉴를 찍어요</small></span><input type="file" id="ocrIn" accept="image/*" capture="environment" hidden></label>
       <button class="ttool" data-interp>${svg('mic')}<span><b>대화 통역</b><small>말하면 바로 번역</small></span></button></div>
-    <div class="signs">${allPhrases().map((p,i)=>`<div class="sign tap" data-bigphrase="${i}" ${p[3]?`data-hold="${esc(p[3])}"`:''} role="button" tabindex="0" aria-label="${esc(p[2])} 크게 보기"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
+    <div class="signs">${allPhrases().map((p,i)=>`<div class="sign tap" data-bigphrase="${i}" ${p[3]?`data-hold="${esc(p[3])}"`:''} role="button" tabindex="0" aria-label="${esc(p[2])} 크게 보기"><div class="sj"><span class="ja${jaFit(p[0])}" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
       <button class="say-zone" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}<span>듣기</span></button></div>`).join('')}</div>
     <p class="fine">카드를 누르면 크게 보여요. 길게 누르면 지울 수 있어요.</p>
     ${hid?`<button class="btn ghost" data-restorephrases>지운 기본 문장 ${hid}개 다시 보기</button>`:''}`);
@@ -926,7 +928,7 @@ function toolSheet(k){
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
     openSheet(`${shHead('숙소로 돌아가기',esc(PL[h].n),thumb(h))}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>
-    ${hotelPhrase()?`<button class="btn ghost" data-bighotel>${svg('expand')}택시 기사에게 보여주기</button>`:''}${signRows(h)}`);}
+    ${(()=>{const p=hotelPhrase();return p?`<div class="grp">택시 기사에게</div><div class="signs"><div class="sign tap" data-bighotel role="button" tabindex="0" aria-label="크게 보기"><div class="sj"><span class="ja${jaFit(p[0])}" lang="ja" translate="no">${esc(p[0])}</span><span class="kana" lang="ja" translate="no">${esc(p[1])}</span>${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div><button class="say-zone" data-say="${esc(p[0])}" aria-label="듣기">${svg('speak')}<span>듣기</span></button></div></div><div class="grp">간판·주소</div>`:'';})()}${signRows(h)}`);}
 }
 
 /* ---------- trip setup ---------- */
