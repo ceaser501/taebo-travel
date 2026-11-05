@@ -80,7 +80,13 @@ const expenses=()=>Sync.list('exp').sort((a,b)=>(a.at||'').localeCompare(b.at||'
 const diary=()=>Sync.list('diary').sort((a,b)=>(a.at||'').localeCompare(b.at||''));
 const tickets=()=>Sync.list('ticket').sort((a,b)=>(a.day-b.day)||(a.time||'').localeCompare(b.time||''));
 const rate=()=>settings().rate;
-const toKRW=e=>e.cur==='KRW'?e.amt:e.amt*rate();
+// dollars (e.g. a hotel paid through a booking site) use the latest USD rate, shared by both phones
+const usdRate=()=>settings().usdRate||1400;
+const toKRW=e=>e.cur==='KRW'?e.amt:e.cur==='USD'?e.amt*usdRate():e.amt*rate();
+const usd=n=>'$'+(+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+async function loadUsd(){if(!navigator.onLine||Date.now()-(LS.get('usdAt',0))<12*3600000)return;
+  for(const u of ['https://api.frankfurter.dev/v1/latest?base=USD&symbols=KRW','https://api.frankfurter.app/latest?from=USD&to=KRW']){
+    try{const r=await fetch(u);if(!r.ok)continue;const j=await r.json(),v=j.rates&&+j.rates.KRW;if(v>0){LS.set('usdAt',Date.now());if(Math.abs(v-usdRate())>0.5)setSettings({usdRate:v});return;}}catch(e){}}}
 const me=()=>Sync.meta.uid;
 const member=u=>Sync.members.find(m=>m.user_id===u)||{display_name:u===me()?'나':'함께',color:'#9aa0bd'};
 const avatar=u=>{const m=member(u);return `<span class="av" style="--wc:${esc(m.color)}">${esc((m.display_name||'?').slice(0,1))}</span>`;};
@@ -1143,14 +1149,14 @@ function viewMoney(){
       <div class="row"><label for="budgetIn">예산 <input id="budgetIn" inputmode="numeric" value="${st.budget.toLocaleString('ko-KR')}"> 원</label><span>남은 돈 ${won(Math.max(0,st.budget-t.sum))}</span></div></div>
     ${t.sum?`<div><div class="sec-h"><h2>분류별</h2></div>${catBar(t,t.sum)}<div class="cats" style="margin-top:10px">${Object.keys(XCAT).filter(k=>t.by[k]).map(k=>`<span style="--c:var(${XCAT[k]})"><i></i>${k} <b>${Math.round(t.by[k]/t.sum*100)}%</b></span>`).join('')}</div></div>`:''}
     <form class="card form" id="expForm" novalidate><div class="sec-h" style="margin:0"><h2>${f.editX?'지출 수정':'지출 기록'}</h2></div>
-      <div class="amt"><input id="amtIn" inputmode="decimal" placeholder="0" aria-label="금액"><div class="cur" role="group" aria-label="통화"><button type="button" data-cur="JPY" aria-pressed="${f.cur==='JPY'}">¥</button><button type="button" data-cur="KRW" aria-pressed="${f.cur==='KRW'}">₩</button></div></div>
+      <div class="amt"><input id="amtIn" inputmode="decimal" placeholder="0" aria-label="금액"><div class="cur" role="group" aria-label="통화"><button type="button" data-cur="JPY" aria-pressed="${f.cur==='JPY'}">¥</button><button type="button" data-cur="KRW" aria-pressed="${f.cur==='KRW'}">₩</button><button type="button" data-cur="USD" aria-pressed="${f.cur==='USD'}">$</button></div></div>
       <div><label class="f">분류</label><div class="catpick">${Object.keys(XCAT).map(k=>`<button type="button" data-xcat="${k}" aria-pressed="${f.cat===k}" style="--c:var(${XCAT[k]})"><i></i>${k}</button>`).join('')}</div></div>
       <div><label class="f">날짜</label><div class="catpick">${dayOpts().map(([v,l])=>`<button type="button" data-xday="${v}" aria-pressed="${f.day===v}">${l}</button>`).join('')}</div></div>
       <div><label class="f" for="titleIn">내용</label><input type="text" id="titleIn" placeholder="예: 소라마치 저녁"></div>
       ${state.err?`<p class="err">${state.err}</p>`:''}${f.editX?`<div style="display:flex;gap:8px"><button class="btn" type="button" data-cancelx style="flex:none">취소</button><button class="btn pri" type="submit" style="flex:1">${svg('pen')}수정 저장</button></div>`:`<button class="btn pri" type="submit">${svg('plus')}기록하기</button>`}</form>
     <div>${groups.map(([d,a])=>`<div class="ex-day"><h3>${d?`DAY ${d} · ${dayOf(d).label}`:'여행 전'}<span>${won(a.reduce((s,e)=>s+toKRW(e),0))}</span></h3>
-      ${a.map(e=>`<div class="ex" style="--c:var(${XCAT[e.cat]})"><span class="ci"></span><div class="m"><b>${esc(e.title)}</b><div class="s">${e.cat} · ${esc(member(e.who).display_name)}</div></div><div class="v">${e.cur==='JPY'?yen(e.amt):won(e.amt)}${e.cur==='JPY'?`<small>${won(toKRW(e))}</small>`:''}</div><button class="x" data-editx="${e.id}" aria-label="수정">${svg('pen')}</button><button class="x" data-delx="${e.id}" aria-label="삭제">×</button></div>`).join('')}</div>`).join('')||'<p class="fine">아직 지출 기록이 없어요.</p>'}</div>
-    <p class="fine">엔화는 100엔당 ${Math.round(rate()*100)}원으로 계산해요. 홈의 환율에서 바꾸면 둘 다 같은 환율로 바뀌어요.</p></section>`;
+      ${a.map(e=>`<div class="ex" style="--c:var(${XCAT[e.cat]})"><span class="ci"></span><div class="m"><b>${esc(e.title)}</b><div class="s">${e.cat} · ${esc(member(e.who).display_name)}</div></div><div class="v">${e.cur==='JPY'?yen(e.amt):e.cur==='USD'?usd(e.amt):won(e.amt)}${e.cur!=='KRW'?`<small>${won(toKRW(e))}</small>`:''}</div><button class="x" data-editx="${e.id}" aria-label="수정">${svg('pen')}</button><button class="x" data-delx="${e.id}" aria-label="삭제">×</button></div>`).join('')}</div>`).join('')||'<p class="fine">아직 지출 기록이 없어요.</p>'}</div>
+    <p class="fine">${ex.some(e=>e.cur==='USD')?`달러는 1달러당 ${Math.round(usdRate()).toLocaleString('ko-KR')}원, `:''}엔화는 100엔당 ${Math.round(rate()*100)}원으로 계산해요. 홈의 환율에서 바꾸면 둘 다 같은 환율로 바뀌어요.</p></section>`;
 }
 /* ===================== views ===================== */
 const startDate=()=>parseDate(trip().start);
@@ -1335,7 +1341,7 @@ function render(){
 function go(tab,scroll=true,fromBack=false){if(!VIEWS[tab])tab='home';if(!Sync.meta.tripId&&!GATED.has(tab))tab='auth';closeAllSheets();const changed=tab!==state.tab;state.tab=tab;state.edit=false;
   if(!GATED.has(tab)&&!fromBack){if(changed&&byTap())history.pushState({k:'tab'},'','#'+tab);else if(location.hash.slice(1)!==tab)history.replaceState(history.state,'','#'+tab);}render();if(scroll)window.scrollTo(0,0);}
 async function enter(){
-  if(Sync.meta.tripId){go(VIEWS[location.hash.slice(1)]&&!GATED.has(location.hash.slice(1))?location.hash.slice(1):'home',false);Sync.syncNow();return;}
+  if(Sync.meta.tripId){go(VIEWS[location.hash.slice(1)]&&!GATED.has(location.hash.slice(1))?location.hash.slice(1):'home',false);Sync.syncNow();loadUsd();return;}
   const s=await Sync.session();
   if(!s){go('auth');return;}
   try{const t=await Sync.myTrip();go(t?'home':'onboard');if(t)Sync.syncNow();}catch(e){state.auth.err='서버에 연결하지 못했어요. 인터넷을 확인해 주세요.';go('auth');}
