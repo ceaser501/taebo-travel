@@ -911,3 +911,22 @@ li.stop.swiping .stop-card{background:color-mix(in srgb,var(--c) 5%,var(--card))
 .cattiles .ct-t{font-size:10.5px;letter-spacing:-.02em}
 .cattiles button[aria-pressed="true"]{background:none}
 .cattiles button[aria-pressed="true"] .ct-i{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 25%,transparent)}
+/* each stop is one card that moves as a whole; the way between stops is a slim connector */
+li.stop[data-si] .body{background:var(--card);border-radius:16px;padding:12px 14px;box-shadow:0 1px 3px rgba(40,40,90,.06);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px;margin-bottom:2px}
+li.stop[data-si] .body .memo{margin:0}
+li.stop[data-si] .rail .num{margin-top:12px}
+li.stop.leg-li .body{padding:0}
+li.stop.leg-li .leg{padding:6px 0 8px;gap:6px;font-size:12.5px;flex-wrap:nowrap;min-width:0}
+li.stop.leg-li .leg .lnote{flex-basis:auto;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+li.stop.leg-li .leg a{padding:1px 8px;flex:none}
+body.dragging-now li.leg-li{opacity:.2;transition:opacity .15s}
+li.stop.dragging{background:none;box-shadow:none}
+li.stop.dragging .body{box-shadow:0 14px 30px rgba(40,40,90,.25)}
+li.stop.swiping .body{background:#fde8ea}
+li.stop.drop-above .body{box-shadow:0 -3px 0 var(--accent)}
+li.stop.drop-below .body{box-shadow:0 3px 0 var(--accent)}
+li.stop.drop-above,li.stop.drop-below{box-shadow:none}
+li.stop.swiping .body{background:var(--card)}
+li.stop.swiping .body::before{content:none}
+li.stop.swipe-arm .body{background:#fde8ea;border-color:var(--no)}
+li.stop.dragging{opacity:1}

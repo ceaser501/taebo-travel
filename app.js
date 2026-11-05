@@ -1682,7 +1682,7 @@ document.addEventListener('pointerdown',e=>{const c=e.target.closest('.stop-card
   document.addEventListener('pointermove',pre);document.addEventListener('pointerup',off);document.addEventListener('pointercancel',off);
   hold=setTimeout(()=>{off();startDrag(li,+c.dataset.stopi,ly);},380);});
 // slide a card to the right to take it out of the day (asks first)
-function startSwipe(c,li,x0,i){let dx=0;dragOn=true;li.classList.add('swiping');c.style.transition='none';
+function startSwipe(card,li,x0,i){const c=card.closest('.body')||card;let dx=0;dragOn=true;li.classList.add('swiping');c.style.transition='none';
   const move=ev=>{dx=Math.max(0,ev.clientX-x0);c.style.transform=`translateX(${dx}px)`;li.classList.toggle('swipe-arm',dx>90);};
   const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
     dragOn=false;dragDone=Date.now();c.style.transition='transform .2s';c.style.transform='';setTimeout(()=>{li.classList.remove('swiping','swipe-arm');c.style.transition='';},200);
@@ -1700,6 +1700,8 @@ function startDrag(li,from,y0){
     dragOn=false;dragDone=Date.now();li.style.transform='';li.classList.remove('dragging');document.body.classList.remove('dragging-now');list.forEach(o=>o.classList.remove('drop-above','drop-below'));
     if(to!==from){const a=planOf(state.day),lo=Math.min(from,to),hi=Math.max(from,to),ts=a.slice(lo,hi+1).map(x=>x.t||'');
       a.splice(to,0,a.splice(from,1)[0]);
+      // how-to-get-here belongs to the old neighbours: drop it where the stop before has changed, so it is worked out again
+      for(let k=lo;k<=Math.min(hi+1,a.length-1);k++)if(a[k])delete a[k].move;
       // if those stops had times in order, the times stay in their slots so the day still reads top to bottom
       const fit=ts.every(Boolean)&&ts.every((t,k)=>!k||ts[k-1]<=t);if(fit)ts.forEach((t,k)=>{a[lo+k].t=t;});
       setPlan(state.day,a);render();if(fit)toast('시간도 순서에 맞게 바꿨어요.');}};
@@ -1710,7 +1712,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v65';
+const APP_VER='v66';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
