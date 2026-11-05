@@ -446,10 +446,30 @@ function toggleSound(){state.sound=!state.sound;LS.set('sound',state.sound);if(!
 let introTimers=[];
 const clearTimers=()=>{introTimers.forEach(clearTimeout);introTimers=[];};
 const at=(ms,fn)=>introTimers.push(setTimeout(fn,ms));
+const HEART_ENTRY='M-40 860 C 40 760, 120 620, 200 560',HEART_LOOP=' C 280 500, 340 420, 300 360 C 268 314, 214 330, 200 372 C 186 330, 132 314, 100 360 C 60 420, 120 500, 200 560',HEART_TAIL=' C 260 604, 330 520, 460 300';
+// dots along the incoming line, faint and small far away, full near the heart; each is shown once the plane passes it
+function heartDots(el){const g=el.querySelector('#hdots'),pe=el.querySelector('#hpe');if(!g||!pe||g.childNodes.length)return [];const Le=pe.getTotalLength(),out=[];
+  for(let k=6;k<Le-4;k+=13){const u=k/Le,o=pe.getPointAtLength(k),c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',o.x.toFixed(1));c.setAttribute('cy',o.y.toFixed(1));c.setAttribute('r',(1.3+1.4*u).toFixed(2));c.dataset.o=(0.25+0.75*u).toFixed(2);c.dataset.k=k;c.style.opacity=0;g.appendChild(c);out.push(c);}
+  return out;}
+function heartAt(el,len){const hp=el.querySelector('#hp'),hs=el.querySelector('#hs'),pe=el.querySelector('#hpe'),ap=el.querySelector('#aplane'),mc=el.querySelector('#pmc');
+  const Le=pe.getTotalLength(),Ls=hs.getTotalLength(),L=hp.getTotalLength();len=Math.min(L,len);
+  el.querySelectorAll('#hdots circle').forEach(c=>{c.style.opacity=len>=+c.dataset.k?c.dataset.o:0;});
+  hs.style.strokeDasharray=Ls;hs.style.strokeDashoffset=Ls-Math.max(0,Math.min(Ls,len-Le));
+  const p=hp.getPointAtLength(len),q=hp.getPointAtLength(Math.max(0,len-1)),ang=Math.atan2(p.y-q.y,p.x-q.x)*180/Math.PI;
+  ap.setAttribute('transform',`translate(${p.x} ${p.y}) rotate(${ang})`);
+  // the line is faint right behind the plane and fills in as the plane moves on
+  const t=hp.getPointAtLength(Math.max(0,len-22));mc.setAttribute('cx',t.x);mc.setAttribute('cy',t.y);}
 const finaleSC=()=>`<div class="sc final"><svg class="art" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="skyA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9c8f6"/><stop offset=".6" stop-color="#cfe0fb"/><stop offset="1" stop-color="#f1e6f7"/></linearGradient></defs>
   <rect width="400" height="800" fill="url(#skyA)"/>${cloud(-40,120,1.6,.75)}${cloud(250,240,1.2,.6)}${cloud(-20,560,2,.85)}${cloud(230,640,2.4,.9)}${cloud(120,420,1,.5)}
-  <path id="hp" d="M-40 860 C 40 760, 120 620, 200 560 C 280 500, 340 420, 300 360 C 268 314, 214 330, 200 372 C 186 330, 132 314, 100 360 C 60 420, 120 500, 200 560 C 240 592, 280 660, 320 670 C 380 684, 420 560, 470 330" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" style="stroke-dasharray:3000;stroke-dashoffset:3000"/>
-  <g id="aplane" transform="translate(-60 900)"><g transform="scale(1.4)">${planeTop('#ffffff','#b9c3ea')}</g></g></svg>
+  <defs><radialGradient id="pgr"><stop offset="0" stop-color="#222"/><stop offset=".55" stop-color="#999"/><stop offset="1" stop-color="#fff"/></radialGradient>
+    <mask id="pmask" maskUnits="userSpaceOnUse" x="-200" y="-200" width="900" height="1300"><rect x="-200" y="-200" width="900" height="1300" fill="#fff"/><circle id="pmc" cx="-300" cy="-300" r="44" fill="url(#pgr)"/></mask>
+    <filter id="psh" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="9" dy="12" stdDeviation="4" flood-color="#3b3f86" flood-opacity=".22"/></filter></defs>
+  ${''/* the app icon's mark: a dotted line comes in, draws the heart, and the plane climbs away */}
+  <path id="hp" d="${HEART_ENTRY}${HEART_LOOP}${HEART_TAIL}" fill="none" stroke="none"/><path id="hpe" d="${HEART_ENTRY}" fill="none" stroke="none"/>
+  <g id="hdots" fill="#fff"></g>
+  <path id="hs" d="M200 560 ${HEART_LOOP}${HEART_TAIL}" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" mask="url(#pmask)" style="stroke-dasharray:3000;stroke-dashoffset:3000"/>
+  <g filter="url(#psh)"><g id="aplane" transform="translate(-60 900)"><g transform="scale(1.8)">${planeTop('#ffffff','#d4d9f3')}</g></g></g></svg>
   <div class="txt"><h2 class="rise">${esc(trip().title)}</h2><div class="en rise d1">${esc(rangeText())}</div></div>
   <button class="cta go-a rise d3" data-enter>여행 시작하기 ${svg('chev')}</button></div>`;
 // the intro's boarding pass shows the real way-out flight: codes big, cities small, then date, time and my seat
@@ -476,12 +496,10 @@ function introHTML(){
   </div>`;
 }
 function flyHeart(el){
-  const hp=el.querySelector('#hp'),ap=el.querySelector('#aplane');if(!hp||!ap)return;
+  const hp=el.querySelector('#hp');if(!hp)return;heartDots(el);
   const L=hp.getTotalLength(),D=4200,t0=performance.now();
-  hp.style.strokeDasharray=L;hp.style.strokeDashoffset=L;
-  const step=now=>{if(!el.querySelector('#hp'))return;const t=Math.min(1,(now-t0)/D),e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,len=L*e;
-    const p=hp.getPointAtLength(len),q=hp.getPointAtLength(Math.min(L,len+1)),ang=Math.atan2(q.y-p.y,q.x-p.x)*180/Math.PI;
-    hp.style.strokeDashoffset=L-len;ap.setAttribute('transform',`translate(${p.x} ${p.y}) rotate(${ang})`);if(t<1)requestAnimationFrame(step);};
+  const step=now=>{if(!el.querySelector('#hp'))return;const t=Math.min(1,(now-t0)/D),e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    heartAt(el,L*e+(t>=1?40:0));if(t<1)requestAnimationFrame(step);};
   requestAnimationFrame(step);
 }
 function showIntro(){
@@ -492,7 +510,7 @@ function showIntro(){
   const toTicket=()=>{clearTimers();stage=1;show(1);};
   const tear=()=>{if(stage===2)return;stage=2;el.querySelector('[data-tear]').classList.add('torn');const c=audio(true);sfxTear(c);if(!reduced())sfxFly(c,0.8);
     at(reduced()?0:750,()=>{show(2);el._done=true;if(reduced())el._final();else flyHeart(el);});};
-  el._final=()=>{clearTimers();stage=2;show(2);el._done=true;const hp=el.querySelector('#hp');if(hp){hp.style.transition='none';hp.style.strokeDashoffset='0';}const ap=el.querySelector('#aplane');if(ap)ap.setAttribute('transform','translate(470 330) rotate(-78)');};
+  el._final=()=>{clearTimers();stage=2;show(2);el._done=true;heartDots(el);const hp=el.querySelector('#hp');if(hp)heartAt(el,hp.getTotalLength());};
   el._tap=()=>{if(el._done){finishIntro();return;}if(stage===0)toTicket();else tear();};
   show(0);at(reduced()?1200:3600,toTicket);
 }
