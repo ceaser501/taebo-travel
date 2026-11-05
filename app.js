@@ -744,7 +744,7 @@ function tripSheet(){
   openSheet(`${shHead('여행 정보','두 분 모두에게 똑같이 보여요')}
     <form id="tripForm" class="stack" novalidate>
       <label class="f" for="trTitle">여행 이름</label><input type="text" id="trTitle" value="${esc(t.title)}" placeholder="예: 도쿄 태교여행">
-      <label class="f" for="trIntro">인트로 첫 문구 (줄바꿈 가능)</label><textarea id="trIntro" rows="2" placeholder="예: 아빠 엄마 딱복이랑&#10;떠나는 첫 비행">${esc(t.intro||'')}</textarea>
+      <label class="f" for="trIntro">인트로 첫 문구 (줄바꿈 가능)</label><textarea id="trIntro" rows="2" placeholder="예: 엄마 아빠 딱복이랑&#10;떠나는 첫 비행">${esc(t.intro||'')}</textarea>
       <div class="two"><div><label class="f" for="trCity">도시</label><input type="text" id="trCity" value="${esc(t.city)}" placeholder="예: 도쿄"></div>
         <div><label class="f" for="trStart">출발일</label><input type="date" id="trStart" value="${esc(t.start)}"></div></div>
       <label class="f" for="trNights">기간</label><select id="trNights">${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${+t.nights===n?'selected':''}>${n}박 ${n+1}일</option>`).join('')}</select>
