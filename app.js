@@ -894,12 +894,12 @@ function placeForm(p,day){
   const extra=(f.signs||[]).slice(1);
   openSheet(`${shHead(f.id?'장소 고치기':'장소 등록',f.id?'':(day?`저장하면 DAY ${day} 일정에 들어가요`:'저장하면 장소 목록에 들어가요'))}
     <form id="placeForm" class="stack" novalidate>
+      <div class="cattiles" role="group" aria-label="분류">${CAT_LIST.map(k=>`<button type="button" data-pfcat="${k}" aria-pressed="${f.cat===k}" style="--c:var(${CAT[k].c})"><span class="ct-i">${svg(CAT[k].ic,'')}</span><span class="ct-t">${k}</span></button>`).join('')}</div>
       <label class="f" for="pfN">이름</label><input type="text" id="pfN" value="${esc(f.n)}" placeholder="예: 센소지" required>
       <div class="two"><div><label class="f" for="pfJp">일본어 이름 (간판)</label><input type="text" id="pfJp" lang="ja" value="${esc(f.jp)}" placeholder="例: 浅草寺"></div>
         <div><label class="f" for="pfKana">읽는 법 (선택)</label><input type="text" id="pfKana" lang="ja" value="${esc(f.kana)}" placeholder="せんそうじ"></div></div>
       ${extra.length?`<p class="fine">함께 찾아볼 간판: ${extra.map(s=>`<span lang="ja">${esc(s[0])}</span>`).join(' · ')}</p>`:''}
-      <div class="catpick" role="group" aria-label="분류">${CAT_LIST.map(k=>`<button type="button" data-pfcat="${k}" aria-pressed="${f.cat===k}" style="--c:var(${CAT[k].c})"><i></i>${k}</button>`).join('')}</div>
-      <div class="two"><div><label class="f" for="pfArea">지역 (선택)</label><input type="text" id="pfArea" value="${esc(f.area)}" placeholder="예: 아사쿠사"></div>
+      <div class="two area-ll"><div><label class="f" for="pfArea">지역 (선택)</label><input type="text" id="pfArea" value="${esc(f.area)}" placeholder="예: 아사쿠사"></div>
         <div><label class="f" for="pfLink">위치</label><input type="text" id="pfLink" value="${f.ll?esc(f.ll.map(n=>(+n).toFixed(5)).join(', ')):''}" placeholder="구글 지도 링크 붙여넣기" autocomplete="off"></div></div>
       <label class="f" for="pfD">메모 · 설명 (선택)</label><textarea id="pfD" rows="3" placeholder="예: 11시 전에 가면 덜 붐빔">${esc(f.d)}</textarea>
       <div><label class="f">걷는 양</label><div class="catpick">${[[0,'모름'],[1,'적음'],[2,'보통'],[3,'많음']].map(([v,l])=>`<button type="button" data-pfwalk="${v}" aria-pressed="${(f.walk||0)===v}">${l}</button>`).join('')}</div></div>
@@ -924,7 +924,7 @@ function savePlace(){
   if(pf.day){const a=planOf(pf.day),last=a[a.length-1],pos=last&&(isStay(last.p)||isAir(last.p))&&a.length>1?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(pf.day,a);state.day=pf.day;LS.set('day',pf.day);closeSheet();toast('장소를 등록하고 일정에 넣었어요.');go('plan');return;}
   if(state.stayMode&&pf.cat==='숙소'&&sheetStack.some(x=>x.html.includes('id="tStay"'))){state.stayMode=false;state.lastStay=id;
     for(let k=0;k<4&&!$('#tStay');k++)closeSheet();fillStays();toast('숙소를 등록했어요.');return;}
-  if(state.favMode){state.favMode=false;const sv=savedSet();sv.add(id);setSaved(sv);closeAllSheets();toast('즐겨찾기에 넣었어요.');render();return;}
+  if(state.favMode){state.favMode=false;const sv=savedSet();sv.delete(id);setSaved(new Set([id,...sv]));closeAllSheets();toast('즐겨찾기에 넣었어요.');render();return;}
   state.stayMode=false;closeSheet();toast(pf.id?'고쳤어요.':'장소를 등록했어요.');render();
 }
 // the stay picker in the ticket form, refreshed after a new 숙소 is registered
@@ -1523,7 +1523,7 @@ document.addEventListener('click',async e=>{
       // new stops go before the hotel/airport at the end of the day (on the last day, before check-out)
       pos=(last&&(isStay(last.p)||isAir(last.p))&&(a.length>1||+d===DAYS.length))?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(+d,a);closeSheet();
     if(state.tab==='fav'){toast(`DAY ${d} 일정에 넣었어요. 시간은 일정 탭에서 정해요.`);render();}else{state.day=+d;LS.set('day',state.day);go('plan');}}
-  else if(ds.heart){const id=ds.heart,s=savedSet();if(s.has(id)&&!confirm('즐겨찾기에서 뺄까요? 일정에 넣은 건 그대로 남아요.'))return;s.has(id)?s.delete(id):s.add(id);setSaved(s);if($('#sheetRoot .sheet'))placeSheet(id);render();}
+  else if(ds.heart){const id=ds.heart,s=savedSet();if(s.has(id)&&!confirm('즐겨찾기에서 뺄까요? 일정에 넣은 건 그대로 남아요.'))return;if(s.has(id)){s.delete(id);setSaved(s);}else setSaved(new Set([id,...s]));if($('#sheetRoot .sheet'))placeSheet(id);render();}
   else if(ds.scat){state.sCat=ds.scat;render();}
   else if(ds.sonly!==undefined){state.sOnly=!state.sOnly;render();}
   else if(ds.sview){state.sView=ds.sview;render();}
@@ -1677,7 +1677,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v61';
+const APP_VER='v62';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
