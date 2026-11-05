@@ -71,6 +71,11 @@ const setSaved=s=>Sync.put('saved','set',{ids:[...s]});
 const checkSet=()=>new Set((Sync.get('checks','set')||{ids:[]}).ids);
 const setChecks=s=>Sync.put('checks','set',{ids:[...s]});
 const prepItems=()=>Sync.list('prep').sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+const contacts=()=>Sync.list('contact').sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+// the checklist and the phone book are both filled in by the two of you, grouped by category
+const PREP_CATS=['서류','옷·생활용품','건강·임신','전자기기','기타'];
+const CONTACT_CATS=['긴급','숙소','항공·여행사','병원','기타'];
+const prepCat=m=>PREP_CATS.includes(m.cat)?m.cat:'기타',contactCat=c=>CONTACT_CATS.includes(c.cat)?c.cat:'기타';
 const expenses=()=>Sync.list('exp').sort((a,b)=>(a.at||'').localeCompare(b.at||''));
 const diary=()=>Sync.list('diary').sort((a,b)=>(a.at||'').localeCompare(b.at||''));
 const tickets=()=>Sync.list('ticket').sort((a,b)=>(a.day-b.day)||(a.time||'').localeCompare(b.time||''));
@@ -117,7 +122,7 @@ function importTemplate(){
 }
 /* ---------- small UI helpers ---------- */
 const IC={
-  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
   bed:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5M7 11.5a1.5 1.5 0 1 0 0-.01"/>',plane:'<path d="M2 16l20-6-3-3-7 3-5-5-2 1 3 6-4 2-2-1-1 1z"/>',nav:'<path d="M3 11l18-8-8 18-2-8z"/>',pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   memo:'<path d="M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5"/>',taxi:'<path d="M5 17h14v-5l-2-5H7l-2 5zM5 12h14M8 17v2M16 17v2M10 4h4"/>',walk:'<circle cx="13" cy="4.5" r="1.5"/><path d="M10 21l2-6 3 3v3M9 12l2-4 3 1 2 3M11 8l-2 5"/>',train:'<rect x="6" y="3" width="12" height="13" rx="3"/><path d="M6 10h12M9 20l-2 1M15 20l2 1M9 16l-1 4M15 16l1 4"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',yen:'<path d="M6 4l6 8 6-8M12 12v8M8 13h8M8 16h8"/>',talk:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',home:'<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
@@ -1083,7 +1088,7 @@ function header(){
   return `<h1>${state.tab==='home'?esc(trip().title):TITLES[state.tab]}</h1>${syncDot()}${right}`;
 }
 function viewHome(){
-  const all=PREP.flatMap(g=>g.items).length+prepItems().length,t=totals(),ds=diary(),last=ds[ds.length-1],checks=checkSet(),T=trip(),h=hotelId();
+  const all=prepItems().length,t=totals(),ds=diary(),last=ds[ds.length-1],checks=checkSet(),T=trip(),h=hotelId();
   const today=(()=>{const n=daysUntil();return n!=null&&n<=0&&n>-DAYS.length?1-n:1;})(),first=planOf(today).slice(0,4);
   const nPlaces=Object.keys(PL).length,nStops=DAYS.reduce((a,d)=>a+planOf(d.id).length,0);
   return `<section class="view">
@@ -1175,18 +1180,22 @@ function viewTickets(){
   </section>`;
 }
 function viewPrep(){
-  const base=PREP.flatMap(g=>g.items.map(i=>i[0])),mine=prepItems(),checks=checkSet(),all=[...base,...mine.map(m=>'u:'+m.id)],done=all.filter(k=>checks.has(k)).length;
+  const mine=prepItems(),checks=checkSet(),done=mine.filter(m=>checks.has('u:'+m.id)).length,cs=contacts();
+  const addRow=(form,cat,ph)=>`<form class="addrow" data-addform="${form}" data-cat="${esc(cat)}"><input type="text" placeholder="${ph}" autocomplete="off" aria-label="${esc(cat)}에 추가"><button class="btn sm" type="submit">${svg('plus')}</button></form>`;
   return `<section class="view">
-    <div><div class="sec-h"><h2>준비물</h2><span class="mono" style="font-weight:600">${done}/${all.length}</span></div><div class="bar"><i style="width:${all.length?done/all.length*100:0}%;background:var(--accent)"></i></div>
-      ${PREP.map(g=>`<div class="grp">${g.g}</div>${g.items.map(([k,t,s])=>`<label class="chk" for="c-${k}"><input type="checkbox" id="c-${k}" data-check="${k}" ${checks.has(k)?'checked':''}><span><div class="t">${esc(t)}</div>${s?`<div class="s">${esc(s)}</div>`:''}</span></label>`).join('')}`).join('')}
-      <div class="grp">우리가 추가한 것</div>${mine.map(m=>`<div class="chk"><input type="checkbox" id="c-u${m.id}" data-check="u:${m.id}" ${checks.has('u:'+m.id)?'checked':''}><label for="c-u${m.id}" style="flex:1"><div class="t">${esc(m.t)}</div></label><button class="x" data-delprep="${m.id}" aria-label="${esc(m.t)} 빼기">×</button></div>`).join('')}
-      <form id="prepForm" class="srow" style="margin-top:8px"><input type="text" id="prepIn" class="sinput" placeholder="예: 보조 배터리" autocomplete="off"><button class="btn" type="submit">${svg('plus')}추가</button></form></div>
+    <div><div class="sec-h"><h2>준비물</h2><span class="mono" style="font-weight:600">${done}/${mine.length}</span></div><div class="bar"><i style="width:${mine.length?done/mine.length*100:0}%;background:var(--accent)"></i></div>
+      <p class="fine">길게 누르면 지울 수 있어요.</p>
+      ${PREP_CATS.map(c=>{const a=mine.filter(m=>prepCat(m)===c);return `<div class="pcat"><div class="grp">${esc(c)}${a.length?` <span class="mono">${a.filter(m=>checks.has('u:'+m.id)).length}/${a.length}</span>`:''}</div>
+        ${a.map(m=>`<label class="chk" for="c-u${m.id}" data-hold="${m.id}" data-holdkind="prep"><input type="checkbox" id="c-u${m.id}" data-check="u:${m.id}" ${checks.has('u:'+m.id)?'checked':''}><span><div class="t">${esc(m.t)}</div></span></label>`).join('')}
+        ${addRow('prep',c,c==='서류'?'예: 여권':c==='옷·생활용품'?'예: 가벼운 패딩':c==='건강·임신'?'예: 산모수첩':c==='전자기기'?'예: 보조 배터리':'추가할 것')}</div>`;}).join('')}</div>
+    <div><div class="sec-h"><h2>연락처</h2></div>
+      ${CONTACT_CATS.map(c=>{const a=cs.filter(x=>contactCat(x)===c);return `<div class="pcat"><div class="grp">${esc(c)}</div>
+        ${a.map(x=>`<div class="crow" data-hold="${x.id}" data-holdkind="contact"><div class="cm"><b>${esc(x.name)}</b><span class="mono">${esc(x.tel)}</span></div>${x.tel?`<a class="btn sm" href="tel:${esc(x.tel.replace(/[^+\d]/g,''))}">${svg('phone')}전화</a>`:''}</div>`).join('')}
+        <form class="addrow two-in" data-addform="contact" data-cat="${esc(c)}"><input type="text" placeholder="${c==='긴급'?'예: 구급차':c==='숙소'?'예: 호텔 프런트':'이름'}" autocomplete="off" aria-label="이름"><input type="tel" placeholder="전화번호" autocomplete="off" aria-label="전화번호"><button class="btn sm" type="submit">${svg('plus')}</button></form></div>`;}).join('')}</div>
     <div class="card setup"><b>인터넷 없이 쓰려면 (출발 전에 한 번)</b>
-      <ul class="fine" style="margin:0;padding-left:18px"><li>오프라인 지도 받기: 등록한 장소 주변 지도와 일본어 음성을 휴대폰에 저장해요.</li><li>티켓 탭에서 티켓을 한 번씩 열어 두기: 사진이 휴대폰에 저장돼요.</li><li>받아 둔 음성이 없을 때를 대비해 휴대폰 설정에서 일본어 음성도 받아 두면 좋아요.</li></ul>
-      <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')} · 장소를 새로 등록했다면 다시 받아 주세요</span>`:''}</div>
-    <div class="note" style="background:var(--warn-soft)"><h4>임산부 탑승 규정</h4><ul><li>보통 32주 무렵부터 의사 소견서를 요구하고, 36주 이후 탑승을 제한해요. 항공사 규정을 확인하세요.</li><li>안전벨트는 배 아래, 골반 위로 낮게 매세요.</li></ul></div>
-    <div><div class="sec-h"><h2>긴급 연락처</h2></div><div class="sos"><div class="card"><div class="k">구급차 · 소방</div><div class="v">119</div></div><div class="card"><div class="k">경찰</div><div class="v">110</div></div><div class="card" style="grid-column:1/-1"><div class="k">외교부 영사콜센터 (24시간)</div><div class="v">+82-2-3210-0404</div></div></div>
-      <button class="btn ghost" style="margin-top:10px" data-bigja="妊娠しています">${svg('expand')}「임신 중이에요」 일본어로 보여주기</button></div></section>`;
+      <ul class="fine" style="margin:0;padding-left:18px"><li>오프라인 지도 받기: 등록한 장소 주변 지도와 일본어 음성을 휴대폰에 저장해요.</li><li>티켓 탭에서 티켓을 한 번씩 열어 두기: 사진이 휴대폰에 저장돼요.</li></ul>
+      <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')}</span>`:''}</div>
+  </section>`;
 }
 function viewAuth(){
   const a=state.auth,signup=a.mode==='signup';
@@ -1237,6 +1246,8 @@ async function enter(){
   try{const t=await Sync.myTrip();go(t?'home':'onboard');if(t)Sync.syncNow();}catch(e){state.auth.err='서버에 연결하지 못했어요. 인터넷을 확인해 주세요.';go('auth');}
 }
 function nowTs(){const d=new Date();return `${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+// after adding, stay in that category's box so several things can be typed in a row
+function keepAdd(form,cat){render();const f=document.querySelector(`[data-addform="${form}"][data-cat="${CSS.escape(cat)}"] input`);if(f)f.focus({preventScroll:true});}
 function keep(ids){const v=ids.map(i=>[i,$('#'+i)?$('#'+i).value:'']);render();v.forEach(([i,x])=>{if($('#'+i))$('#'+i).value=x;});}
 function authMsg(e){const m=(e&&e.message)||'';if(/Invalid login/i.test(m))return '이메일 또는 비밀번호가 맞지 않아요.';if(/Email not confirmed/i.test(m))return '메일함의 확인 링크를 먼저 눌러 주세요.';if(/already registered/i.test(m))return '이미 가입된 이메일이에요. 로그인해 주세요.';if(/invite code not found/i.test(m))return '초대 코드를 찾지 못했어요. 8자리를 다시 확인해 주세요.';if(/trip is full/i.test(m))return '이 여행은 이미 4명이 참여했어요.';if(/fetch|network/i.test(m))return '인터넷 연결을 확인해 주세요.';return m||'잠시 후 다시 시도해 주세요.';}
 async function downscale(file,max){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(),'image/jpeg',0.8);};img.onerror=rej;img.src=r.result;};r.onerror=rej;r.readAsDataURL(file);});}
@@ -1249,7 +1260,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1281,7 +1292,8 @@ document.addEventListener('click',async e=>{
   else if(ds.pfsafe!==undefined){state.pf.safe=ds.pfsafe;document.querySelectorAll('[data-pfsafe]').forEach(b=>b.setAttribute('aria-pressed',b===t));}
   else if(ds.tripsetup!==undefined){tripSheet();}
   else if(ds.importtpl!==undefined){importTemplate();closeSheet();toast('도쿄 예시를 불러왔어요. 자유롭게 고쳐 쓰세요.');render();}
-  else if(ds.delprep){Sync.remove('prep',ds.delprep);render();}
+  else if(ds.delprep){closeHoldPop();Sync.remove('prep',ds.delprep);render();}
+  else if(ds.delcontact){closeHoldPop();Sync.remove('contact',ds.delcontact);render();}
   else if(ds.offlinemap!==undefined){saveOfflineMap(t);}
   else if(ds.delphrase){closeHoldPop();const k=ds.delphrase;if(k.startsWith('u:'))Sync.remove('phrase',k.slice(2));else{const h=hiddenPhrases();h.add(k.slice(2));Sync.put('phrasehide','set',{ids:[...h]});}talkSheet('');}
   else if(ds.restorephrases!==undefined){Sync.put('phrasehide','set',{ids:[]});talkSheet('');}
@@ -1358,7 +1370,9 @@ document.addEventListener('submit',async e=>{
   if(id==='tripForm'){saveTrip();}
   if(id==='searchForm'){const q=$('#searchQ').value.trim();if(q)runSearch(q);}
   if(id==='trForm'){const v=$('#trIn').value.trim();if(v)addPhrase(v);}
-  if(id==='prepForm'){const v=$('#prepIn').value.trim();if(v){Sync.put('prep',uid(),{t:v,at:new Date().toISOString()});render();}}
+  const af=e.target.dataset&&e.target.dataset.addform;
+  if(af==='prep'){const v=e.target.querySelector('input').value.trim();if(v){Sync.put('prep',uid(),{t:v,cat:e.target.dataset.cat,at:new Date().toISOString()});keepAdd(af,e.target.dataset.cat);}}
+  if(af==='contact'){const [n,tl]=[...e.target.querySelectorAll('input')].map(x=>x.value.trim());if(n||tl){Sync.put('contact',uid(),{name:n||tl,tel:tl,cat:e.target.dataset.cat,at:new Date().toISOString()});keepAdd(af,e.target.dataset.cat);}}
   if(id==='expForm'){const amt=parseFloat(($('#amtIn').value||'').replace(/,/g,'')),title=$('#titleIn').value.trim()||state.form.cat;
     if(!(amt>0)){state.err='금액을 숫자로 입력해 주세요.';keep(['amtIn','titleIn']);$('#amtIn').focus();return;}
     state.err='';const ex=state.form.editX&&Sync.get('exp',state.form.editX);
@@ -1404,7 +1418,8 @@ const closeHoldPop=()=>{const x=$('#holdpop');if(x)x.remove();document.querySele
 document.addEventListener('pointerdown',e=>{const c=e.target.closest('[data-hold]');if(!e.target.closest("#holdpop"))closeHoldPop();if(!c||e.target.closest('button'))return;holdFired=false;holdXY=[e.clientX,e.clientY];
   clearTimeout(holdT);holdT=setTimeout(()=>{holdFired=true;if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}
     const r=c.getBoundingClientRect(),pop=document.createElement('div');pop.id='holdpop';pop.className='holdpop';
-    pop.innerHTML=`<span>이 문장을 지울까요?</span><button type="button" data-holdno>취소</button><button type="button" class="del" data-delphrase="${c.dataset.hold}">삭제</button>`;
+    const kind=c.dataset.holdkind||'phrase',msg={phrase:'이 문장을 지울까요?',prep:'이 준비물을 지울까요?',contact:'이 연락처를 지울까요?'}[kind];
+    pop.innerHTML=`<span>${msg}</span><button type="button" data-holdno>취소</button><button type="button" class="del" data-del${kind}="${c.dataset.hold}">삭제</button>`;
     c.classList.add('held');pop.dataset.for='';document.body.appendChild(pop);},550);});
 ['pointerup','pointercancel','pointerleave'].forEach(k=>document.addEventListener(k,()=>clearTimeout(holdT)));
 document.addEventListener('pointermove',e=>{if(holdXY&&Math.hypot(e.clientX-holdXY[0],e.clientY-holdXY[1])>10)clearTimeout(holdT);});

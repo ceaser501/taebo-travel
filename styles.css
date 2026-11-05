@@ -678,3 +678,19 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .wd .dt{color:var(--mute);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wd .dp{font-size:12px;color:#3b6fd9;min-width:30px;text-align:right}
 .wd.trip{background:var(--accent-soft);border-radius:12px;border-top-color:transparent}
+/* checklist and phone book by category */
+.pcat{background:var(--card,#fff);border:1px solid var(--line);border-radius:16px;padding:4px 12px 10px;margin-top:10px}
+.pcat .grp{margin-top:8px}
+.pcat .grp .mono{color:var(--mute);font-weight:500;margin-left:4px}
+.addrow{display:flex;gap:6px;margin-top:8px}
+.addrow input{flex:1;min-width:0;border:1px dashed var(--line);border-radius:12px;padding:9px 12px;background:var(--soft);font:inherit;font-size:14.5px;color:inherit}
+.addrow input:focus{border-style:solid;background:#fff}
+.addrow.two-in input[type=tel]{flex:.9}
+.addrow .btn{flex:none;width:42px;padding:0}
+.chk[data-hold],.crow{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.chk.held,.crow.held{background:var(--accent-soft);border-radius:10px}
+.crow{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px dashed var(--line)}
+.crow .cm{flex:1;min-width:0;display:flex;flex-direction:column}
+.crow .cm b{font-size:15px}
+.crow .cm span{font-size:13px;color:var(--mute)}
+.crow .btn svg{width:15px;height:15px}
