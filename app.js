@@ -6,7 +6,7 @@ const COLORS=['#5a6fe3','#f27d99','#24a37f','#ee8640'];
 const WEEK=['일','월','화','수','목','금','토'];
 
 const state={
-  tab:'home',day:LS.get('day',1),edit:false,tpax:LS.get('tpax',''),
+  tab:'home',day:LS.get('day',1),edit:false,tpax:null,
   sCat:'전체',sOnly:false,sView:'list',pickQ:'',
   form:{cur:'JPY',cat:'식비',day:1},err:'',
   dform:{kind:'한 줄 일기',day:1,stk:'',photoBlob:null,photoURL:''},derr:'',
@@ -55,6 +55,9 @@ const setPlan=(d,stops)=>Sync.put('plan',String(d),{stops});
 const flights=()=>{const f=Sync.get('flights','trip')||{};return {out:{...FLIGHT0.out,...(f.out||{})},in:{...FLIGHT0.in,...(f.in||{})}};};
 const DIRS={out:'가는 편',in:'오는 편',etc:'기타'};
 // who a ticket belongs to is a plain name, so a companion who hasn't joined the app yet can still have tickets
+// each person's own name on tickets, so their phone opens the ticket tab on their own tickets
+const paxMap=()=>(Sync.get('paxof','set')||{}).map||{};
+const myPax=()=>{const m=paxMap()[me()];if(m)return m;const n=member(me()).display_name;return tickets().some(t=>t.pax===n)?n:'';};
 const paxNames=()=>[...new Set([...tickets().map(t=>t.pax),...Sync.members.map(m=>m.display_name)].filter(Boolean))];
 // minutes between two HH:MM times (same time zone, next day if it wraps)
 const spanMin=(a,b)=>{if(!a||!b)return 0;const m=t=>{const [h,x]=t.split(':').map(Number);return h*60+x;};return (m(b)-m(a)+1440)%1440;};
@@ -741,6 +744,7 @@ function settingsSheet(){
     <div><div class="grp">함께하는 사람</div>${Sync.members.map(x=>`<div class="mrow">${avatar(x.user_id)}<b>${esc(x.display_name)}</b>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}</div>
     <div class="names"><label>내 이름<input id="myName" value="${esc(mine.display_name)}" maxlength="12"></label><label>내 색<span class="colors">${COLORS.map(c=>`<button type="button" class="cdot" data-mycolor="${c}" aria-pressed="${mine.color===c}" style="--c:${c}" aria-label="색 ${c}"></button>`).join('')}</span></label></div>
     <button class="btn pri" data-saveprofile>이름 저장</button>
+    ${(()=>{const ns=[...new Set(tickets().map(t=>t.pax).filter(Boolean))],cur=myPax();return ns.length?`<div><div class="grp">티켓에서 나는</div><div class="catpick">${ns.map(n=>`<button type="button" data-mypax="${esc(n)}" aria-pressed="${cur===n}">${esc(n)}</button>`).join('')}</div><p class="fine">티켓 탭을 열면 내 티켓이 먼저 보여요.</p></div>`:'';})()}
     <div class="grp">오프라인 준비</div><div class="sync-row"><span>${LS.get('offlineMapAt','')?'지도 받아 둠 · '+new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요'}</span><button class="btn sm" data-offlinemap>오프라인 지도 받기</button></div>
     <div class="grp">동기화</div><div class="sync-row"><span>${syncText()}</span><button class="btn sm" data-syncnow>${svg('sync')}지금 동기화</button></div>
     <div class="sh-acts"><button class="btn" data-sound aria-pressed="${state.sound}">${state.sound?'효과음 끄기':'효과음 켜기'}</button><button class="btn" data-replay>인트로 다시 보기</button></div>
@@ -1010,7 +1014,7 @@ function viewPlaces(){
     <div class="note"><h4>메뉴로 고를 때 주의할 음식</h4><ul><li>회전초밥은 장어·계란말이·새우튀김·유부초밥 같은 익힌 접시만</li><li>아마자케는 쌀누룩(米麹) 표시만. 술지게미(酒粕) 것은 알코올이 있어요</li><li>편의점 반숙 달걀, 생햄 샌드위치는 피하기</li></ul></div></section>`;
 }
 function viewTickets(){
-  const all=tickets(),names=[...new Set(all.map(t=>t.pax).filter(Boolean))],who=names.includes(state.tpax)?state.tpax:'';
+  const all=tickets(),names=[...new Set(all.map(t=>t.pax).filter(Boolean))],sel=state.tpax===null?myPax():state.tpax,who=names.includes(sel)?sel:'';
   const tk=who?all.filter(t=>!t.pax||t.pax===who):all,slots=slotStatus().filter(s=>!s.t),f=flights();
   const card=t=>{const img=(t.files||[]).find(x=>x.mime!=='application/pdf');return `<button class="card tcard" data-showticket="${t.id}"><span class="tc-thumb">${img?`<img data-file="${esc(img.path)}" alt="">`:svg((t.files||[]).length?'file':'ticket')}</span><span class="m">${t.pax?`<span class="tpax">${esc(t.pax)}</span>`:''}<span class="k">${t.dir&&DIRS[t.dir]&&t.dir!=='etc'?DIRS[t.dir]:esc(t.type)} · DAY ${t.day}${t.time?' · '+esc(t.time):''}</span><b>${esc(t.title)}</b>${t.code||t.seat||(t.fl&&t.fl.no)?`<span class="mono s">${[t.fl&&t.fl.no,t.code&&'예약 '+t.code,t.seat&&'좌석 '+t.seat].filter(Boolean).map(esc).join('  ')}</span>`:''}</span><span class="chip ok">보여주기</span></button>`;};
   return `<section class="view">
@@ -1097,7 +1101,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1141,7 +1145,8 @@ document.addEventListener('click',async e=>{
   else if(ds.delticket){Sync.remove('ticket',ds.delticket);closeSheet();render();toast('티켓을 지웠어요.');}
   else if(ds.ttype){state.tf.type=ds.ttype;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b===t));const air=ds.ttype==='항공권';$('#tFlight').hidden=!air;$('#tGen').hidden=air;$('#tTitleBox').hidden=air;}
   else if(ds.tpax!==undefined){$('#tPax').value=ds.tpax;}
-  else if(ds.tpaxf!==undefined){state.tpax=ds.tpaxf;LS.set('tpax',ds.tpaxf);render();}
+  else if(ds.tpaxf!==undefined){state.tpax=ds.tpaxf;render();}
+  else if(ds.mypax!==undefined){const m={...paxMap()};if(ds.mypax)m[me()]=ds.mypax;else delete m[me()];Sync.put('paxof','set',{map:m});state.tpax=null;settingsSheet();}
   else if(ds.tdir){state.tf.dir=ds.tdir;document.querySelectorAll('[data-tdir]').forEach(b=>b.setAttribute('aria-pressed',b===t));
     if(ds.tdir!=='etc'){const f=flights()[ds.tdir],day=ds.tdir==='out'?1:DAYS.length;state.tf.day=day;document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===day));
       [['tNo','no'],['tFrom','fromCity'],['tTo','toCity'],['tDep','dep'],['tArr','arr'],['tDur','dur'],['tDepT','term'],['tArrT','arrTerm']].forEach(([i,k])=>{const el=$('#'+i);if(el&&!el.value&&f[k])el.value=f[k];});}}
