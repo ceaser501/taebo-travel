@@ -47,6 +47,8 @@ const isAir=id=>PL[id]&&PL[id].cat==='공항';
 const hasLL=id=>PL[id]&&Array.isArray(PL[id].ll)&&PL[id].ll.length===2;
 const placeQ=id=>{const p=PL[id];return p?(p.q||p.jp||p.n):'';};
 const placeDest=id=>hasLL(id)?PL[id].ll:placeQ(id);
+const placeDir=(origin,id,mode)=>gdir(origin,placeDest(id),mode)+(PL[id]&&PL[id].gid?'&destination_place_id='+encodeURIComponent(PL[id].gid):'');
+const placeSearch=id=>gsearch(placeQ(id))+(PL[id]&&PL[id].gid?'&query_place_id='+encodeURIComponent(PL[id].gid):'');
 
 const planOf=d=>{const v=Sync.get('plan',String(d));return (v&&v.stops?v.stops:[]).filter(s=>PL[s.p]).map(s=>({...s}));};
 const setPlan=(d,stops)=>Sync.put('plan',String(d),{stops});
@@ -202,7 +204,7 @@ function mapCfg(key){
   if(key==='home'){const pins=[];DAYS.forEach(d=>numbered(d.id).forEach((id,i)=>pins.push({id,c:d.c,num:i+1})));return {pins,routes:DAYS.map(d=>d.id),static:true};}
   return {pins:placeList().filter(id=>!isAir(id)).map(id=>({id,c:CAT[PL[id].cat]?CAT[PL[id].cat].c:'--c-air'})),routes:[],labels:false};
 }
-function mountMap(key){
+function mountLeaflet(key){
   const box=document.querySelector(`[data-map="${key}"]`);
   if(maps[key]){try{maps[key].stop();maps[key].off();maps[key].remove();}catch(e){}delete maps[key];}
   if(!box||!window.L)return;
@@ -223,9 +225,82 @@ function mountMap(key){
   fit();setTimeout(fit,80);
   box.querySelectorAll('[data-fit]').forEach(b=>b.addEventListener('click',fit));
 }
+/* ---------- Google Maps (online) ---------- */
+// Browser key, restricted in Google Cloud to https://ceaser501.github.io/* and to Maps JavaScript API + Places API (New).
+const GMAPS_KEY='AIzaSyBdhUO5SK5nrem_uuxb3qlH4v7cPuSrLBA';
+let gReady=null,gFailed=false;
+const gOK=()=>!gFailed&&!!(window.google&&google.maps&&google.maps.Map);
+function loadGoogle(){
+  if(gOK())return Promise.resolve();
+  if(gFailed||!navigator.onLine)return Promise.reject(new Error('offline'));
+  if(gReady)return gReady;
+  gReady=new Promise((res,rej)=>{
+    window.__gmInit=()=>res();
+    const sc=document.createElement('script');
+    sc.src=`https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&language=ko&region=JP&libraries=places&loading=async&callback=__gmInit`;
+    sc.async=true;sc.onerror=()=>{gReady=null;rej(new Error('load'));};
+    document.head.appendChild(sc);
+    setTimeout(()=>rej(new Error('timeout')),10000);
+  });
+  return gReady;
+}
+// Google calls this when the key is refused (wrong site, API not enabled, billing); fall back to the offline map
+window.gm_authFailure=()=>{gFailed=true;console.warn('Google Maps key refused');['home','plan','places'].forEach(k=>{if(maps[k]&&maps[k].google)mountMap(k);});};
+const GSTYLE=[
+  {featureType:'poi',stylers:[{visibility:'off'}]},
+  {featureType:'poi.park',elementType:'geometry',stylers:[{visibility:'on'},{color:'#dcefe3'}]},
+  {featureType:'road',elementType:'labels.icon',stylers:[{visibility:'off'}]},
+  {featureType:'landscape',elementType:'geometry',stylers:[{color:'#f5f6fb'}]},
+  {featureType:'water',elementType:'geometry',stylers:[{color:'#cfe1f7'}]},
+  {featureType:'road',elementType:'geometry',stylers:[{color:'#ffffff'}]},
+  {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#e4e8f7'}]},
+  {featureType:'transit.line',elementType:'geometry',stylers:[{color:'#d3d7ec'}]},
+  {elementType:'labels.text.fill',stylers:[{color:'#5f6690'}]},
+  {elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+];
+let HtmlMarker=null;
+function htmlMarkerClass(){
+  if(HtmlMarker)return HtmlMarker;
+  HtmlMarker=class extends google.maps.OverlayView{
+    constructor(pos,html,onClick){super();this.pos=pos;this.html=html;this.onClick=onClick;}
+    onAdd(){const d=document.createElement('div');d.className='gpin';d.innerHTML=this.html;if(this.onClick){d.style.cursor='pointer';d.addEventListener('click',e=>{e.stopPropagation();this.onClick();});}this.div=d;this.getPanes().overlayMouseTarget.appendChild(d);}
+    draw(){const p=this.getProjection().fromLatLngToDivPixel(this.pos);if(p&&this.div){this.div.style.left=p.x+'px';this.div.style.top=p.y+'px';}}
+    onRemove(){if(this.div){this.div.remove();this.div=null;}}
+  };
+  return HtmlMarker;
+}
+function mountGoogle(key){
+  const box=document.querySelector(`[data-map="${key}"]`);if(!box)return;
+  const el=box.querySelector('.lmap'),cfg=mapCfg(key),h=hotelId(),M=htmlMarkerClass(),objs=[];
+  el.innerHTML='';
+  const m=new google.maps.Map(el,{center:{lat:35.681,lng:139.767},zoom:11,styles:GSTYLE,disableDefaultUI:true,zoomControl:!cfg.static,zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP},gestureHandling:cfg.static?'none':'greedy',clickableIcons:false,keyboardShortcuts:!cfg.static});
+  const b=new google.maps.LatLngBounds();let n=0;const ll=a=>({lat:a[0],lng:a[1]});
+  cfg.routes.forEach(d=>{const st=planOf(d).filter(s=>hasLL(s.p)&&!isAir(s.p)),col=cssVar(dayOf(d).c);
+    for(let i=0;i<st.length-1;i++){const how=(st[i+1].move&&st[i+1].move.how)||'',dashed=how!=='train'&&how!=='subway'&&how!=='bus';
+      const sym={path:'M 0,-1 0,1',strokeOpacity:.9,strokeColor:col,scale:how==='walk'?2:3};
+      objs.push(new google.maps.Polyline({map:m,path:[ll(PL[st[i].p].ll),ll(PL[st[i+1].p].ll)],strokeColor:col,strokeOpacity:dashed?0:.85,strokeWeight:cfg.static?3:4,icons:dashed?[{icon:sym,offset:'0',repeat:how==='walk'?'8px':'14px'}]:[]}));}});
+  cfg.pins.forEach(pn=>{if(!hasLL(pn.id))return;const p=PL[pn.id],col=cssVar(pn.c);b.extend(ll(p.ll));n++;
+    const html=(pn.num?`<span class="mpin num" style="background:${col}">${pn.num}</span>`:`<span class="mpin dot" style="border-color:${col}"></span>`)+(cfg.labels?`<span class="glabel">${esc(p.short||p.n)}</span>`:'');
+    const o=new M(new google.maps.LatLng(p.ll[0],p.ll[1]),html,cfg.static?null:()=>placeSheet(pn.id));o.setMap(m);objs.push(o);});
+  if(h&&hasLL(h)){b.extend(ll(PL[h].ll));n++;const o=new M(new google.maps.LatLng(PL[h].ll[0],PL[h].ll[1]),'<span class="mpin home">숙소</span>',cfg.static?null:()=>placeSheet(h));o.setMap(m);objs.push(o);}
+  const fit=()=>{if(n>1)m.fitBounds(b,cfg.static?18:40);else if(n===1){m.setCenter(b.getCenter());m.setZoom(15);}};
+  fit();google.maps.event.addListenerOnce(m,'idle',()=>{if(n>1&&m.getZoom()>16)m.setZoom(16);});
+  box.querySelectorAll('[data-fit]').forEach(x=>x.addEventListener('click',fit));
+  box.classList.remove('offline-map');
+  maps[key]={google:true,stop(){},off(){},invalidateSize(){google.maps.event.trigger(m,'resize');},remove(){objs.forEach(o=>o.setMap(null));el.innerHTML='';}};
+}
+// online: Google Maps; offline or if Google is unavailable: the saved vector map
+function mountMap(key){
+  if(maps[key]){try{maps[key].stop();maps[key].off();maps[key].remove();}catch(e){}delete maps[key];}
+  const box=document.querySelector(`[data-map="${key}"]`);if(!box)return;
+  if(gOK()&&navigator.onLine){try{mountGoogle(key);return;}catch(e){console.warn(e);}}
+  mountLeaflet(key);
+  if(!navigator.onLine)box.classList.add('offline-map');
+  if(!gFailed&&navigator.onLine)loadGoogle().then(()=>{if(document.querySelector(`[data-map="${key}"]`)===box)mountMap(key);}).catch(()=>{});
+}
 const mapBox=(key,cls,cfg)=>`<div class="mapbox ${cls}" data-map="${key}"><div class="lmap" role="region" aria-label="지도"></div>
   ${cfg.static?'':`<button class="mfit" data-fit aria-label="일정 전체 보기">${svg('fit')}</button>`}
-  ${cfg.air?`<div class="hnd">${svg('plane')}공항 이동은 아래 일정에서 확인하세요</div>`:''}</div>`;
+  ${cfg.air?`<div class="hnd">${svg('plane')}공항 이동은 아래 일정에서 확인하세요</div>`:''}<span class="offbadge">오프라인 지도</span></div>`;
 /* ===================== illustrations ===================== */
 const cloud=(x,y,s,o=1,fill='#fff')=>`<g transform="translate(${x} ${y}) scale(${s})" opacity="${o}"><path d="M0 30a16 16 0 0 1 10-28 24 24 0 0 1 42-2 18 18 0 0 1 22 14 14 14 0 0 1-2 28H8A12 12 0 0 1 0 30z" fill="${fill}"/></g>`;
 const planeTop=(fill='#fff',edge='#c8cfee')=>`<g><path d="M2 -2 L-6 -20 L-1 -20 L10 -2Z M2 2 L-6 20 L-1 20 L10 2Z" fill="${fill}" stroke="${edge}" stroke-width=".8"/><path d="M-18 -1.5 L-24 -9 L-20.5 -9 L-14 -1.5Z M-18 1.5 L-24 9 L-20.5 9 L-14 1.5Z" fill="${fill}" stroke="${edge}" stroke-width=".8"/><path d="M-22 0 L18 -2.6 Q27 0 18 2.6 Z" fill="${fill}" stroke="${edge}" stroke-width=".8"/></g>`;
@@ -357,7 +432,7 @@ function placeSheet(id){
     ${p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
     <dl class="facts">${p.walk?`<dt>걷는 양</dt><dd>${walkHTML(p.walk)}</dd>`:''}${p.price?`<dt>가격대</dt><dd class="mono">${'¥'.repeat(p.price)}<span style="color:var(--soft2)">${'¥'.repeat(4-p.price)}</span></dd>`:''}</dl>
     ${p.tips&&p.tips.length?`<div class="note"><h4>임산부 팁</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
-    <div class="sh-acts"><a class="btn acc" href="${gdir(null,placeDest(id),'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${gsearch(placeQ(id))}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
+    <div class="sh-acts"><a class="btn acc" href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${placeSearch(id)}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
       <button class="btn" data-heart="${id}" aria-pressed="${saved.has(id)}">${svg('heart')}${saved.has(id)?'저장됨':'저장'}</button><button class="btn pri" data-addto="${id}">${svg('plus')}일정에 추가</button></div>
     <button class="btn ghost" data-editplace="${id}">${svg('pen')}장소 정보 고치기</button>`);
 }
@@ -381,7 +456,33 @@ function guessCat(r){const c=r.category,t=r.type;
   if(c==='shop')return '쇼핑';
   if(c==='tourism'||c==='historic'||c==='leisure'||c==='amenity'&&/place_of_worship|theatre|arts_centre/.test(t)||c==='building'&&/shrine|temple/.test(t))return '관광명소';
   return '기타';}
+function gCat(types){const t=(types||[]).join(' ');
+  if(/airport/.test(t))return '공항';if(/lodging|hotel/.test(t))return '숙소';
+  if(/cafe|bakery|dessert|ice_cream|confection/.test(t))return '카페·간식';
+  if(/restaurant|food|meal_|ramen|sushi/.test(t))return '맛집';
+  if(/store|shopping|market|mall/.test(t))return '쇼핑';
+  if(/tourist|museum|park|place_of_worship|shrine|temple|church|zoo|aquarium|amusement|landmark|observation/.test(t))return '관광명소';
+  return '기타';}
+async function googleSearch(q){
+  await loadGoogle();const {Place}=await google.maps.importLibrary('places');
+  const h=hotelId(),req={textQuery:q,fields:['id','displayName','location','formattedAddress','types'],language:'ko',region:'jp',maxResultCount:8};
+  if(h&&hasLL(h))req.locationBias={lat:PL[h].ll[0],lng:PL[h].ll[1]};
+  const {places}=await Place.searchByText(req);
+  return (places||[]).map(p=>{const addr=p.formattedAddress||'';return {gid:p.id,n:p.displayName||q,jp:'',kana:'',ll:[p.location.lat(),p.location.lng()],area:addr.split(/[,，]/).slice(-3,-2)[0]?.trim()||'',cat:gCat(p.types),addr};});
+}
+async function googleJaName(gid){
+  try{const {Place}=await google.maps.importLibrary('places');const pl=new Place({id:gid,requestedLanguage:'ja'});await pl.fetchFields({fields:['displayName']});return hasJa(pl.displayName)?pl.displayName:'';}catch(e){return '';}
+}
 async function runSearch(q){
+  const s0=state.search;
+  if(navigator.onLine&&!gFailed){
+    s0.q=q;s0.busy=true;s0.err='';s0.results=[];drawSearch();
+    try{s0.results=await googleSearch(q);s0.busy=false;if(!s0.results.length)s0.err='찾지 못했어요. 다른 이름으로 찾아보거나 아래에서 직접 입력해 주세요.';drawSearch();return;}
+    catch(e){console.warn('google search',e);}
+  }
+  return osmSearch(q);
+}
+async function osmSearch(q){
   const s=state.search;s.q=q;s.busy=true;s.err='';s.results=[];drawSearch();
   if(!navigator.onLine){s.busy=false;s.err='장소 찾기는 인터넷이 필요해요. 직접 입력은 오프라인에서도 돼요.';drawSearch();return;}
   try{
@@ -405,7 +506,7 @@ function searchSheet(day){
     <form id="searchForm" class="srow"><input type="search" id="searchQ" class="sinput" placeholder="예: 浅草寺, 이치란 시부야, teamLab" autocomplete="off" enterkeyhint="search"><button class="btn acc" type="submit">${svg('search')}찾기</button></form>
     <div id="searchResults" class="sresults"></div>
     <button class="btn ghost" data-manualplace>${svg('pen')}직접 입력하기 (구글 지도 링크도 돼요)</button>
-    <p class="fine">검색은 OpenStreetMap 데이터를 써요. 작은 가게는 없을 수 있어요.</p>`);
+    <p class="fine">구글 지도에서 찾고, 안 될 때는 OpenStreetMap에서 찾아요. 일본어 간판 이름도 함께 가져와요.</p>`);
   setTimeout(()=>{const i=$('#searchQ');if(i)i.focus();},50);
 }
 function parseMapsLink(u){
@@ -415,7 +516,7 @@ function parseMapsLink(u){
 function placeForm(p,day){
   // p: existing place (with id) or a prefilled draft from search; day: add to this day after saving
   const f=Object.assign({n:'',jp:'',kana:'',cat:'관광명소',area:'',d:'',walk:0,safe:'',ticket:false,ll:null,signs:[],tips:[]},p||{});
-  state.pf={id:f.id||'',day:day||0,ll:f.ll,cat:f.cat,walk:f.walk||0,safe:f.safe||'',ticket:!!f.ticket,signs:f.signs||[],tips:f.tips||[]};
+  state.pf={id:f.id||'',gid:f.gid||'',day:day||0,ll:f.ll,cat:f.cat,walk:f.walk||0,safe:f.safe||'',ticket:!!f.ticket,signs:f.signs||[],tips:f.tips||[]};
   const extra=(f.signs||[]).slice(1);
   openSheet(`${shHead(f.id?'장소 고치기':'장소 등록',f.id?'':(day?`저장하면 DAY ${day} 일정에 들어가요`:'저장하면 장소 목록에 들어가요'))}
     <form id="placeForm" class="stack" novalidate>
@@ -443,7 +544,7 @@ function savePlace(){
   else ll=null;
   const jp=v('pfJp'),kana=v('pfKana'),signs=pf.signs.length?[[jp||pf.signs[0][0],kana||pf.signs[0][1],n],...pf.signs.slice(1)]:(jp?[[jp,kana,n]]:[]);
   const id=pf.id||uid(),prev=pf.id?Sync.get('place',pf.id):{};
-  Sync.put('place',id,{...prev,n,jp,kana,cat:pf.cat,area:v('pfArea'),d:v('pfD'),walk:pf.walk,safe:/맛집|카페/.test(pf.cat)?pf.safe:'',ticket:$('#pfTicket').checked,ll,signs,tips:pf.tips,q:jp||n,at:prev.at||new Date().toISOString()});
+  Sync.put('place',id,{...prev,n,jp,kana,cat:pf.cat,area:v('pfArea'),d:v('pfD'),walk:pf.walk,safe:/맛집|카페/.test(pf.cat)?pf.safe:'',ticket:$('#pfTicket').checked,ll,signs,tips:pf.tips,q:jp||n,gid:pf.gid||prev.gid||'',at:prev.at||new Date().toISOString()});
   if(pf.cat==='숙소'&&!PL[trip().hotelId])Sync.put('trip','info',{...trip(),hotelId:id});
   rebuild();
   if(pf.day){const a=planOf(pf.day),last=a[a.length-1],pos=last&&(isStay(last.p)||isAir(last.p))&&a.length>1?a.length-1:a.length;a.splice(pos,0,{p:id,t:'',dur:''});setPlan(pf.day,a);state.day=pf.day;LS.set('day',pf.day);closeSheet();toast('장소를 등록하고 일정에 넣었어요.');go('plan');return;}
@@ -463,7 +564,7 @@ function toolSheet(k){
   if(k==='talk')openSheet(`${shHead('일본어 회화','누르면 듣기, 오른쪽 버튼은 크게 보여주기예요.')}<div class="signs">${allPhrases().map((p,i)=>`<div class="sign"><div class="sj"><span class="ja" lang="ja">${esc(p[0])}</span><span class="kana" lang="ja">${esc(p[1])}</span><span class="ko">${esc(p[2])}</span></div><div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button><button class="icon-btn" data-bigphrase="${i}" aria-label="${esc(p[2])} 크게 보기">${svg('expand')}</button></div></div>`).join('')}</div>`);
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
     openSheet(`${shHead('숙소로 돌아가기',esc(PL[h].n),thumb(h))}
-    <div class="sh-acts"><a class="btn acc" href="${gdir(null,placeDest(h),'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${gdir(null,placeDest(h),'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>
+    <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>
     ${hotelPhrase()?`<button class="btn ghost" data-bigphrase="${allPhrases().length-1}">${svg('expand')}택시 기사에게 보여주기</button>`:''}${signRows(h)}`);}
 }
 
@@ -694,7 +795,7 @@ function viewPlan(){
     const p=PL[s.p],n=nums.indexOf(s.p)+1,home=isStay(s.p),air=isAir(s.p),sg=mainSign(s.p),stk=tk.filter(t=>t.place===s.p&&t.day===d&&t.type!=='항공권'),c=CAT[p.cat]||CAT['기타'];
     if(i>0){const l=legs[i-1];if(l){const b=p,a=PL[st[i-1].p],[hn,mode]=HOW[l.how]||HOW.train;
       list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail"></div><div class="body">${state.edit?`<div class="leg-edit"><label class="f" for="mv${i}">이동</label><select id="mv${i}" data-movehow="${i}"><option value="">자동 (거리로 추정)</option>${Object.entries(HOW).filter(([k])=>k!=='subway').map(([k,v])=>`<option value="${k}" ${s.move&&s.move.how===k?'selected':''}>${v[0]}</option>`).join('')}<option value="subway" ${s.move&&s.move.how==='subway'?'selected':''}>지하철</option></select><input type="number" inputmode="numeric" min="0" max="600" id="mvm${i}" data-movemin="${i}" value="${s.move&&s.move.min?s.move.min:''}" placeholder="분" aria-label="이동 시간(분)"><input type="text" id="mvn${i}" data-movenote="${i}" value="${esc(s.move&&s.move.note||'')}" placeholder="메모 (예: 한조몬선 4정거장)" aria-label="이동 메모"></div>`
-        :`<div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${gdir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),placeDest(s.p),mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div>`}</div></li>`;}}
+        :`<div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${placeDir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),s.p,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div>`}</div></li>`;}}
     const mark=home?`<span class="num home">숙소</span>`:air?`<span class="num air">${svg('plane','')}</span>`:`<span class="num">${n}</span>`;
     list+=`<li class="stop" style="--c:var(${day.c})"><div class="rail">${mark}</div><div class="body">
       ${state.edit?`<div class="stop-edit"><b>${esc(s.title||p.n)}</b><div class="se-row"><input type="time" data-stoptime="${i}" value="${esc(s.t||'')}" aria-label="시작 시간"><input type="text" data-stopdur="${i}" value="${esc(s.dur||'')}" placeholder="머무는 시간 (예: 1시간)" aria-label="머무는 시간"></div>
@@ -839,7 +940,7 @@ document.addEventListener('click',async e=>{
   else if(ds.newplace!==undefined){searchSheet(+ds.newplace||0);}
   else if(ds.newstay!==undefined){searchSheet(0);}
   else if(ds.manualplace!==undefined){placeForm(null,state.search.forDay);}
-  else if(ds.pickres!==undefined){const r=state.search.results[+ds.pickres];if(r)placeForm({...r,signs:r.jp?[[r.jp,r.kana,r.n]]:[]},state.search.forDay);}
+  else if(ds.pickres!==undefined){const r=state.search.results[+ds.pickres];if(r){if(r.gid&&!r.jp){t.disabled=true;r.jp=await googleJaName(r.gid);}placeForm({...r,signs:r.jp?[[r.jp,r.kana,r.n]]:[]},state.search.forDay);}}
   else if(ds.editplace){placeForm({id:ds.editplace,...Sync.get('place',ds.editplace)},0);}
   else if(ds.delplace){const id=ds.delplace;DAYS.forEach(d=>{const a=planOf(d.id);if(a.some(x=>x.p===id))setPlan(d.id,a.filter(x=>x.p!==id));});Sync.remove('place',id);if(trip().hotelId===id)Sync.put('trip','info',{...trip(),hotelId:''});closeSheet();toast('장소를 지웠어요.');render();}
   else if(ds.pfcat){state.pf.cat=ds.pfcat;document.querySelectorAll('[data-pfcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const r=$('#pfSafeRow');if(r)r.hidden=!/맛집|카페/.test(ds.pfcat);}
