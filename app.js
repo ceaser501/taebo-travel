@@ -1226,7 +1226,7 @@ function viewPlan(){
         <div class="memo">${svg('memo','')}<textarea data-memo="${i}" aria-label="메모" placeholder="메모를 남겨 보세요">${esc(s.memo||'')}</textarea></div>
         <div class="edit-ctl"><button data-mv="${i}|-1" ${i===0?'disabled':''} aria-label="위로">${svg('up')}</button><button data-mv="${i}|1" ${i===st.length-1?'disabled':''} aria-label="아래로">${svg('down')}</button><button class="del" data-del="${i}">${svg('x')}빼기</button></div>`
       :`<button class="stop-card" data-place="${s.p}"><div class="nm">${esc(s.title||p.n)}</div>
-        <div class="meta"><span class="cat" style="--c:var(${c.c})">${esc(p.cat)}</span>${home&&s.title?`<span>${esc(p.n)}</span>`:p.area?`<span>${esc(p.area)}</span>`:''}${p.safe?`<span>${p.safe==='ok'?'임산부 안심':'주문 시 주의'}</span>`:''}</div>
+        <div class="meta"><span class="cat" style="--c:var(${c.c})">${esc(p.cat)}</span>${(()=>{const jp=(sg&&sg[0])||p.jp||'',nm=s.title&&s.title!==p.n?p.n:'';return nm||jp?`<span>${esc(nm)}${jp?`${nm?' ':''}<span class="jp-p" lang="ja" translate="no">(${esc(jp)})</span>`:''}</span>`:'';})()}</div>
         <div class="when"><b>${s.t||'시간 미정'}</b>${s.dur?`<span>${esc(s.dur)}</span>`:''}</div></button>
 
         ${s.memo?`<div class="memo">${svg('memo','')}<span>${esc(s.memo)}</span></div>`:''}`}</div></li>`;
