@@ -541,3 +541,5 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .chk .x{border:0;background:none;color:var(--mute);font-size:18px;cursor:pointer;width:30px;height:30px}
 /* soften OpenStreetMap colours toward the app's pastel palette */
 .osm-tiles{filter:saturate(.55) brightness(1.04) contrast(.92)}
+/* keep Leaflet/MapLibre panes (z-index 200–1000) inside the map box so sheets and the tab bar stay on top */
+.mapbox,.mapthumb{isolation:isolate}

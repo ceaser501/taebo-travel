@@ -161,8 +161,40 @@ function numbered(d){const out=[];planOf(d).forEach(s=>{if(!isStay(s.p)&&!isAir(
 
 /* ===================== map (Leaflet + OpenStreetMap tiles, no API key needed) ===================== */
 const maps={};
+// Clean light vector map (OpenFreeMap "Positron", no key). Falls back to plain OpenStreetMap tiles without WebGL.
+const STYLE='https://tiles.openfreemap.org/styles/positron';
 const TILE='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const ATTR='© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+const ATTR='<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+const glOK=()=>{try{return !!(window.maplibregl&&L.maplibreGL&&document.createElement('canvas').getContext('webgl'));}catch(e){return false;}};
+function koreanLabels(gl){
+  // prefer Korean place names, then the local (Japanese) name
+  const apply=()=>{try{gl.getStyle().layers.forEach(l=>{if(l.type==='symbol'&&l.layout&&l.layout['text-field'])gl.setLayoutProperty(l.id,'text-field',['coalesce',['get','name:ko'],['get','name']]);});}catch(e){}};
+  if(gl.isStyleLoaded())apply();else gl.once('style.load',apply);
+}
+function baseLayer(m){
+  if(glOK()){const gl=L.maplibreGL({style:STYLE,attribution:ATTR}).addTo(m);try{koreanLabels(gl.getMaplibreMap());}catch(e){}return;}
+  L.tileLayer(TILE,{attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',maxZoom:19,className:'osm-tiles'}).addTo(m);
+}
+/* save the map around every registered place so it shows without a connection */
+const lon2x=(lon,z)=>Math.floor((lon+180)/360*2**z),lat2y=(lat,z)=>{const r=lat*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*2**z);};
+async function saveOfflineMap(btn){
+  if(!navigator.onLine){toast('인터넷이 연결됐을 때 받아 주세요.');return;}
+  const pts=Object.keys(PL).filter(hasLL).map(id=>PL[id].ll);if(!pts.length){toast('위치가 있는 장소를 먼저 등록해 주세요.');return;}
+  try{
+    btn&&(btn.disabled=true);
+    const style=await (await fetch(STYLE)).json(),src=Object.values(style.sources).find(x=>x.type==='vector');
+    const tj=src.tiles?src:await (await fetch(src.url)).json(),tmpl=tj.tiles[0];
+    if(style.sprite){const sp=Array.isArray(style.sprite)?style.sprite[0].url:style.sprite;for(const ext of ['.json','.png','@2x.json','@2x.png'])fetch(sp+ext).catch(()=>{});}
+    const want=new Set();
+    pts.forEach(([la,lo])=>{for(let z=10;z<=15;z++){const x=lon2x(lo,z),y=lat2y(la,z),r=z>=14?1:0;for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++)want.add(tmpl.replace('{z}',z).replace('{x}',x+dx).replace('{y}',y+dy));}});
+    const list=[...want];let done=0,fail=0;
+    const worker=async()=>{while(list.length){const u=list.pop();try{const r=await fetch(u);if(!r.ok)fail++;}catch(e){fail++;}done++;if(btn&&done%10===0)btn.textContent=`지도 받는 중… ${done}/${want.size}`;}};
+    await Promise.all(Array.from({length:6},worker));
+    LS.set('offlineMapAt',new Date().toISOString());
+    toast(fail?`지도를 받았어요 (${want.size-fail}/${want.size}). 일부는 다시 받아 주세요.`:`장소 ${pts.length}곳 주변 지도를 받았어요. 인터넷 없이도 보여요.`);
+  }catch(e){toast('지도를 받지 못했어요. 잠시 뒤 다시 해 주세요.');}
+  finally{if(btn){btn.disabled=false;btn.textContent='오프라인 지도 받기';}}
+}
 const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#5a6fe3';
 function mapCfg(key){
   if(key==='plan'){const d=state.day,st=planOf(d),ids=numbered(d);
@@ -177,7 +209,7 @@ function mountMap(key){
   const el=box.querySelector('.lmap'),cfg=mapCfg(key),h=hotelId();
   const m=L.map(el,{zoomControl:!cfg.static,attributionControl:true,dragging:!cfg.static,scrollWheelZoom:false,doubleClickZoom:!cfg.static,touchZoom:!cfg.static,boxZoom:false,keyboard:!cfg.static,tap:!cfg.static});
   maps[key]=m;if(m.zoomControl)m.zoomControl.setPosition('topright');
-  L.tileLayer(TILE,{attribution:ATTR,maxZoom:19,className:'osm-tiles'}).addTo(m);
+  baseLayer(m);
   const pts=[];
   cfg.routes.forEach(d=>{const st=planOf(d).filter(s=>hasLL(s.p)&&!isAir(s.p)),col=cssVar(dayOf(d).c);
     for(let i=0;i<st.length-1;i++){const how=(st[i+1].move&&st[i+1].move.how)||'';
@@ -467,6 +499,7 @@ function settingsSheet(){
     <div><div class="grp">함께하는 사람</div>${Sync.members.map(x=>`<div class="mrow">${avatar(x.user_id)}<b>${esc(x.display_name)}</b>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}</div>
     <div class="names"><label>내 이름<input id="myName" value="${esc(mine.display_name)}" maxlength="12"></label><label>내 색<span class="colors">${COLORS.map(c=>`<button type="button" class="cdot" data-mycolor="${c}" aria-pressed="${mine.color===c}" style="--c:${c}" aria-label="색 ${c}"></button>`).join('')}</span></label></div>
     <button class="btn pri" data-saveprofile>이름 저장</button>
+    <div class="grp">오프라인 준비</div><div class="sync-row"><span>${LS.get('offlineMapAt','')?'지도 받아 둠 · '+new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요'}</span><button class="btn sm" data-offlinemap>오프라인 지도 받기</button></div>
     <div class="grp">동기화</div><div class="sync-row"><span>${syncText()}</span><button class="btn sm" data-syncnow>${svg('sync')}지금 동기화</button></div>
     <div class="sh-acts"><button class="btn" data-sound aria-pressed="${state.sound}">${state.sound?'효과음 끄기':'효과음 켜기'}</button><button class="btn" data-replay>인트로 다시 보기</button></div>
     ${!Object.keys(PL).length?'<button class="btn ghost" data-importtpl>도쿄 예시 불러오기</button>':''}
@@ -716,6 +749,9 @@ function viewPrep(){
       ${PREP.map(g=>`<div class="grp">${g.g}</div>${g.items.map(([k,t,s])=>`<label class="chk" for="c-${k}"><input type="checkbox" id="c-${k}" data-check="${k}" ${checks.has(k)?'checked':''}><span><div class="t">${esc(t)}</div>${s?`<div class="s">${esc(s)}</div>`:''}</span></label>`).join('')}`).join('')}
       <div class="grp">우리가 추가한 것</div>${mine.map(m=>`<div class="chk"><input type="checkbox" id="c-u${m.id}" data-check="u:${m.id}" ${checks.has('u:'+m.id)?'checked':''}><label for="c-u${m.id}" style="flex:1"><div class="t">${esc(m.t)}</div></label><button class="x" data-delprep="${m.id}" aria-label="${esc(m.t)} 빼기">×</button></div>`).join('')}
       <form id="prepForm" class="srow" style="margin-top:8px"><input type="text" id="prepIn" class="sinput" placeholder="예: 보조 배터리" autocomplete="off"><button class="btn" type="submit">${svg('plus')}추가</button></form></div>
+    <div class="card setup"><b>인터넷 없이 쓰려면 (출발 전에 한 번)</b>
+      <ul class="fine" style="margin:0;padding-left:18px"><li>오프라인 지도 받기: 등록한 장소 주변 지도를 휴대폰에 저장해요.</li><li>티켓 탭에서 티켓을 한 번씩 열어 두기: 사진이 휴대폰에 저장돼요.</li><li>휴대폰 설정에서 일본어 음성 받기: 발음 듣기가 오프라인에서도 돼요.</li></ul>
+      <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')} · 장소를 새로 등록했다면 다시 받아 주세요</span>`:''}</div>
     <div class="note" style="background:var(--warn-soft)"><h4>임산부 탑승 규정</h4><ul><li>보통 32주 무렵부터 의사 소견서를 요구하고, 36주 이후 탑승을 제한해요. 항공사 규정을 확인하세요.</li><li>안전벨트는 배 아래, 골반 위로 낮게 매세요.</li></ul></div>
     <div><div class="sec-h"><h2>긴급 연락처</h2></div><div class="sos"><div class="card"><div class="k">구급차 · 소방</div><div class="v">119</div></div><div class="card"><div class="k">경찰</div><div class="v">110</div></div><div class="card" style="grid-column:1/-1"><div class="k">외교부 영사콜센터 (24시간)</div><div class="v">+82-2-3210-0404</div></div></div>
       <button class="btn ghost" style="margin-top:10px" data-bigphrase="0">${svg('expand')}「임신 중이에요」 일본어로 보여주기</button></div></section>`;
@@ -780,7 +816,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep]');
+  const t=e.target.closest('[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -812,6 +848,7 @@ document.addEventListener('click',async e=>{
   else if(ds.tripsetup!==undefined){closeSheet();tripSheet();}
   else if(ds.importtpl!==undefined){importTemplate();closeSheet();toast('도쿄 예시를 불러왔어요. 자유롭게 고쳐 쓰세요.');render();}
   else if(ds.delprep){Sync.remove('prep',ds.delprep);render();}
+  else if(ds.offlinemap!==undefined){saveOfflineMap(t);}
   else if(ds.addticket!==undefined){ticketForm(null);}
   else if(ds.slot){const s=ticketSlots().find(x=>x.slot===ds.slot);ticketForm(null);Object.assign(state.tf,{type:s.type,day:s.day,place:s.place,slot:s.slot,time:s.time});$('#tTitle').value=s.title;$('#tTime').value=s.time;$('#tPlace').value=s.place;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ttype===s.type));document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===s.day));}
   else if(ds.showticket){closeSheet();showTicket(ds.showticket);}

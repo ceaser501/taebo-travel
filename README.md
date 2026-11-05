@@ -19,7 +19,7 @@
 | `sync.js` | 이 기기에 먼저 저장하고 Supabase와 동기화, 파일은 IndexedDB에 보관 |
 | `app.js` | 화면과 동작 |
 | `sw.js` | 오프라인 캐시 |
-| `vendor/` | Supabase JS 2.45.4, Leaflet 1.9.4 (CDN 없이 오프라인에서도 동작하도록 포함) |
+| `vendor/` | Supabase JS 2.45.4, Leaflet 1.9.4, MapLibre GL 4.7.1 + Leaflet 연결 (CDN 없이 오프라인에서도 동작하도록 포함) |
 | `supabase/` | 서버에 적용한 테이블·권한 기록 |
 
 ## 서버
@@ -32,5 +32,5 @@ GitHub Pages: Settings → Pages → Source를 `Deploy from a branch`, 브랜치
 
 ## 외부 서비스
 
-- 지도: OpenStreetMap 데이터와 타일 (API 키 필요 없음, 본 타일은 오프라인 캐시)
+- 지도: OpenFreeMap Positron 벡터 지도(OpenStreetMap 데이터, API 키 없음, 한국어 지명 우선). WebGL이 없으면 OpenStreetMap 기본 타일. 본 지역과 '오프라인 지도 받기'로 받은 지역은 오프라인에서도 보임
 - 장소 검색: OpenStreetMap Nominatim (검색할 때만 사용)
