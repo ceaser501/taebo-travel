@@ -935,3 +935,10 @@ li.stop.dragging{opacity:1}
 .paxpick button.pc i{width:8px;height:8px;border-radius:50%;background:var(--pc)}
 .paxpick button.pc[aria-pressed="true"]{background:var(--pc);border-color:var(--pc);box-shadow:none;color:#fff}
 .paxpick button.pc[aria-pressed="true"] i{background:#fff}
+/* two-tone like home: white board, soft stop cards; only the day accents carry colour */
+.dayboard{background:var(--card)}
+li.stop[data-si] .body{background:var(--app);border-color:transparent;box-shadow:none}
+li.stop.swiping .body{background:var(--app)}
+li.stop.dragging .body{background:var(--card)}
+li.stop[data-si] .memo{background:color-mix(in srgb,var(--c) 13%,#fff);color:color-mix(in srgb,var(--c) 70%,#2b2f45)}
+li.stop[data-si] .memo svg{stroke:currentColor}
