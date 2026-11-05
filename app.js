@@ -791,23 +791,23 @@ function gInfoHTML(d){if(!d)return navigator.onLine?'<div class="gc-ph wait"><i>
     ${d.rating?`<div class="gc-r"><span>${d.rating.toFixed(1)}</span>${stars(d.rating)}<span class="cnt">(${(d.userRatingCount||0).toLocaleString('ko-KR')}개)</span></div>`:''}
     ${type||pr?`<div class="gc-t">${esc([type,pr].filter(Boolean).join(' · '))}</div>`:''}
     ${d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}`;}
-async function fillGInfo(id){const el=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`),p=PL[id];if(!el||!p||!p.gid)return;const d=await placeInfo(p.gid);const e2=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`);if(e2)e2.innerHTML=gInfoHTML(d)||'';}
+async function fillGInfo(id){const el=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`),p=PL[id];if(!el||!p)return;if(!p.gid&&!(await findGid(id))){el.innerHTML='';return;}const d=await placeInfo(p.gid);const e2=document.querySelector(`[data-ginfo="${CSS.escape(id)}"]`);if(e2)e2.innerHTML=gInfoHTML(d)||'';}
 function placeSheet(id){
-  const p=PL[id];if(!p)return;const cx=state.stopCtx&&state.stopCtx.id===id?state.stopCtx:null,cs=cx&&planOf(cx.d)[cx.i];const days=DAYS.filter(d=>planOf(d.id).some(s=>s.p===id)).map(d=>d.id),saved=savedSet(),tks=tickets().filter(t=>t.place===id),sg=mainSign(id),c=CAT[p.cat]||CAT['기타'];
-  // the name as written in Japanese (and English, if known) sits right under the Korean name
+  const p=PL[id];if(!p)return;const cx=state.stopCtx&&state.stopCtx.id===id?state.stopCtx:null,cs=cx&&planOf(cx.d)[cx.i],inStop=cs&&cs.p===id;
+  const days=inStop?[]:DAYS.filter(d=>planOf(d.id).some(s=>s.p===id)).map(d=>d.id),saved=savedSet(),tks=tickets().filter(t=>t.place===id),sg=mainSign(id),c=CAT[p.cat]||CAT['기타'];
+  // the Japanese name sits under the Korean one; the speaker reads it out in Japanese
   const jpName=(sg&&sg[0])||p.jp||'';
-  openSheet(`${shHead(esc(p.n),`${jpName?`<span class="jp-n" lang="ja" translate="no">${esc(jpName)}</span>${p.en?`<span class="en-n"> · ${esc(p.en)}</span>`:''}<br>`:p.en?`<span class="en-n">${esc(p.en)}</span><br>`:''}<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${safeChip(p)}${days.filter(d=>!(cs&&cs.p===id&&d===cx.d)).map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}${!hasLL(id)?'<span class="chip">지도 위치 없음</span>':''}</div>
-    ${cs&&cs.p===id?`<button class="card stopctx" data-stopedit style="--c:var(${dayOf(cx.d).c})"><span class="sc-k mono">DAY ${cx.d}</span><span class="sc-m"><b>${esc(cs.t||'시간 미정')}${cs.dur?` · ${esc(cs.dur)}`:''}</b>${cs.memo?`<span>${esc(cs.memo)}</span>`:''}</span><span class="sc-e">${svg('pen')}일정 고치기</span></button>`:''}
-    ${p.gid?`<div class="ginfo" data-ginfo="${id}">${gInfoHTML(LS.get('gpi:'+p.gid,null)?.d)}</div>`:''}
-    <div><div class="grp" style="margin-top:0">일본어 간판 · 발음</div>${signRows(id)}
-      ${sg?`<button class="btn ghost" style="width:100%;margin-top:8px" data-bigask="${id}|0">${svg('talk')}여기 어디예요? 물어보기</button>`:''}</div>
+  const title=`${esc(p.n)}${jpName?`<button class="say-ic" data-say="${esc(jpName)}" aria-label="일본어로 듣기">${svg('speak')}</button>`:''}`;
+  const chips=`${safeChip(p)}${days.map(d=>`<span class="chip" style="color:var(${dayOf(d).c})">DAY ${d} 일정</span>`).join('')}${p.ticket&&!tks.length?'<span class="chip warn">티켓 아직 없음</span>':''}`;
+  const ib=(attrs,ic,label,cls='')=>{const tag=attrs.startsWith('href')?'a':'button';return `<${tag} class="ib ${cls}" ${attrs} aria-label="${label}"><span class="ib-i">${svg(ic)}</span><span class="ib-t">${label}</span></${tag}>`;};
+  openSheet(`${shHead(title,`${jpName?`<span class="jp-n" lang="ja" translate="no">${esc(jpName)}</span>${p.en?`<span class="en-n"> · ${esc(p.en)}</span>`:''}<br>`:p.en?`<span class="en-n">${esc(p.en)}</span><br>`:''}<span style="color:var(${c.c})">${esc(p.cat)}</span>${p.area?' · '+esc(p.area):''}`,thumb(id))}
+    ${chips.trim()?`<div style="display:flex;gap:6px;flex-wrap:wrap">${chips}</div>`:''}
+    ${inStop?`<div class="card stopctx" style="--c:var(${dayOf(cx.d).c})"><span class="sc-k mono">DAY ${cx.d}</span><span class="sc-m"><b>${esc(cs.t||'시간 미정')}${cs.dur?` · ${esc(cs.dur)}`:''}</b>${cs.memo?`<span>${esc(cs.memo)}</span>`:''}</span><button class="sc-e" data-stopedit aria-label="일정 고치기">${svg('pen')}</button></div>`:''}
+    ${p.gid||hasLL(id)?`<div class="ginfo" data-ginfo="${id}">${gInfoHTML(p.gid?LS.get('gpi:'+p.gid,null)?.d:null)}</div>`:''}
     ${p.addr?`<div class="addr-l"><span class="k">주소</span><span>${esc(p.addr.replace(/^日本[、,]\s*/,'').replace(/^(〒\d{3}-\d{4})\s*/,'$1\n'))}</span></div>`:p.d?`<p style="margin:0;font-size:15px;white-space:pre-wrap">${esc(p.d)}</p>`:''}
     <dl class="facts">${p.walk?`<dt>걷는 양</dt><dd>${walkHTML(p.walk)}</dd>`:''}${p.price?`<dt>가격대</dt><dd class="mono">${'¥'.repeat(p.price)}<span style="color:var(--soft2)">${'¥'.repeat(4-p.price)}</span></dd>`:''}</dl>
     ${p.tips&&p.tips.length?`<div class="note"><h4>임산부 팁</h4><ul>${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
-    <div class="sh-acts"><a class="btn acc" href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener">${svg('nav')}여기로 길찾기</a><a class="btn" href="${placeSearch(id)}" target="_blank" rel="noopener">${svg('pin')}구글 지도</a>
-      <button class="btn" data-heart="${id}" aria-pressed="${saved.has(id)}">${svg('heart')}${saved.has(id)?'즐겨찾기됨':'즐겨찾기'}</button><button class="btn pri" data-addto="${id}">${svg('plus')}일정에 추가</button></div>
-    <button class="btn ghost" data-editplace="${id}">${svg('pen')}장소 정보 고치기</button>`);
+    <div class="ibar">${ib(`href="${placeDir(null,id,'transit')}" target="_blank" rel="noopener"`,'nav','길찾기','acc')}${ib(`href="${placeSearch(id)}" target="_blank" rel="noopener"`,'pin','구글 지도')}${sg?ib(`data-bigask="${id}|0"`,'talk','물어보기'):''}${ib(`data-heart="${id}" aria-pressed="${saved.has(id)}"`,'heart',saved.has(id)?'즐겨찾기됨':'즐겨찾기')}${inStop?'':ib(`data-addto="${id}"`,'plus','일정 추가')}${ib(`data-editplace="${id}"`,'gear','정보 수정')}</div>`);
   fillGInfo(id);
 }
 function addToSheet(id){openSheet(`${shHead('어느 날에 추가할까요?',esc(PL[id].n))}<div class="stack">${DAYS.map(d=>`<button class="btn" style="justify-content:flex-start" data-addday="${d.id}|${id}"><span class="mono" style="color:var(${d.c})">DAY ${d.id}</span> ${esc(d.label)}${d.title?' · '+esc(d.title):''}</button>`).join('')}</div>`);}
@@ -1250,6 +1250,12 @@ function placeList(){const s=savedSet();return Object.keys(PL).filter(id=>(state
 /* ===================== favorites: places found but not yet put in the schedule ===================== */
 // Google's live details for a saved place (rating, type, price, open now, photos), kept on the phone for a few hours
 const GPI_FIELDS='rating,userRatingCount,primaryTypeDisplayName,priceRange,currentOpeningHours.openNow,currentOpeningHours.nextOpenTime,currentOpeningHours.nextCloseTime,photos.name,googleMapsUri';
+// a place saved without its Google id (e.g. typed in by hand): look it up once, and keep it only if Google's spot is right where ours is
+async function findGid(id){const p=PL[id];if(!p||!hasLL(id)||!navigator.onLine)return '';
+  try{const r=await fetch('https://places.googleapis.com/v1/places:searchText',{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,'X-Goog-FieldMask':'places.id,places.location'},
+      body:JSON.stringify({textQuery:p.en||p.jp||p.n,languageCode:'ko',maxResultCount:3,locationBias:{circle:{center:{latitude:p.ll[0],longitude:p.ll[1]},radius:500}}})});
+    if(!r.ok)return '';const j=await r.json(),hit=(j.places||[]).find(x=>x.location&&Math.hypot((x.location.latitude-p.ll[0])*111000,(x.location.longitude-p.ll[1])*91000)<400);if(!hit)return '';
+    Sync.put('place',id,{...Sync.get('place',id),gid:hit.id});if(PL[id])PL[id].gid=hit.id;return hit.id;}catch(e){return '';}}
 async function placeInfo(gid,force){const k='gpi:'+gid,c=LS.get(k,null);if(c&&!force&&Date.now()-c.at<4*3600000)return c.d;if(!navigator.onLine)return c?c.d:null;
   try{const r=await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(gid)}?languageCode=ko`,{headers:{'X-Goog-Api-Key':GMAPS_KEY,'X-Goog-FieldMask':GPI_FIELDS}});if(!r.ok)return c?c.d:null;
     const d=await r.json();LS.set(k,{at:Date.now(),d});return d;}catch(e){return c?c.d:null;}}
@@ -1671,7 +1677,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v59';
+const APP_VER='v60';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

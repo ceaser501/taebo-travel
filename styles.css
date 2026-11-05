@@ -839,3 +839,17 @@ li.stop.drop-below{box-shadow:0 3px 0 var(--accent)}
 .sp-form select{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;font:inherit;font-size:16px;color:inherit}
 .sp-form input[type=time]{min-height:48px}
 .sp-acts{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:4px}
+/* place detail: speaker next to the name, icon buttons instead of long labelled ones */
+.say-ic{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin-left:6px;vertical-align:-5px;border:0;border-radius:50%;background:var(--soft);color:var(--accent);cursor:pointer;padding:0}
+.say-ic svg{width:18px;height:18px}
+.stopctx .sc-e{width:40px;height:40px;border-radius:50%;border:0;background:var(--soft);justify-content:center;padding:0;cursor:pointer}
+.stopctx .sc-e svg{width:18px;height:18px}
+.stopctx{cursor:default}
+.ibar{display:flex;justify-content:space-around;gap:4px;padding:4px 0 2px}
+.ib{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:none;padding:0;font:inherit;color:var(--ink,inherit);text-decoration:none;cursor:pointer}
+.ib-i{width:50px;height:50px;border-radius:50%;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--ink,#2b2f45)}
+.ib-i svg{width:21px;height:21px}
+.ib-t{font-size:11.5px;color:var(--mute);white-space:nowrap}
+.ib.acc .ib-i{background:var(--accent);color:#fff}
+.ib[aria-pressed="true"] .ib-i{color:#e5486b;background:#ffe4ea}
+.ib[aria-pressed="true"] .ib-i svg{fill:currentColor}
