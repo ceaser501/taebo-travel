@@ -569,7 +569,7 @@ function talkSheet(msg){
     <form id="trForm" class="srow"><input type="text" id="trIn" class="sinput" placeholder="예: 이거 맵나요? / 辛いですか" autocomplete="off" enterkeyhint="done"><button class="btn acc" type="submit">번역</button></form>
     <p class="fine" id="trMsg" ${msg?'':'hidden'}>${esc(msg||'')}</p>
     <div class="signs">${allPhrases().map((p,i)=>`<div class="sign tap" data-bigphrase="${i}" ${p[3]?`data-hold="${esc(p[3])}"`:''} role="button" tabindex="0" aria-label="${esc(p[2])} 크게 보기"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
-      <div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button></div></div>`).join('')}</div>
+      <button class="say-zone" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}<span>듣기</span></button></div>`).join('')}</div>
     <p class="fine">카드를 누르면 크게 보여요. 길게 누르면 지울 수 있어요.</p>
     ${hid?`<button class="btn ghost" data-restorephrases>지운 기본 문장 ${hid}개 다시 보기</button>`:''}`);
 }
@@ -1308,12 +1308,12 @@ document.addEventListener('keydown',e=>{
 });
 /* long press on a phrase card: a small floating "지울까요?" next to it */
 let holdT=0,holdFired=false,holdXY=null;
-const closeHoldPop=()=>{const x=$('#holdpop');if(x)x.remove();};
+const closeHoldPop=()=>{const x=$('#holdpop');if(x)x.remove();document.querySelectorAll('.held').forEach(c=>c.classList.remove('held'));};
 document.addEventListener('pointerdown',e=>{const c=e.target.closest('[data-hold]');if(!e.target.closest("#holdpop"))closeHoldPop();if(!c||e.target.closest('button'))return;holdFired=false;holdXY=[e.clientX,e.clientY];
   clearTimeout(holdT);holdT=setTimeout(()=>{holdFired=true;if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}
     const r=c.getBoundingClientRect(),pop=document.createElement('div');pop.id='holdpop';pop.className='holdpop';
     pop.innerHTML=`<span>이 문장을 지울까요?</span><button type="button" data-holdno>취소</button><button type="button" class="del" data-delphrase="${c.dataset.hold}">삭제</button>`;
-    document.body.appendChild(pop);const top=r.top>90?r.top-pop.offsetHeight-8:r.bottom+8;pop.style.top=Math.max(8,top)+'px';pop.style.left=Math.max(12,Math.min(innerWidth-pop.offsetWidth-12,r.left+r.width/2-pop.offsetWidth/2))+'px';},550);});
+    c.classList.add('held');pop.dataset.for='';document.body.appendChild(pop);},550);});
 ['pointerup','pointercancel','pointerleave'].forEach(k=>document.addEventListener(k,()=>clearTimeout(holdT)));
 document.addEventListener('pointermove',e=>{if(holdXY&&Math.hypot(e.clientX-holdXY[0],e.clientY-holdXY[1])>10)clearTimeout(holdT);});
 document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-hold]'))e.preventDefault();});
