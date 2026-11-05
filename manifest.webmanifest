@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "태보 여행",
-  "short_name": "태보여행",
-  "description": "둘이 함께 쓰는 일본 여행 앱",
+  "name": "딱복트립",
+  "short_name": "딱복트립",
+  "description": "아빠 엄마 딱복이가 함께 쓰는 여행 앱",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",

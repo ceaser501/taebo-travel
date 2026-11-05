@@ -487,7 +487,7 @@ function introHTML(){
     <div class="sc"><div class="porthole"><svg viewBox="0 0 210 300" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9cff8"/><stop offset=".55" stop-color="#e3dcf7"/><stop offset=".75" stop-color="#ffd9c6"/><stop offset="1" stop-color="#fff1e6"/></linearGradient></defs>
         <rect width="210" height="300" fill="url(#pw)"/><circle cx="140" cy="205" r="34" fill="#fff6e6" opacity=".9"/>
         <g class="drift">${cloud(-10,200,1.1,1)}${cloud(110,230,1.4,1)}${cloud(200,200,1.1,1)}${cloud(320,230,1.4,1)}${cloud(40,90,.6,.7)}${cloud(250,90,.6,.7)}</g></svg><div class="shade"></div></div>
-      <div class="txt" style="top:calc(470px + env(safe-area-inset-top,0px));text-align:center"><h2 class="rise">${esc(whenPhrase())},<br>${esc(trip().city||'여행')}에 가요</h2><div class="en rise d1">${esc(rangeText())}</div></div></div>
+      <div class="txt" style="top:calc(470px + env(safe-area-inset-top,0px));text-align:center"><h2 class="rise">${introLine()}</h2><div class="en rise d1">${esc(rangeText())}</div></div></div>
     <div class="sc"><svg class="art" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice"><rect width="400" height="800" fill="#e8ecfb"/>${cloud(-30,90,1.3,.9)}${cloud(240,170,1,.8)}${cloud(-50,620,2.4,1)}${cloud(200,680,2.6,1)}</svg>
       <div class="txt" style="top:calc(120px + env(safe-area-inset-top,0px))"><h2 class="rise">탑승권이<br>도착했어요</h2><p class="rise d1">표를 끊으면 바로 출발해요</p></div>
       <button class="ticket" data-tear aria-label="표를 끊고 출발하기" style="--stub:#5a6fe3;--tk:#7c83ad;--tv:#232849;bottom:calc(36% + env(safe-area-inset-bottom,0px))"><div class="main">${passHTML()}</div>
@@ -744,6 +744,7 @@ function tripSheet(){
   openSheet(`${shHead('여행 정보','두 분 모두에게 똑같이 보여요')}
     <form id="tripForm" class="stack" novalidate>
       <label class="f" for="trTitle">여행 이름</label><input type="text" id="trTitle" value="${esc(t.title)}" placeholder="예: 도쿄 태교여행">
+      <label class="f" for="trIntro">인트로 첫 문구 (줄바꿈 가능)</label><textarea id="trIntro" rows="2" placeholder="예: 아빠 엄마 딱복이랑&#10;떠나는 첫 비행">${esc(t.intro||'')}</textarea>
       <div class="two"><div><label class="f" for="trCity">도시</label><input type="text" id="trCity" value="${esc(t.city)}" placeholder="예: 도쿄"></div>
         <div><label class="f" for="trStart">출발일</label><input type="date" id="trStart" value="${esc(t.start)}"></div></div>
       <label class="f" for="trNights">기간</label><select id="trNights">${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${+t.nights===n?'selected':''}>${n}박 ${n+1}일</option>`).join('')}</select>
@@ -757,7 +758,7 @@ function tripSheet(){
 function saveTrip(){
   const v=id=>$('#'+id).value.trim(),err=$('#trErr');
   if(!v('trStart')){err.textContent='출발일을 골라 주세요.';err.hidden=false;return;}
-  Sync.put('trip','info',{...trip(),title:v('trTitle')||'우리 여행',city:v('trCity'),start:v('trStart'),nights:+v('trNights')||2,hotelId:v('trHotel')});
+  Sync.put('trip','info',{...trip(),title:v('trTitle')||'우리 여행',intro:$('#trIntro').value.trim(),city:v('trCity'),start:v('trStart'),nights:+v('trNights')||2,hotelId:v('trHotel')});
   rebuild();closeSheet();toast('여행 정보를 저장했어요.');render();
 }
 /* ---------- settings ---------- */
@@ -948,6 +949,7 @@ const ddayTxt=()=>{const n=daysUntil();if(n==null)return '날짜 미정';return 
 const fmtMD=d=>`${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')}`;
 const rangeText=()=>{const a=DAYS[0],b=DAYS[DAYS.length-1];return a&&a.date?`${fmtMD(a.date)}(${WEEK[a.date.getDay()]}) – ${fmtMD(b.date)}(${WEEK[b.date.getDay()]}) · ${DAYS.length-1}박 ${DAYS.length}일`:`${DAYS.length-1}박 ${DAYS.length}일 · 날짜 미정`;};
 const shortRange=()=>{const a=DAYS[0],b=DAYS[DAYS.length-1];return a&&a.date?`${fmtMD(a.date)} – ${b.date.getDate()}`:'미정';};
+const introLine=()=>{const t=(trip().intro||'').trim();return t?t.split('\n').map(esc).join('<br>'):`${esc(whenPhrase())},<br>${esc(trip().city||'여행')}에 가요`;};
 const whenPhrase=()=>{const s=startDate();if(!s)return '곧';const n=new Date();const diff=(s.getFullYear()-n.getFullYear())*12+s.getMonth()-n.getMonth();return diff<=0?'이번 달':diff===1?'다음 달':`${s.getMonth()+1}월`;};
 const admitText=()=>{const names=Sync.members.map(m=>m.display_name);const baby=/태교/.test(trip().title);const all=[...names,...(baby?['아가']:[])];return all.length?`ADMIT ${all.length} · ${all.join(' · ')}`:'BOARDING PASS';};
 const TITLES={plan:'일정',tickets:'티켓',diary:'우리의 기록',money:'가계부',places:'장소',prep:'준비물 · 연락처'};
@@ -1101,7 +1103,7 @@ const VIEWS={home:viewHome,plan:viewPlan,tickets:viewTickets,diary:viewDiary,mon
 const GATED=new Set(['auth','onboard']);
 function render(){
   rebuild();
-  document.title=tripInfo()?trip().title:'태보 여행';
+  document.title=tripInfo()?trip().title:'딱복트립';
   $('#top').innerHTML=header();$('#main').innerHTML=VIEWS[state.tab]();
   $('#tabs').hidden=GATED.has(state.tab)||!$('#intro').hidden;
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===state.tab||(state.tab==='places'&&b.dataset.tab==='home')||(state.tab==='prep'&&b.dataset.tab==='home')));
