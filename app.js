@@ -1211,11 +1211,11 @@ const admitText=()=>{const names=Sync.members.map(m=>m.display_name);const baby=
 const TITLES={fav:'즐겨찾기',plan:'일정',tickets:'티켓',diary:'우리의 기록',money:'가계부',places:'장소',prep:'준비물 · 연락처'};
 function header(){
   if(state.tab==='auth'||state.tab==='onboard')return `<h1>여행 같이 쓰기</h1>`;
-  if(state.tab==='places')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>장소</h1><button class="btn sm acc" data-newplace="0">${svg('plus')}찾기</button>${syncDot()}`;
-  if(state.tab==='prep')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>${TITLES.prep}</h1>${syncDot()}`;
+  if(state.tab==='places')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>장소</h1><button class="btn sm acc" data-newplace="0">${svg('plus')}찾기</button>`;
+  if(state.tab==='prep')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>${TITLES.prep}</h1>`;
   const right=state.tab==='plan'?`<button class="btn sm acc" data-pick="${state.day}">${svg('plus')}추가</button>`:state.tab==='fav'?`<button class="btn sm acc" data-addfav>${svg('plus')}추가</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:'';
-  // title (with D-day on home) on the left; the tab's own action, then settings at the far right
-  return `<h1>${state.tab==='home'?`${esc(trip().title)}<span class="dday">${ddayTxt()}</span>`:TITLES[state.tab]}</h1>${right}${syncDot()}`;
+  // title (with D-day on home) on the left; the tab's own action, settings gear (home only) at the far right
+  return `<h1>${state.tab==='home'?`${esc(trip().title)}<span class="dday">${ddayTxt()}</span>`:TITLES[state.tab]}</h1>${right}${state.tab==='home'?syncDot():''}`;
 }
 function viewHome(){
   const all=prepItems().length,t=totals(),ds=diary(),last=ds[ds.length-1],checks=checkSet(),T=trip(),h=hotelId();
@@ -1721,7 +1721,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v71';
+const APP_VER='v72';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
