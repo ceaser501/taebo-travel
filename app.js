@@ -574,6 +574,81 @@ function talkSheet(msg){
     <p class="fine">카드를 누르면 크게 보여요. 길게 누르면 지울 수 있어요.</p>
     ${hid?`<button class="btn ghost" data-restorephrases>지운 기본 문장 ${hid}개 다시 보기</button>`:''}`);
 }
+/* ===================== exchange rate (ECB reference rates via Frankfurter; currency-api as backup) ===================== */
+// rates are cached on the phone so the screen still works offline
+const RATE_SRC=[
+  (a,b)=>`https://api.frankfurter.dev/v1/${a}..${b}?base=JPY&symbols=KRW`,
+  (a,b)=>`https://api.frankfurter.app/${a}..${b}?from=JPY&to=KRW`];
+const ymd=d=>d.toISOString().slice(0,10);
+async function loadRates(days){
+  const end=new Date(),start=new Date(Date.now()-days*86400000);let pts=null;
+  for(const u of RATE_SRC){try{const r=await fetch(u(ymd(start),ymd(end)));if(!r.ok)continue;const j=await r.json();
+    pts=Object.entries(j.rates||{}).map(([d,v])=>[d,+v.KRW]).filter(x=>x[1]>0).sort((a,b)=>a[0]<b[0]?-1:1);if(pts.length)break;}catch(e){}}
+  if(!pts||!pts.length){try{const r=await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/jpy.min.json');const j=await r.json();if(j.jpy&&j.jpy.krw)pts=[[j.date,+j.jpy.krw]];}catch(e){}}
+  if(!pts||!pts.length)return null;
+  const data={days,pts,at:Date.now()};LS.set('rates:'+days,data);
+  const last=pts[pts.length-1][1];if(Math.abs(last-rate())>0.0005)setSettings({rate:last,rateAt:pts[pts.length-1][0]});
+  return data;}
+function rateChart(pts){
+  if(pts.length<2)return '';const W=320,H=120,P=6,vs=pts.map(p=>p[1]),lo=Math.min(...vs),hi=Math.max(...vs),span=hi-lo||1;
+  const xy=pts.map((p,i)=>[P+(W-2*P)*i/(pts.length-1),P+(H-2*P)*(1-(p[1]-lo)/span)]),d=xy.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');
+  const last=xy[xy.length-1];
+  return `<svg class="rchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="환율 변화 그래프"><defs><linearGradient id="rcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    <path d="${d} L${last[0]} ${H} L${xy[0][0]} ${H}Z" fill="url(#rcg)"/><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="var(--accent)"/></svg>
+    <div class="rrange"><span>${esc(fmtYmd(pts[0][0]))}</span><span>최저 ${(lo*100).toFixed(1)} · 최고 ${(hi*100).toFixed(1)}</span><span>${esc(fmtYmd(pts[pts.length-1][0]))}</span></div>`;}
+const fmtYmd=s=>{const [y,m,d]=s.split('-');return `${+m}.${+d}`;};
+function rateBody(data){
+  const pts=data&&data.pts||[],r=pts.length?pts[pts.length-1][1]:rate(),prev=pts.length>1?pts[pts.length-2][1]:null,diff=prev?(r-prev)*100:0;
+  return `<div class="rnow"><div class="k">100엔</div><div class="big mono">${(r*100).toFixed(2)}<small>원</small></div>
+      ${prev?`<div class="rdiff ${diff>0?'up':diff<0?'down':''}">${diff>0?'▲':diff<0?'▼':''} ${Math.abs(diff).toFixed(2)}원 · 전날보다</div>`:''}
+      <div class="fine">${pts.length?`${esc(fmtYmd(pts[pts.length-1][0]))} 기준 · 유럽중앙은행 고시 환율`:'인터넷이 연결되면 오늘 환율을 받아 와요'}</div></div>
+    ${rateChart(pts)}`;}
+async function rateSheet(){
+  const days=state.rateDays||30,cached=LS.get('rates:'+days,null),r=rate();
+  openSheet(`${shHead('환율','')}
+    <div class="seg rseg">${[[30,'1개월'],[90,'3개월'],[365,'1년']].map(([d,l])=>`<button type="button" data-rdays="${d}" aria-pressed="${d===days}">${l}</button>`).join('')}</div>
+    <div id="rateBody">${rateBody(cached)}</div>
+    <div class="conv2"><label><span>¥</span><input id="yenIn" inputmode="decimal" value="1,000" aria-label="엔"></label><span class="eq">⇄</span><label><span>₩</span><input id="wonIn" inputmode="decimal" value="${Math.round(1000*r).toLocaleString('ko-KR')}" aria-label="원"></label></div>
+    <div class="quick">${[500,1000,3000,5000,10000].map(v=>`<button class="btn sm ghost" data-quick="${v}">${yen(v)}</button>`).join('')}</div>
+    <p class="fine">가계부의 원화 환산도 이 환율로 자동으로 맞춰져요.</p>`);
+  if(!cached||Date.now()-cached.at>3*3600000){const d=await loadRates(days);const b=$('#rateBody');if(d&&b){b.innerHTML=rateBody(d);convFrom('yen');}}
+}
+function convFrom(side){const r=rate(),num=id=>parseFloat(($('#'+id)?.value||'').replace(/,/g,''));
+  if(side==='yen'){const y=num('yenIn');if($('#wonIn'))$('#wonIn').value=isNaN(y)?'':Math.round(y*r).toLocaleString('ko-KR');}
+  else{const w=num('wonIn');if($('#yenIn'))$('#yenIn').value=isNaN(w)?'':Math.round(w/r).toLocaleString('ko-KR');}}
+
+/* ===================== weather (Open-Meteo) ===================== */
+const WMO={0:['☀️','맑음'],1:['🌤️','대체로 맑음'],2:['⛅','구름 조금'],3:['☁️','흐림'],45:['🌫️','안개'],48:['🌫️','안개'],51:['🌦️','약한 이슬비'],53:['🌦️','이슬비'],55:['🌧️','강한 이슬비'],61:['🌧️','약한 비'],63:['🌧️','비'],65:['🌧️','강한 비'],66:['🌧️','어는 비'],67:['🌧️','어는 비'],71:['🌨️','약한 눈'],73:['🌨️','눈'],75:['❄️','많은 눈'],77:['🌨️','싸락눈'],80:['🌦️','소나기'],81:['🌧️','소나기'],82:['⛈️','강한 소나기'],85:['🌨️','눈 소나기'],86:['🌨️','눈 소나기'],95:['⛈️','뇌우'],96:['⛈️','우박 뇌우'],99:['⛈️','우박 뇌우']};
+const wmo=c=>WMO[c]||['🌡️',''];
+async function weatherSpot(){
+  const h=hotelId();if(h&&hasLL(h))return PL[h].ll;
+  const lls=Object.keys(PL).filter(hasLL).map(id=>PL[id].ll);if(lls.length)return [lls.reduce((a,b)=>a+b[0],0)/lls.length,lls.reduce((a,b)=>a+b[1],0)/lls.length];
+  const c=trip().city||'도쿄';const k='geo:'+c,hit=LS.get(k,null);if(hit)return hit;
+  try{const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(c)}&count=1&language=ko`);const j=await r.json();if(j.results&&j.results[0]){const ll=[j.results[0].latitude,j.results[0].longitude];LS.set(k,ll);return ll;}}catch(e){}
+  return [35.681,139.767];}
+async function loadWeather(){
+  const ll=await weatherSpot();
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${ll[0]}&longitude=${ll[1]}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Asia%2FTokyo&forecast_days=16`;
+  try{const r=await fetch(u);if(!r.ok)return null;const j=await r.json();const data={j,at:Date.now()};LS.set('weather',data);return data;}catch(e){return null;}}
+function weatherBody(data){
+  if(!data)return '<p class="fine" style="text-align:center;padding:24px 0">인터넷이 연결되면 날씨를 받아 와요.</p>';
+  const j=data.j,c=j.current,[ic,tx]=wmo(c.weather_code),now=c.time.slice(0,13);
+  const hi=j.hourly.time.findIndex(t=>t.slice(0,13)>=now),hours=j.hourly.time.slice(Math.max(0,hi),Math.max(0,hi)+24).map((t,i)=>{const k=Math.max(0,hi)+i;return `<div class="wh"><span>${+t.slice(11,13)}시</span><b>${wmo(j.hourly.weather_code[k])[0]}</b><span class="mono">${Math.round(j.hourly.temperature_2m[k])}°</span>${j.hourly.precipitation_probability[k]>=30?`<small>${j.hourly.precipitation_probability[k]}%</small>`:'<small>&nbsp;</small>'}</div>`;}).join('');
+  const tripDays=new Set(DAYS.filter(d=>d.date).map(d=>ymd(new Date(d.date.getTime()-d.date.getTimezoneOffset()*60000))));
+  const daily=j.daily.time.map((t,i)=>{const [di,dt]=wmo(j.daily.weather_code[i]),d=new Date(t+'T00:00:00');return `<div class="wd${tripDays.has(t)?' trip':''}"><span class="dd">${d.getMonth()+1}.${d.getDate()}(${WEEK[d.getDay()]})${tripDays.has(t)?'<i>여행</i>':''}</span><span class="di">${di}</span><span class="dt">${esc(dt)}</span><span class="dp">${j.daily.precipitation_probability_max[i]!=null?j.daily.precipitation_probability_max[i]+'%':''}</span><span class="mono dr">${Math.round(j.daily.temperature_2m_min[i])}° / <b>${Math.round(j.daily.temperature_2m_max[i])}°</b></span></div>`;}).join('');
+  const t0=DAYS[0]&&DAYS[0].date,last=j.daily.time[j.daily.time.length-1];
+  const note=t0&&ymd(t0)>last?`<p class="fine">여행 날짜는 아직 예보 범위(16일) 밖이에요. ${t0.getMonth()+1}월 ${t0.getDate()-16>0?t0.getDate()-15:1}일쯤부터 여행 날짜 예보가 보여요.</p>`:'';
+  return `<div class="wnow"><span class="wi">${ic}</span><div><div class="big mono">${Math.round(c.temperature_2m)}°</div><div>${esc(tx)} · 체감 ${Math.round(c.apparent_temperature)}°</div><div class="fine">습도 ${c.relative_humidity_2m}% · 바람 ${Math.round(c.wind_speed_10m/3.6*10)/10}m/s</div></div></div>
+    <div class="whours">${hours}</div>${note}<div class="wdays">${daily}</div>
+    <p class="fine">${esc(fmtTime(data.at))}에 받은 예보 · Open-Meteo</p>`;}
+const fmtTime=ms=>{const d=new Date(ms);return `${d.getMonth()+1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
+async function weatherSheet(){
+  const cached=LS.get('weather',null);
+  openSheet(`${shHead(`${esc(trip().city||'여행지')} 날씨`,'')}<div id="wBody">${weatherBody(cached)}</div>
+    <div class="note"><ul><li>한국과 일본은 시차가 없어요.</li><li>늦가을·겨울엔 해가 일찍 져요. 전망대는 일몰 30분 전이 좋아요.</li></ul></div>`);
+  if(!cached||Date.now()-cached.at>1800000){const d=await loadWeather();const b=$('#wBody');if(d&&b)b.innerHTML=weatherBody(d);}
+}
+
 /* translation (Google Cloud Translation) + kana reading (kuromoji, loaded the first time it's needed) */
 async function translateText(text){
   const toKo=hasJa(text);
@@ -750,13 +825,8 @@ function fillStays(){const el=$('#tStay');if(!el)return;const cur=state.lastStay
 /* ---------- tools ---------- */
 function toolSheet(k){
   const t=trip();
-  if(k==='weather')openSheet(`${shHead(`${esc(t.city||'여행지')} 날씨`,'출발 일주일 전부터 예보를 확인하세요.')}
-    <div class="sh-acts"><a class="btn acc" href="https://www.google.com/search?q=${encodeURIComponent((t.city||'')+' 날씨')}" target="_blank" rel="noopener">${svg('sun')}지금 날씨 보기</a><a class="btn" href="https://www.jma.go.jp/bosai/forecast/" target="_blank" rel="noopener">일본 기상청 예보</a></div>
-    <div class="note"><ul><li>한국과 일본은 시차가 없어요(UTC+9).</li><li>늦가을·겨울엔 해가 일찍 져요. 전망대는 일몰 30분 전 입장이 좋아요.</li></ul></div>`);
-  if(k==='rate'){const r=rate();openSheet(`${shHead('환율 계산기','100엔당 원화 금액을 출발 전 환율로 고쳐 주세요.')}
-    <div class="conv"><div><label for="yenIn">엔</label><input id="yenIn" inputmode="numeric" value="1000"></div><div class="eq">=</div><div><label for="wonOut">원</label><input id="wonOut" value="${Math.round(1000*r).toLocaleString('ko-KR')}" readonly></div></div>
-    <div class="quick">${[500,1000,3000,5000,10000].map(v=>`<button class="btn sm ghost" data-quick="${v}">${yen(v)}</button>`).join('')}</div>
-    <div class="rate"><label for="rateIn">100엔 =</label><input id="rateIn" inputmode="decimal" value="${(r*100).toFixed(0)}">원 · 둘이 같은 환율을 써요</div>`);}
+  if(k==='weather')weatherSheet();
+  if(k==='rate')rateSheet();
   if(k==='talk')talkSheet();
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
     openSheet(`${shHead('숙소로 돌아가기',esc(PL[h].n),thumb(h))}
@@ -1179,7 +1249,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1245,7 +1315,8 @@ document.addEventListener('click',async e=>{
   else if(ds.sonly!==undefined){state.sOnly=!state.sOnly;render();}
   else if(ds.sview){state.sView=ds.sview;render();}
   else if(ds.tool){toolSheet(ds.tool);}
-  else if(ds.quick){$('#yenIn').value=ds.quick;$('#yenIn').dispatchEvent(new Event('input',{bubbles:true}));}
+  else if(ds.rdays){state.rateDays=+ds.rdays;rateSheet();}
+  else if(ds.quick){$('#yenIn').value=(+ds.quick).toLocaleString('ko-KR');$('#yenIn').dispatchEvent(new Event('input',{bubbles:true}));}
   else if(ds.cur){state.form.cur=ds.cur;keep(['amtIn','titleIn']);}
   else if(ds.xcat){state.form.cat=ds.xcat;keep(['amtIn','titleIn']);}
   else if(ds.xday){state.form.day=+ds.xday;keep(['amtIn','titleIn']);}
@@ -1320,7 +1391,8 @@ document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='pickQ'){const q=t.value.trim().toLowerCase();document.querySelectorAll('#pickList [data-name]').forEach(b=>{b.hidden=!!q&&!b.dataset.name.includes(q);});}
   if(t.dataset.memo!==undefined){const a=planOf(state.day);a[+t.dataset.memo].memo=t.value;clearTimeout(t._tm);t._tm=setTimeout(()=>setPlan(state.day,a),500);}
-  if(t.id==='yenIn'||t.id==='rateIn'){const r=parseFloat(($('#rateIn').value||'').replace(/,/g,''))/100||rate(),y=parseFloat(($('#yenIn').value||'').replace(/,/g,''))||0;$('#wonOut').value=Math.round(y*r).toLocaleString('ko-KR');}
+  if(t.id==='yenIn')convFrom('yen');
+  if(t.id==='wonIn')convFrom('won');
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(!$('#overlay').hidden)closeOverlay();else closeSheet();}
