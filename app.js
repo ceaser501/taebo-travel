@@ -677,6 +677,10 @@ async function ocrImage(file){
     if(!navigator.onLine)throw new Error('offline');
     const blob=await downscale(file,1600),url=URL.createObjectURL(blob);
     const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
+    // first ask Claude to read it as a whole (dishes paired with prices, natural Korean names); fall back to plain OCR + translation
+    if(body())body().innerHTML=`<img class="ocr-img" src="${url}" alt="찍은 사진"><p class="fine" style="text-align:center;padding:14px 0">메뉴를 읽고 있어요… (10~30초)</p>`;
+    const ai=await readWithClaude(b64);
+    if(ai&&ai.items){state.ocrAi=ai;if(body())body().innerHTML=aiResultHTML(ai,url);return;}
     const r=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION'}],imageContext:{languageHints:['ja']}}]})});
     if(r.status===403)throw new Error('vision-off');if(!r.ok)throw new Error('http');
@@ -693,6 +697,18 @@ async function ocrImage(file){
       <p class="fine">줄을 누르면 일본어로 들려줘요. +를 누르면 회화 목록에 넣어요.</p>`;
   }catch(e){if(body())body().innerHTML=`<p class="fine" style="text-align:center;padding:24px 0">${e.message==='vision-off'?'사진 번역이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Vision API를 켜고 API 키 제한에 추가해 주세요.':e.message==='offline'?'사진 번역은 인터넷이 필요해요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.'}</p>`;}
 }
+
+async function readWithClaude(b64){
+  try{const {data,error}=await Sync.sb.functions.invoke('menu-read',{body:{image:b64,media_type:'image/jpeg'}});if(error||!data||data.error)return null;return data;}catch(e){return null;}}
+function aiResultHTML(ai,url){
+  const won=y=>y?`<span class="pw">약 ${Math.round(y*rate()).toLocaleString('ko-KR')}원</span>`:'';
+  const secs=[];ai.items.forEach((it,i)=>{let g=secs.find(x=>x.n===it.section_ko);if(!g)secs.push(g={n:it.section_ko,a:[]});g.a.push([it,i]);});
+  return `<img class="ocr-img" src="${url}" alt="찍은 사진">
+    <div class="ai-head"><b>${esc(ai.title_ko)}</b>${ai.summary_ko?`<p>${esc(ai.summary_ko)}</p>`:''}</div>
+    ${secs.map(g=>`<div class="ai-sec">${g.n?`<div class="grp">${esc(g.n)}</div>`:''}${g.a.map(([it,i])=>`<div class="ai-it">
+      <button class="ai-m" data-say="${esc(it.ja)}"><span class="ai-ko">${esc(it.ko)}</span><span class="ai-ja" lang="ja" translate="no">${esc(it.ja)}${it.reading&&it.reading!==it.ja?` · ${esc(it.reading)}`:''}</span>${it.desc_ko?`<span class="ai-d">${esc(it.desc_ko)}</span>`:''}${it.caution_ko?`<span class="ai-c">⚠️ ${esc(it.caution_ko)}</span>`:''}</button>
+      <div class="ai-r">${it.price_yen!=null?`<b class="mono">¥${it.price_yen.toLocaleString('ko-KR')}</b>${won(it.price_yen)}`:''}<button class="btn sm" data-aisave="${i}" aria-label="회화에 넣기">${svg('plus')}</button></div></div>`).join('')}</div>`).join('')}
+    <p class="fine">항목을 누르면 일본어로 들려줘요. 직원에게 그대로 들려주면 주문할 수 있어요.</p>`;}
 
 /* ---------- interpreter: the phone listens (Web Speech), translates and reads the result aloud ---------- */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;var rec=null;
@@ -1324,7 +1340,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1396,6 +1412,7 @@ document.addEventListener('click',async e=>{
   else if(ds.ipsay){const x=state.interp[+ds.ipsay];if(x)ipSay(x);}
   else if(ds.ipsave){const x=state.interp[+ds.ipsave];if(x){await savePhrase(x.src,x.dst);toast('회화 목록에 넣었어요.');}}
   else if(ds.ipbig){const x=state.interp[+ds.ipbig];if(x){let k='';try{k=await readingOf(x.dst);}catch(e){}bigPhrase([x.dst,k,x.src]);}}
+  else if(ds.aisave){const it=state.ocrAi&&state.ocrAi.items[+ds.aisave];if(it){await savePhrase(it.ja,it.ko);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.rdays){state.rateDays=+ds.rdays;rateSheet();}
   else if(ds.quick){$('#yenIn').value=(+ds.quick).toLocaleString('ko-KR');$('#yenIn').dispatchEvent(new Event('input',{bubbles:true}));}
