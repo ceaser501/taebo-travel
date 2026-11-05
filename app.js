@@ -1265,22 +1265,33 @@ function viewTickets(){
 }
 function viewPrep(){
   const mine=prepItems(),checks=checkSet(),done=mine.filter(m=>checks.has('u:'+m.id)).length,cs=contacts();
-  const addRow=(form,cat,ph)=>`<form class="addin" data-addform="${form}" data-cat="${esc(cat)}"><input type="text" placeholder="${ph}" autocomplete="off" aria-label="${esc(cat)}에 추가"><button class="btn sm" type="submit">${svg('plus')}</button></form>`;
+  const prepCats=PREP_CATS.filter(c=>mine.some(m=>prepCat(m)===c)),conCats=CONTACT_CATS.filter(c=>cs.some(x=>contactCat(x)===c));
   return `<section class="view">
-    <div><div class="sec-h"><h2>준비물</h2><span class="mono" style="font-weight:600">${done}/${mine.length}</span></div><div class="bar"><i style="width:${mine.length?done/mine.length*100:0}%;background:var(--accent)"></i></div>
-      <p class="fine">길게 누르면 지울 수 있어요.</p>
-      ${PREP_CATS.map(c=>{const a=mine.filter(m=>prepCat(m)===c);return `<div class="pcat"><div class="grp">${esc(c)}${a.length?` <span class="mono">${a.filter(m=>checks.has('u:'+m.id)).length}/${a.length}</span>`:''}</div>
-        ${a.map(m=>`<label class="chk" for="c-u${m.id}" data-hold="${m.id}" data-holdkind="prep"><input type="checkbox" id="c-u${m.id}" data-check="u:${m.id}" ${checks.has('u:'+m.id)?'checked':''}><span><div class="t">${esc(m.t)}</div></span></label>`).join('')}
-        ${addRow('prep',c,c==='서류'?'예: 여권':c==='옷·생활용품'?'예: 가벼운 패딩':c==='건강·임신'?'예: 산모수첩':c==='전자기기'?'예: 보조 배터리':'추가할 것')}</div>`;}).join('')}</div>
-    <div><div class="sec-h"><h2>연락처</h2></div>
-      ${CONTACT_CATS.map(c=>{const a=cs.filter(x=>contactCat(x)===c);return `<div class="pcat"><div class="grp">${esc(c)}</div>
-        ${a.map(x=>`<div class="crow" data-hold="${x.id}" data-holdkind="contact"><div class="cm"><b>${esc(x.name)}</b><span class="mono">${esc(x.tel)}</span></div>${x.tel?`<a class="btn sm" href="tel:${esc(x.tel.replace(/[^+\d]/g,''))}">${svg('phone')}전화</a>`:''}</div>`).join('')}
-        <form class="addin two-in" data-addform="contact" data-cat="${esc(c)}"><input type="text" placeholder="${c==='긴급'?'예: 구급차':c==='숙소'?'예: 호텔 프런트':'이름'}" autocomplete="off" aria-label="이름"><input type="tel" placeholder="전화번호" autocomplete="off" aria-label="전화번호"><button class="btn sm" type="submit">${svg('plus')}</button></form></div>`;}).join('')}</div>
+    <div><div class="sec-h"><h2>준비물 <span class="mono cnt">${done}/${mine.length}</span></h2><button class="more" data-addpop="prep">${svg('plus')}추가</button></div>
+      <div class="bar"><i style="width:${mine.length?done/mine.length*100:0}%;background:var(--accent)"></i></div>
+      ${prepCats.map(c=>`<div class="grp">${esc(c)}</div>${mine.filter(m=>prepCat(m)===c).map(m=>`<label class="chk" for="c-u${m.id}" data-hold="${m.id}" data-holdkind="prep"><input type="checkbox" id="c-u${m.id}" data-check="u:${m.id}" ${checks.has('u:'+m.id)?'checked':''}><span><div class="t">${esc(m.t)}</div></span></label>`).join('')}`).join('')
+        ||'<p class="fine empty">「추가」를 눌러 챙길 것을 넣어 보세요.</p>'}
+      ${mine.length?'<p class="fine">길게 누르면 지울 수 있어요.</p>':''}</div>
+    <div><div class="sec-h"><h2>연락처</h2><button class="more" data-addpop="contact">${svg('plus')}추가</button></div>
+      ${conCats.map(c=>`<div class="grp">${esc(c)}</div>${cs.filter(x=>contactCat(x)===c).map(x=>`<div class="crow" data-hold="${x.id}" data-holdkind="contact"><div class="cm"><b>${esc(x.name)}</b><span class="mono">${esc(x.tel)}</span></div>${x.tel?`<a class="btn sm" href="tel:${esc(x.tel.replace(/[^+\d]/g,''))}">${svg('phone')}전화</a>`:''}</div>`).join('')}`).join('')
+        ||'<p class="fine empty">숙소·항공사·병원 번호를 넣어 두면 바로 걸 수 있어요.</p>'}</div>
     <div class="card setup"><b>인터넷 없이 쓰려면 (출발 전에 한 번)</b>
       <ul class="fine" style="margin:0;padding-left:18px"><li>오프라인 지도 받기: 등록한 장소 주변 지도와 일본어 음성을 휴대폰에 저장해요.</li><li>티켓 탭에서 티켓을 한 번씩 열어 두기: 사진이 휴대폰에 저장돼요.</li></ul>
       <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')}</span>`:''}</div>
   </section>`;
 }
+/* floating popup for adding things: the screen behind stays as it is, and several can be added in a row */
+function floatPop(html){closeFloat();const bg=document.createElement('div');bg.className='fpop-bg';bg.id='fpop';bg.innerHTML=`<div class="fpop" role="dialog" aria-modal="true">${html}</div>`;document.body.appendChild(bg);
+  if(byTap())history.pushState({k:'fpop'},'',location.href);setTimeout(()=>{const i=bg.querySelector('input[type=text],input[type=tel]');if(i)i.focus();},60);}
+function closeFloat(fromBack){const x=$('#fpop');if(!x)return;x.remove();if(fromBack!==true)stepBack('fpop');}
+function addPop(kind){
+  const cats=kind==='prep'?PREP_CATS:CONTACT_CATS,cur=state.popCat&&cats.includes(state.popCat)?state.popCat:cats[0];state.popCat=cur;
+  floatPop(`<div class="fp-h"><b>${kind==='prep'?'준비물 추가':'연락처 추가'}</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
+    <div class="seg fp-cats" role="group">${cats.map(c=>`<button type="button" data-popcat="${esc(c)}" aria-pressed="${c===cur}">${esc(c)}</button>`).join('')}</div>
+    <form class="fp-form" data-addform="${kind}">${kind==='prep'?`<input type="text" placeholder="예: 여권, 산모수첩, 보조 배터리" autocomplete="off" aria-label="준비물">`
+      :`<input type="text" placeholder="이름 (예: 호텔 프런트)" autocomplete="off" aria-label="이름"><input type="tel" placeholder="전화번호" autocomplete="off" aria-label="전화번호">`}
+      <button class="btn acc" type="submit">추가</button></form>
+    <p class="fine" id="fpMsg">추가하면 이 창은 그대로 있어서 이어서 넣을 수 있어요.</p>`);}
 function viewAuth(){
   const a=state.auth,signup=a.mode==='signup';
   return `<section class="view auth">
@@ -1344,7 +1355,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1418,6 +1429,9 @@ document.addEventListener('click',async e=>{
   else if(ds.ipbig){const x=state.interp[+ds.ipbig];if(x){let k='';try{k=await readingOf(x.dst);}catch(e){}bigPhrase([x.dst,k,x.src]);}}
   else if(ds.aisave){const it=state.ocrAi&&state.ocrAi.items[+ds.aisave];if(it){await savePhrase(it.ja,it.ko);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
+  else if(ds.addpop){addPop(ds.addpop);}
+  else if(ds.popcat){state.popCat=ds.popcat;document.querySelectorAll('[data-popcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const i=document.querySelector('#fpop input');if(i)i.focus();}
+  else if(ds.closefp!==undefined){closeFloat();}
   else if(ds.rdays){state.rateDays=+ds.rdays;rateSheet();}
   else if(ds.quick){$('#yenIn').value=(+ds.quick).toLocaleString('ko-KR');$('#yenIn').dispatchEvent(new Event('input',{bubbles:true}));}
   else if(ds.cur){state.form.cur=ds.cur;keep(['amtIn','titleIn']);}
@@ -1462,8 +1476,10 @@ document.addEventListener('submit',async e=>{
   if(id==='searchForm'){const q=$('#searchQ').value.trim();if(q)runSearch(q);}
   if(id==='trForm'){const v=$('#trIn').value.trim();if(v)addPhrase(v);}
   const af=e.target.dataset&&e.target.dataset.addform;
-  if(af==='prep'){const v=e.target.querySelector('input').value.trim();if(v){Sync.put('prep',uid(),{t:v,cat:e.target.dataset.cat,at:new Date().toISOString()});keepAdd(af,e.target.dataset.cat);}}
-  if(af==='contact'){const [n,tl]=[...e.target.querySelectorAll('input')].map(x=>x.value.trim());if(n||tl){Sync.put('contact',uid(),{name:n||tl,tel:tl,cat:e.target.dataset.cat,at:new Date().toISOString()});keepAdd(af,e.target.dataset.cat);}}
+  if(af==='prep'||af==='contact'){const ins=[...e.target.querySelectorAll('input')],[a,b]=ins.map(x=>x.value.trim()),cat=state.popCat;
+    if(af==='prep'&&a)Sync.put('prep',uid(),{t:a,cat,at:new Date().toISOString()});
+    else if(af==='contact'&&(a||b))Sync.put('contact',uid(),{name:a||b,tel:b,cat,at:new Date().toISOString()});else return;
+    ins.forEach(x=>x.value='');ins[0].focus();const m=$('#fpMsg');if(m)m.textContent=`「${a||b}」을(를) ${cat}에 넣었어요.`;render();}
   if(id==='expForm'){const amt=parseFloat(($('#amtIn').value||'').replace(/,/g,'')),title=$('#titleIn').value.trim()||state.form.cat;
     if(!(amt>0)){state.err='금액을 숫자로 입력해 주세요.';keep(['amtIn','titleIn']);$('#amtIn').focus();return;}
     state.err='';const ex=state.form.editX&&Sync.get('exp',state.form.editX);
@@ -1516,6 +1532,7 @@ document.addEventListener('pointerdown',e=>{const c=e.target.closest('[data-hold
 ['pointerup','pointercancel','pointerleave'].forEach(k=>document.addEventListener(k,()=>clearTimeout(holdT)));
 document.addEventListener('pointermove',e=>{if(holdXY&&Math.hypot(e.clientX-holdXY[0],e.clientY-holdXY[1])>10)clearTimeout(holdT);});
 document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-hold]'))e.preventDefault();});
+document.addEventListener('click',e=>{if(e.target.id==='fpop')closeFloat();});
 // the click that ends a long press must not also open the card
 document.addEventListener('click',e=>{if(holdFired&&e.target.closest('[data-hold]')){holdFired=false;e.stopPropagation();e.preventDefault();}
   if(e.target.closest('[data-holdno]')){closeHoldPop();}},true);
@@ -1527,6 +1544,7 @@ document.addEventListener('pointerdown',()=>{if(!history.state||!history.state.k
 window.addEventListener('popstate',()=>{
   if(ignorePop){ignorePop=false;return;}
   if($('#holdpop')){closeHoldPop();}
+  if($('#fpop')){closeFloat(true);return;}
   if(!$('#overlay').hidden){closeOverlay(true);return;}
   if($('#sheetRoot').innerHTML){closeSheet(true);return;}
   if(!$('#intro').hidden)return;
