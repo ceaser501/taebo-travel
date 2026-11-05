@@ -539,3 +539,5 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .day-title{flex:1;font-family:var(--f-disp);font-size:17px}
 .pick button[hidden]{display:none}
 .chk .x{border:0;background:none;color:var(--mute);font-size:18px;cursor:pointer;width:30px;height:30px}
+/* soften OpenStreetMap colours toward the app's pastel palette */
+.osm-tiles{filter:saturate(.55) brightness(1.04) contrast(.92)}

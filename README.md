@@ -32,5 +32,5 @@ GitHub Pages: Settings → Pages → Source를 `Deploy from a branch`, 브랜치
 
 ## 외부 서비스
 
-- 지도: OpenStreetMap 데이터, CARTO 지도 타일 (본 타일은 오프라인 캐시)
+- 지도: OpenStreetMap 데이터와 타일 (API 키 필요 없음, 본 타일은 오프라인 캐시)
 - 장소 검색: OpenStreetMap Nominatim (검색할 때만 사용)

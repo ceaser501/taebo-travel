@@ -159,10 +159,10 @@ function leg(a,b,move){
 const legIcon=h=>h==='taxi'?'taxi':h==='walk'?'walk':h==='bus'?'bus':'train';
 function numbered(d){const out=[];planOf(d).forEach(s=>{if(!isStay(s.p)&&!isAir(s.p)&&!out.includes(s.p))out.push(s.p);});return out;}
 
-/* ===================== map (Leaflet + OpenStreetMap/CARTO tiles) ===================== */
+/* ===================== map (Leaflet + OpenStreetMap tiles, no API key needed) ===================== */
 const maps={};
-const TILE='https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const ATTR='© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
+const TILE='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATTR='© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#5a6fe3';
 function mapCfg(key){
   if(key==='plan'){const d=state.day,st=planOf(d),ids=numbered(d);
@@ -177,7 +177,7 @@ function mountMap(key){
   const el=box.querySelector('.lmap'),cfg=mapCfg(key),h=hotelId();
   const m=L.map(el,{zoomControl:!cfg.static,attributionControl:true,dragging:!cfg.static,scrollWheelZoom:false,doubleClickZoom:!cfg.static,touchZoom:!cfg.static,boxZoom:false,keyboard:!cfg.static,tap:!cfg.static});
   maps[key]=m;if(m.zoomControl)m.zoomControl.setPosition('topright');
-  L.tileLayer(TILE,{attribution:ATTR,subdomains:'abcd',maxZoom:19,detectRetina:true}).addTo(m);
+  L.tileLayer(TILE,{attribution:ATTR,maxZoom:19,className:'osm-tiles'}).addTo(m);
   const pts=[];
   cfg.routes.forEach(d=>{const st=planOf(d).filter(s=>hasLL(s.p)&&!isAir(s.p)),col=cssVar(dayOf(d).c);
     for(let i=0;i<st.length-1;i++){const how=(st[i+1].move&&st[i+1].move.how)||'';
