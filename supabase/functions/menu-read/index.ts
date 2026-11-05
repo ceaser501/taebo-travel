@@ -101,6 +101,9 @@ Deno.serve(async (req) => {
     model: precise ? "claude-opus-5-5" : "claude-sonnet-5-5",
     max_tokens: 32000,
     fallbacks: "default",
+    // Sonnet answers straight away without thinking first (reading and translating needs little of it,
+    // and Opus looks again at anything it marks as unsure); Opus keeps its normal thinking
+    ...(precise ? {} : { thinking: { type: "between_tools" } }),
     output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } },
     system: SYSTEM,
     messages: [{
@@ -114,10 +117,19 @@ Deno.serve(async (req) => {
   let opened;
   try {
     // deno-lint-ignore no-explicit-any
-    const params: any = { ...base, betas: ["server-side-fallback-2026-07-01"] };
-    const stream = client.beta.messages.stream(params);
-    const it = stream[Symbol.asyncIterator]();
-    opened = { stream, it, first: await it.next() };
+    const start = async (params: any) => {
+      const stream = client.beta.messages.stream(params);
+      const it = stream[Symbol.asyncIterator]();
+      return { stream, it, first: await it.next() };
+    };
+    const params = { ...base, betas: ["server-side-fallback-2026-07-01"] };
+    try { opened = await start(params); } catch (e) {
+      // if the no-thinking setting is ever refused, read with the default thinking instead
+      if (!(e instanceof Anthropic.BadRequestError) || precise) throw e;
+      // deno-lint-ignore no-explicit-any
+      const { thinking: _t, ...rest } = params as any;
+      opened = await start(rest);
+    }
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json({ error: "busy" }, 429);
     if (e instanceof Anthropic.AuthenticationError) return json({ error: "bad-key" }, 503);
