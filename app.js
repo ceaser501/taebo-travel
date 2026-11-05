@@ -80,6 +80,14 @@ function ticketSlots(){
 function slotStatus(){const tk=tickets();return ticketSlots().map(s=>({...s,t:tk.find(t=>t.slot===s.slot)}));}
 
 /* import the Tokyo example as editable trip data */
+function wipeAll(){
+  if(!confirm('장소·일정·티켓·지출·일기·준비물·항공편을 모두 지울까요?\n둘 다의 화면에서 지워지고 되돌릴 수 없어요.'))return;
+  ['place','plan','ticket','exp','diary','prep','phrase','saved','checks','phrasehide'].forEach(k=>Sync.list(k).forEach(x=>x&&x.id&&Sync.remove(k,x.id)));
+  ['saved','checks','phrasehide'].forEach(k=>Sync.get(k,'set')&&Sync.remove(k,'set'));
+  Sync.put('flights','trip',FLIGHT0);
+  const T=trip();Sync.put('trip','info',{...T,hotelId:'',dayTitles:{}});
+  closeSheet();state.day=1;state.edit=false;toast('모두 지웠어요. 이제 새로 채워 보세요.');render();
+}
 function importTemplate(){
   Object.entries(TPL_PL).forEach(([id,p])=>{const signs=TPL_SIGNS[id]||null;const {short,...rest}=p;
     Sync.put('place',id,{...rest,short:short||'',kana:signs&&signs[0]?signs[0][1]:'',jp:signs&&signs[0]?signs[0][0]:p.jp,signs:signs||[],ticket:!!p.ticket,src:'example',at:new Date().toISOString()});});
@@ -216,7 +224,11 @@ function kanaToKo(kana){
 const koSay=(kana,ja)=>kanaToKo(kana)||kanaToKo(ja);
 const askOf=sg=>[sg[0]+'はどこですか？',(sg[1]||sg[0])+'は どこですか',sg[2]+'는 어디예요?'];
 const hotelPhrase=()=>{const h=hotelId(),sg=h&&mainSign(h);return sg?[sg[0]+'までお願いします',(sg[1]||sg[0])+' まで おねがいします',PL[h].n+'까지 가 주세요 (택시)']:null;};
-const allPhrases=()=>{const h=hotelPhrase();return h?[...PHRASES,h]:PHRASES;};
+// our own phrases first (newest on top), then the built-in ones you haven't removed, then the taxi phrase for the hotel
+const myPhrases=()=>Sync.list('phrase').sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+const hiddenPhrases=()=>new Set((Sync.get('phrasehide','set')||{ids:[]}).ids);
+const allPhrases=()=>{const hid=hiddenPhrases(),h=hotelPhrase();
+  return [...myPhrases().map(p=>[p.ja,p.kana||'',p.ko,'u:'+p.id]),...PHRASES.filter(p=>!hid.has(p[0])).map(p=>[...p,'b:'+p[0]]),...(h?[[...h,'']]:[])];};
 
 /* ===================== moves between stops ===================== */
 function hav(a,b){const R=6371,r=Math.PI/180,dl=(b[0]-a[0])*r,dn=(b[1]-a[1])*r,x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
@@ -494,6 +506,51 @@ function bigSign(id,i,ask){
     <div class="bs-acts"><button class="btn acc" data-say="${esc(show[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(show[0])}">천천히</button></div>
     <p class="fine">${ask?'화면을 보여 주거나 듣기를 눌러 길을 물어보세요.':'간판·안내판에 이 글자가 있는지 맞춰 보세요.'}</p></div>`);
 }
+function talkSheet(msg){
+  const hid=hiddenPhrases().size;
+  openSheet(`${shHead('일본어 회화','한국어로 쓰면 일본어로, 일본어를 쓰면 뜻을 달아 목록에 넣어요.')}
+    <form id="trForm" class="srow"><input type="text" id="trIn" class="sinput" placeholder="예: 이거 맵나요? / 辛いですか" autocomplete="off" enterkeyhint="done"><button class="btn acc" type="submit">번역</button></form>
+    <p class="fine" id="trMsg" ${msg?'':'hidden'}>${esc(msg||'')}</p>
+    <div class="signs">${allPhrases().map((p,i)=>`<div class="sign"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
+      <div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button><button class="icon-btn" data-bigphrase="${i}" aria-label="${esc(p[2])} 크게 보기">${svg('expand')}</button>${p[3]?`<button class="icon-btn del" data-delphrase="${esc(p[3])}" aria-label="${esc(p[2])} 지우기">${svg('x')}</button>`:''}</div></div>`).join('')}</div>
+    ${hid?`<button class="btn ghost" data-restorephrases>지운 기본 문장 ${hid}개 다시 보기</button>`:''}`);
+}
+/* translation (Google Cloud Translation) + kana reading (kuromoji, loaded the first time it's needed) */
+async function translateText(text){
+  const toKo=hasJa(text);
+  const r=await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:text,source:toKo?'ja':'ko',target:toKo?'ko':'ja',format:'text'})});
+  if(r.status===403)throw new Error('disabled');
+  if(!r.ok)throw new Error('http '+r.status);
+  const j=await r.json(),out=j.data.translations[0].translatedText;
+  return toKo?{ja:text,ko:out}:{ja:out,ko:text};
+}
+let kuroP=null;
+function loadKuromoji(){
+  if(kuroP)return kuroP;
+  kuroP=new Promise((res,rej)=>{const go=()=>kuromoji.builder({dicPath:'vendor/kuromoji-0.1.2/dict/'}).build((e,t)=>e?rej(e):res(t));
+    if(window.kuromoji)go();else{const sc=document.createElement('script');sc.src='vendor/kuromoji-0.1.2/kuromoji.js';sc.onload=go;sc.onerror=rej;document.head.appendChild(sc);}}).catch(e=>{kuroP=null;throw e;});
+  return kuroP;
+}
+const toHira=s=>s.replace(/[\u30a1-\u30f6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+async function readingOf(ja){
+  const t=await loadKuromoji();let out='';
+  t.tokenize(ja).forEach(k=>{const kata=/^[\u30a0-\u30ffー]+$/.test(k.surface_form),rd=k.reading&&k.reading!=='*'?k.reading:k.surface_form;
+    out+=kata?k.surface_form:/[\u3040-\u30ff]/.test(rd)?toHira(rd):rd;if(k.pos==='助詞')out+=' ';});
+  return out.replace(/\s+/g,' ').replace(/ ([？?。、！!])/g,'$1').trim();
+}
+async function addPhrase(text){
+  const msg=$('#trMsg'),btn=$('#trForm button');const say=m=>{if(msg){msg.textContent=m;msg.hidden=!m;}};
+  if(!navigator.onLine){say('번역은 인터넷이 필요해요.');return;}
+  btn.disabled=true;say('번역하는 중…');
+  try{
+    const {ja,ko}=await translateText(text);
+    if(!localStorage.getItem('tt:kuroReady'))say('처음 한 번은 읽는 법 사전을 받아요 (약 18MB)…');
+    let kana='';try{kana=await readingOf(ja);try{localStorage.setItem('tt:kuroReady','1');}catch(e){}}catch(e){console.warn('reading',e);}
+    Sync.put('phrase',uid(),{ja,kana,ko,by:me(),at:new Date().toISOString()});
+    cloudTTS(ja,false).catch(()=>{});
+    talkSheet('');
+  }catch(e){btn.disabled=false;say(e.message==='disabled'?'번역 기능이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Translation API를 켜 주세요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.');}
+}
 function bigPhrase(i){const p=allPhrases()[i];if(!p)return;openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button><button class="btn" data-sayslow="${esc(p[0])}">천천히</button></div></div>`);}
 
 /* ---------- place detail ---------- */
@@ -636,7 +693,7 @@ function toolSheet(k){
     <div class="conv"><div><label for="yenIn">엔</label><input id="yenIn" inputmode="numeric" value="1000"></div><div class="eq">=</div><div><label for="wonOut">원</label><input id="wonOut" value="${Math.round(1000*r).toLocaleString('ko-KR')}" readonly></div></div>
     <div class="quick">${[500,1000,3000,5000,10000].map(v=>`<button class="btn sm ghost" data-quick="${v}">${yen(v)}</button>`).join('')}</div>
     <div class="rate"><label for="rateIn">100엔 =</label><input id="rateIn" inputmode="decimal" value="${(r*100).toFixed(0)}">원 · 둘이 같은 환율을 써요</div>`);}
-  if(k==='talk')openSheet(`${shHead('일본어 회화','누르면 듣기, 오른쪽 버튼은 크게 보여주기예요.')}<div class="signs">${allPhrases().map((p,i)=>`<div class="sign"><div class="sj"><span class="ja" lang="ja" translate="no">${esc(p[0])}</span><span class="kana" lang="ja" translate="no">${esc(p[1])}</span><span class="pron">${esc(koSay(p[1],p[0]))}</span><span class="ko">${esc(p[2])}</span></div><div class="sa"><button class="icon-btn" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}</button><button class="icon-btn" data-bigphrase="${i}" aria-label="${esc(p[2])} 크게 보기">${svg('expand')}</button></div></div>`).join('')}</div>`);
+  if(k==='talk')talkSheet();
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
     openSheet(`${shHead('숙소로 돌아가기',esc(PL[h].n),thumb(h))}
     <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>
@@ -679,6 +736,7 @@ function settingsSheet(){
     <div class="grp">동기화</div><div class="sync-row"><span>${syncText()}</span><button class="btn sm" data-syncnow>${svg('sync')}지금 동기화</button></div>
     <div class="sh-acts"><button class="btn" data-sound aria-pressed="${state.sound}">${state.sound?'효과음 끄기':'효과음 켜기'}</button><button class="btn" data-replay>인트로 다시 보기</button></div>
     ${!Object.keys(PL).length?'<button class="btn ghost" data-importtpl>도쿄 예시 불러오기</button>':''}
+    ${Object.keys(PL).length||Sync.list('ticket').length?'<button class="btn ghost danger" data-wipeall>예시·기존 내용 모두 지우고 새로 시작</button>':''}
     <button class="btn ghost" data-signout>로그아웃</button>
     <p class="fine">로그아웃하면 이 휴대폰에 저장된 여행 데이터도 지워져요. 서버에 올라간 내용은 그대로 남아요.</p>`);
 }
@@ -767,7 +825,7 @@ function installCard(){
 }
 function entryHTML(e,preview){
   return `<article class="card entry ${e.kind==='아기에게 편지'?'letter':''}">
-    <div class="eh">${avatar(e.who)}<span class="nm">${esc(member(e.who).display_name)}</span><span class="tm mono">${esc(e.ts)}</span>${preview||e.who!==me()?'':`<button class="x" data-deld="${e.id}" aria-label="기록 삭제">×</button>`}</div>
+    <div class="eh">${avatar(e.who)}<span class="nm">${esc(member(e.who).display_name)}</span><span class="tm mono">${esc(e.ts)}</span>${preview||e.who!==me()?'':`<button class="x" data-editd="${e.id}" aria-label="기록 수정">${svg('pen')}</button><button class="x" data-deld="${e.id}" aria-label="기록 삭제">×</button>`}</div>
     <span class="kind">${esc(e.kind)}</span>
     ${e.photo?`<img data-file="${esc(e.photo)}" alt="함께 올린 사진">`:''}
     ${e.text?`<div class="body">${esc(e.text)}</div>`:''}
@@ -782,11 +840,11 @@ function viewDiary(){
       <div class="who">${avatar(me())}<b>${esc(member(me()).display_name)}</b><span class="fine">로 남겨요</span></div>
       <div class="kinds" role="group" aria-label="종류">${KINDS.map(k=>`<button type="button" data-kind="${k}" aria-pressed="${f.kind===k}">${k}</button>`).join('')}</div>
       <textarea id="diaryText" placeholder="${ph}" aria-label="내용"></textarea>
-      ${f.photoURL?`<div class="preview"><img src="${f.photoURL}" alt="올릴 사진 미리보기"><button type="button" data-nophoto aria-label="사진 빼기">×</button></div>`:''}
+      ${f.edit?`<p class="fine" style="margin:0">기록을 고치는 중이에요</p>`:''}${f.photoURL||f.keepPhoto?`<div class="preview"><img ${f.photoURL?`src="${f.photoURL}"`:`data-file="${esc(f.keepPhoto)}"`} alt="올릴 사진 미리보기"><button type="button" data-nophoto aria-label="사진 빼기">×</button></div>`:''}
       <div class="stickers" role="group" aria-label="스티커">${Object.keys(STK).map(k=>`<button type="button" class="stk" data-stk="${k}" aria-pressed="${f.stk===k}" aria-label="${STKNAME[k]} 스티커">${stkSVG(k)}</button>`).join('')}</div>
       <div class="dpick" role="group" aria-label="날짜">${dayOpts().map(([v,l])=>`<button type="button" data-dday="${v}" aria-pressed="${f.day===v}">${l}</button>`).join('')}</div>
       ${state.derr?`<p class="err">${state.derr}</p>`:''}
-      <div style="display:flex;gap:8px"><label class="btn photo-btn" style="flex:none">${svg('camera')}사진<input type="file" accept="image/*" id="photoIn" aria-label="사진 고르기"></label><button class="btn acc" type="submit" style="flex:1">${svg('pen')}기록 남기기</button></div>
+      <div style="display:flex;gap:8px"><label class="btn photo-btn" style="flex:none">${svg('camera')}사진<input type="file" accept="image/*" id="photoIn" aria-label="사진 고르기"></label>${f.edit?`<button class="btn" type="button" data-canceld style="flex:none">취소</button>`:''}<button class="btn acc" type="submit" style="flex:1">${svg('pen')}${f.edit?'수정 저장':'기록 남기기'}</button></div>
     </form>
     <div class="feed">${groups.map(([d,a])=>`<h3 class="fday" style="--c:var(${d?dayOf(d).c:'--mute'})"><i></i>${d?`DAY ${d} · ${dayOf(d).label}`:'여행 전'}</h3>${a.map(e=>entryHTML(e)).join('')}`).join('')||'<p class="fine" style="text-align:center;padding:20px 0">아직 기록이 없어요. 첫 기록을 남겨 보세요.</p>'}</div>
   </section>`;
@@ -798,14 +856,14 @@ function viewMoney(){
       <div class="bar"><i style="width:${pct}%;background:#fff"></i></div>
       <div class="row"><label for="budgetIn">예산 <input id="budgetIn" inputmode="numeric" value="${st.budget.toLocaleString('ko-KR')}"> 원</label><span>남은 돈 ${won(Math.max(0,st.budget-t.sum))}</span></div></div>
     ${t.sum?`<div><div class="sec-h"><h2>분류별</h2></div>${catBar(t,t.sum)}<div class="cats" style="margin-top:10px">${Object.keys(XCAT).filter(k=>t.by[k]).map(k=>`<span style="--c:var(${XCAT[k]})"><i></i>${k} <b>${Math.round(t.by[k]/t.sum*100)}%</b></span>`).join('')}</div></div>`:''}
-    <form class="card form" id="expForm" novalidate><div class="sec-h" style="margin:0"><h2>지출 기록</h2></div>
+    <form class="card form" id="expForm" novalidate><div class="sec-h" style="margin:0"><h2>${f.editX?'지출 수정':'지출 기록'}</h2></div>
       <div class="amt"><input id="amtIn" inputmode="decimal" placeholder="0" aria-label="금액"><div class="cur" role="group" aria-label="통화"><button type="button" data-cur="JPY" aria-pressed="${f.cur==='JPY'}">¥</button><button type="button" data-cur="KRW" aria-pressed="${f.cur==='KRW'}">₩</button></div></div>
       <div><label class="f">분류</label><div class="catpick">${Object.keys(XCAT).map(k=>`<button type="button" data-xcat="${k}" aria-pressed="${f.cat===k}" style="--c:var(${XCAT[k]})"><i></i>${k}</button>`).join('')}</div></div>
       <div><label class="f">날짜</label><div class="catpick">${dayOpts().map(([v,l])=>`<button type="button" data-xday="${v}" aria-pressed="${f.day===v}">${l}</button>`).join('')}</div></div>
       <div><label class="f" for="titleIn">내용</label><input type="text" id="titleIn" placeholder="예: 소라마치 저녁"></div>
-      ${state.err?`<p class="err">${state.err}</p>`:''}<button class="btn pri" type="submit">${svg('plus')}기록하기</button></form>
+      ${state.err?`<p class="err">${state.err}</p>`:''}${f.editX?`<div style="display:flex;gap:8px"><button class="btn" type="button" data-cancelx style="flex:none">취소</button><button class="btn pri" type="submit" style="flex:1">${svg('pen')}수정 저장</button></div>`:`<button class="btn pri" type="submit">${svg('plus')}기록하기</button>`}</form>
     <div>${groups.map(([d,a])=>`<div class="ex-day"><h3>${d?`DAY ${d} · ${dayOf(d).label}`:'여행 전'}<span>${won(a.reduce((s,e)=>s+toKRW(e),0))}</span></h3>
-      ${a.map(e=>`<div class="ex" style="--c:var(${XCAT[e.cat]})"><span class="ci"></span><div class="m"><b>${esc(e.title)}</b><div class="s">${e.cat} · ${esc(member(e.who).display_name)}</div></div><div class="v">${e.cur==='JPY'?yen(e.amt):won(e.amt)}${e.cur==='JPY'?`<small>${won(toKRW(e))}</small>`:''}</div><button class="x" data-delx="${e.id}" aria-label="삭제">×</button></div>`).join('')}</div>`).join('')||'<p class="fine">아직 지출 기록이 없어요.</p>'}</div>
+      ${a.map(e=>`<div class="ex" style="--c:var(${XCAT[e.cat]})"><span class="ci"></span><div class="m"><b>${esc(e.title)}</b><div class="s">${e.cat} · ${esc(member(e.who).display_name)}</div></div><div class="v">${e.cur==='JPY'?yen(e.amt):won(e.amt)}${e.cur==='JPY'?`<small>${won(toKRW(e))}</small>`:''}</div><button class="x" data-editx="${e.id}" aria-label="수정">${svg('pen')}</button><button class="x" data-delx="${e.id}" aria-label="삭제">×</button></div>`).join('')}</div>`).join('')||'<p class="fine">아직 지출 기록이 없어요.</p>'}</div>
     <p class="fine">엔화는 100엔당 ${Math.round(rate()*100)}원으로 계산해요. 홈의 환율에서 바꾸면 둘 다 같은 환율로 바뀌어요.</p></section>`;
 }
 /* ===================== views ===================== */
@@ -930,7 +988,7 @@ function viewPrep(){
       <button class="btn acc" data-offlinemap>오프라인 지도 받기</button>${LS.get('offlineMapAt','')?`<span class="fine">마지막으로 받은 날: ${new Date(LS.get('offlineMapAt','')).toLocaleDateString('ko-KR')} · 장소를 새로 등록했다면 다시 받아 주세요</span>`:''}</div>
     <div class="note" style="background:var(--warn-soft)"><h4>임산부 탑승 규정</h4><ul><li>보통 32주 무렵부터 의사 소견서를 요구하고, 36주 이후 탑승을 제한해요. 항공사 규정을 확인하세요.</li><li>안전벨트는 배 아래, 골반 위로 낮게 매세요.</li></ul></div>
     <div><div class="sec-h"><h2>긴급 연락처</h2></div><div class="sos"><div class="card"><div class="k">구급차 · 소방</div><div class="v">119</div></div><div class="card"><div class="k">경찰</div><div class="v">110</div></div><div class="card" style="grid-column:1/-1"><div class="k">외교부 영사콜센터 (24시간)</div><div class="v">+82-2-3210-0404</div></div></div>
-      <button class="btn ghost" style="margin-top:10px" data-bigphrase="0">${svg('expand')}「임신 중이에요」 일본어로 보여주기</button></div></section>`;
+      <button class="btn ghost" style="margin-top:10px" data-bigja="妊娠しています">${svg('expand')}「임신 중이에요」 일본어로 보여주기</button></div></section>`;
 }
 function viewAuth(){
   const a=state.auth,signup=a.mode==='signup';
@@ -992,7 +1050,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap]');
+  const t=e.target.closest('[data-editx],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1025,6 +1083,9 @@ document.addEventListener('click',async e=>{
   else if(ds.importtpl!==undefined){importTemplate();closeSheet();toast('도쿄 예시를 불러왔어요. 자유롭게 고쳐 쓰세요.');render();}
   else if(ds.delprep){Sync.remove('prep',ds.delprep);render();}
   else if(ds.offlinemap!==undefined){saveOfflineMap(t);}
+  else if(ds.delphrase){const k=ds.delphrase;if(k.startsWith('u:'))Sync.remove('phrase',k.slice(2));else{const h=hiddenPhrases();h.add(k.slice(2));Sync.put('phrasehide','set',{ids:[...h]});}talkSheet('');}
+  else if(ds.restorephrases!==undefined){Sync.put('phrasehide','set',{ids:[]});talkSheet('');}
+  else if(ds.bigja){closeSheet();const i=allPhrases().findIndex(p=>p[0]===ds.bigja);if(i>=0)bigPhrase(i);else{const p=PHRASES.find(x=>x[0]===ds.bigja);if(p)openOverlay(`<div class="bigsign"><button class="ov-x" data-closeov aria-label="닫기">×</button><div class="bs-ja" lang="ja" translate="no">${esc(p[0])}</div><div class="bs-kana" lang="ja" translate="no">${esc(p[1])}</div><div class="bs-pron">${esc(koSay(p[1],p[0]))}</div><div class="bs-ko">${esc(p[2])}</div><div class="bs-acts"><button class="btn acc" data-say="${esc(p[0])}">${svg('speak')}듣기</button></div></div>`);}}
   else if(ds.addticket!==undefined){ticketForm(null);}
   else if(ds.slot){const s=ticketSlots().find(x=>x.slot===ds.slot);ticketForm(null);Object.assign(state.tf,{type:s.type,day:s.day,place:s.place,slot:s.slot,time:s.time});$('#tTitle').value=s.title;$('#tTime').value=s.time;$('#tPlace').value=s.place;document.querySelectorAll('[data-ttype]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ttype===s.type));document.querySelectorAll('[data-tday]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tday===s.day));}
   else if(ds.showticket){closeSheet();showTicket(ds.showticket);}
@@ -1051,12 +1112,19 @@ document.addEventListener('click',async e=>{
   else if(ds.cur){state.form.cur=ds.cur;keep(['amtIn','titleIn']);}
   else if(ds.xcat){state.form.cat=ds.xcat;keep(['amtIn','titleIn']);}
   else if(ds.xday){state.form.day=+ds.xday;keep(['amtIn','titleIn']);}
-  else if(ds.delx){Sync.remove('exp',ds.delx);render();}
+  else if(ds.delx){if(!confirm('이 지출을 지울까요?'))return;if(state.form.editX===ds.delx)state.form.editX='';Sync.remove('exp',ds.delx);render();}
+  else if(ds.editx){const x=Sync.get('exp',ds.editx);if(!x)return;Object.assign(state.form,{editX:ds.editx,cur:x.cur,cat:x.cat,day:x.day});state.err='';render();
+    const a=$('#amtIn'),tt=$('#titleIn');if(a){a.value=x.amt;tt.value=x.title||'';a.closest('form').scrollIntoView({behavior:'smooth',block:'start'});a.focus();}}
+  else if(ds.cancelx!==undefined){state.form.editX='';state.err='';render();}
+  else if(ds.editd){const x=Sync.get('diary',ds.editd);if(!x)return;Object.assign(state.dform,{edit:ds.editd,kind:x.kind,day:x.day,stk:x.stk||'',photoBlob:null,photoURL:'',keepPhoto:x.photo||''});state.derr='';render();
+    const t2=$('#diaryText');if(t2){t2.value=x.text||'';t2.closest('form').scrollIntoView({behavior:'smooth',block:'start'});t2.focus();}}
+  else if(ds.canceld!==undefined){Object.assign(state.dform,{edit:'',keepPhoto:'',photoBlob:null,photoURL:''});state.derr='';render();}
+  else if(ds.wipeall!==undefined){wipeAll();}
   else if(ds.kind){state.dform.kind=ds.kind;keep(['diaryText']);}
   else if(ds.stk){state.dform.stk=state.dform.stk===ds.stk?'':ds.stk;keep(['diaryText']);}
   else if(ds.dday){state.dform.day=+ds.dday;keep(['diaryText']);}
-  else if(ds.nophoto!==undefined){state.dform.photoBlob=null;state.dform.photoURL='';keep(['diaryText']);}
-  else if(ds.deld){Sync.remove('diary',ds.deld);render();}
+  else if(ds.nophoto!==undefined){state.dform.photoBlob=null;state.dform.photoURL='';state.dform.keepPhoto='';keep(['diaryText']);}
+  else if(ds.deld){if(!confirm('이 기록을 지울까요?'))return;Sync.remove('diary',ds.deld);render();}
 });
 document.addEventListener('submit',async e=>{
   e.preventDefault();const id=e.target.id;
@@ -1081,15 +1149,19 @@ document.addEventListener('submit',async e=>{
   if(id==='placeForm'){savePlace();}
   if(id==='tripForm'){saveTrip();}
   if(id==='searchForm'){const q=$('#searchQ').value.trim();if(q)runSearch(q);}
+  if(id==='trForm'){const v=$('#trIn').value.trim();if(v)addPhrase(v);}
   if(id==='prepForm'){const v=$('#prepIn').value.trim();if(v){Sync.put('prep',uid(),{t:v,at:new Date().toISOString()});render();}}
   if(id==='expForm'){const amt=parseFloat(($('#amtIn').value||'').replace(/,/g,'')),title=$('#titleIn').value.trim()||state.form.cat;
     if(!(amt>0)){state.err='금액을 숫자로 입력해 주세요.';keep(['amtIn','titleIn']);$('#amtIn').focus();return;}
-    state.err='';Sync.put('exp',uid(),{day:state.form.day,cat:state.form.cat,title,amt,cur:state.form.cur,who:me(),at:new Date().toISOString()});render();}
+    state.err='';const ex=state.form.editX&&Sync.get('exp',state.form.editX);
+    Sync.put('exp',ex?state.form.editX:uid(),{...(ex||{}),day:state.form.day,cat:state.form.cat,title,amt,cur:state.form.cur,who:ex?ex.who:me(),at:ex?ex.at:new Date().toISOString()});
+    if(ex)toast('지출을 고쳤어요.');state.form.editX='';render();}
   if(id==='diaryForm'){const text=$('#diaryText').value.trim(),f=state.dform;
-    if(!text&&!f.photoBlob){state.derr='내용을 쓰거나 사진을 골라 주세요.';keep(['diaryText']);$('#diaryText').focus();return;}
+    if(!text&&!f.photoBlob&&!f.keepPhoto){state.derr='내용을 쓰거나 사진을 골라 주세요.';keep(['diaryText']);$('#diaryText').focus();return;}
     let photo='';if(f.photoBlob){try{photo=await Sync.addFile(f.photoBlob,'jpg');}catch(err){state.derr='저장 공간이 부족해 사진을 저장하지 못했어요.';keep(['diaryText']);return;}}
-    Sync.put('diary',uid(),{who:me(),kind:f.kind,day:f.day,ts:nowTs(),stk:f.stk,text,photo,at:new Date().toISOString()});
-    state.derr='';state.dform.stk='';state.dform.photoBlob=null;state.dform.photoURL='';render();}
+    const old=f.edit&&Sync.get('diary',f.edit);if(!photo&&old)photo=f.keepPhoto||'';
+    Sync.put('diary',old?f.edit:uid(),{...(old||{}),who:old?old.who:me(),kind:f.kind,day:f.day,ts:old?old.ts:nowTs(),stk:f.stk,text,photo,at:old?old.at:new Date().toISOString()});
+    if(old)toast('기록을 고쳤어요.');state.derr='';Object.assign(state.dform,{stk:'',photoBlob:null,photoURL:'',keepPhoto:'',edit:''});render();}
 });
 document.addEventListener('change',async e=>{
   const t=e.target,dsx=t.dataset;

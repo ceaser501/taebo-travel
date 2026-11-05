@@ -551,3 +551,7 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 /* Korean pronunciation guide under Japanese text */
 .sj .pron{font-size:13.5px;font-weight:600;color:var(--ink2)}
 .bs-pron{font-size:clamp(18px,5vw,24px);font-weight:700;color:#3d436e}
+.icon-btn.del{color:var(--mute)}
+.ex .x svg,.entry .eh .x svg{width:15px;height:15px}
+.entry .eh .x+.x{margin-left:0}
+.btn.ghost.danger{color:#c0463c}
