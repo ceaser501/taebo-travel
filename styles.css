@@ -1089,3 +1089,11 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .favcats button{height:34px;padding:0 12px;font-size:13.5px}
 /* the round buttons at the bottom of a place spread out evenly */
 .ibar{justify-content:space-evenly;gap:12px;padding:6px 4px 4px}.ibar .ib{flex:0 1 72px}
+/* 환율: lighter weights so only the rate itself stands out */
+.rnow .big small{font-weight:500}
+.conv2 label span{font-weight:500}
+.conv2 input{font-weight:500}
+.quick5 button{background:var(--card);border:1px solid var(--line);font-weight:500;font-size:14px;color:var(--ink2);padding:9px 0}
+.quick5 button small{font-weight:400}
+.rseg button[aria-pressed="true"]{font-weight:600}
+.quick5 button{font-weight:400}
