@@ -1107,3 +1107,6 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .stops>li.stop:first-child .rail::after{top:26px}
 .stops>li.stop:last-child .rail::after{display:block;bottom:auto;height:26px}
 .stop .rail .num{position:relative;z-index:1}
+/* read-only view */
+.guest-b{font-size:12.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:6px 12px;white-space:nowrap}
+.share-url{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:13px;background:#fff;color:var(--ink2)}

@@ -278,9 +278,9 @@ function leg(a,b,move){
   if(!hasLL(a)||!hasLL(b))return {how:'train',min:null,note:'위치가 없어 시간을 계산하지 못했어요'};
   const d=hav(PL[a].ll,PL[b].ll);
   if(d<0.9)return {how:'walk',min:Math.max(3,Math.round(d*1.25*15)),note:`예상 · 약 ${Math.round(d*1250)}m`};
-  if(d>25)return {how:'train',min:Math.round(20+d*1.4),note:`예상 · 약 ${Math.round(d)}km`};
-  const road=d*1.3,fare=Math.round((500+Math.max(0,road-1.1)*390)/100)*100;
-  return {how:'train',min:Math.round(12+d*3),note:`예상 · 전철 기준 · 택시면 약 ${Math.round(5+road*2.4)}분 ${fare.toLocaleString()}엔`};
+  if(d>25)return {how:'train',min:Math.round(20+d*1.4),note:`예상 · 약 ${Math.round(d*1.3)}km`};
+  const road=d*1.3;
+  return {how:'train',min:Math.round(12+d*3),note:`예상 · 약 ${road.toFixed(1)}km`};
 }
 const legIcon=h=>h==='taxi'?'taxi':h==='walk'?'walk':h==='bus'?'bus':'train';
 function numbered(d){const out=[];planOf(d).forEach(s=>{if(!isStay(s.p)&&!isAir(s.p)&&!out.includes(s.p))out.push(s.p);});return out;}
@@ -772,6 +772,14 @@ async function pushToggle(){const btn=$('#pushBtn');
     fetch(`${Sync.sb.supabaseUrl}/functions/v1/push-tick`,{method:'POST',headers:{'Content-Type':'application/json',apikey:Sync.sb.supabaseKey,Authorization:`Bearer ${session?session.access_token:''}`},body:JSON.stringify({test:true})}).catch(()=>{});
     toast('예약 알림을 켰어요. 시험 알림을 보냈어요.');
   }catch(e){console.warn('push',e);toast('알림을 켜지 못했어요. 인터넷을 확인하고 다시 해 주세요.');}}
+/* read-only link for friends: anyone with it sees the trip without logging in, and cannot change anything */
+async function sharePop(){let tok=null;try{tok=await Sync.share('get');}catch(e){toast('인터넷을 확인해 주세요.');return;}
+  const url=tok?`${location.origin}${location.pathname}?view=${tok}`:'';
+  floatPop(`<div class="fp-h"><b>보기 전용 링크</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
+    ${tok?`<p class="fine" style="margin:0">이 링크를 받은 사람은 로그인 없이 일정·즐겨찾기·티켓 등을 볼 수 있어요. 바꾸지는 못해요.</p>
+      <input type="text" class="share-url" value="${esc(url)}" readonly aria-label="링크">
+      <div class="sp-acts"><button class="btn danger-t" data-shareoff>링크 끄기</button><button class="btn acc" data-copy="${esc(url)}">${svg('copy')}복사</button></div>`
+    :`<p class="fine" style="margin:0">링크를 만들면 지인이 로그인 없이 우리 여행을 볼 수 있어요. 언제든 끌 수 있어요.</p><button class="btn acc" data-shareon>링크 만들기</button>`}`);}
 async function readWithClaude(b64,onPart,precise){
   try{const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);
     const {data:{session}}=await Sync.sb.auth.getSession();
@@ -1067,6 +1075,7 @@ function settingsSheet(){
       <button class="lrow tap" data-tripsetup><div class="lm"><b>${esc(T.title)}</b><span>${esc([T.city,rangeText()].filter(Boolean).join(' · '))}</span></div>${svg('chev')}</button></section>
     <section class="fsec"><h4>함께하는 사람</h4>
       ${Sync.members.map(x=>`<div class="lrow">${avatar(x.user_id)}<div class="lm"><b>${esc(x.display_name)}</b></div>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}
+      ${row('보기 전용 링크','지인에게 로그인 없이 보여주기',`<button class="btn sm" data-sharepop>링크</button>`)}
       ${row('초대 코드',`<span class="mono code-s">${esc(m.inviteCode||'—')}</span> · 가입 후<br>'초대 코드로 참여'에 입력`,`<button class="btn sm" data-copy="${esc(m.inviteCode||'')}">복사</button>`)}</section>
     <section class="fsec"><h4>내 정보</h4>
       <div><label class="f" for="myName">이름</label><input type="text" id="myName" value="${esc(mine.display_name)}" maxlength="12"></div>
@@ -1284,7 +1293,7 @@ function header(){
   if(state.tab==='prep')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>${TITLES.prep}</h1>`;
   const right=state.tab==='plan'?`<button class="btn sm acc" data-pick="${state.day}">${svg('plus')}추가</button>`:state.tab==='fav'?`<button class="btn sm acc" data-addfav>${svg('plus')}추가</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:'';
   // title (with D-day on home) on the left; the tab's own action, settings gear (home only) at the far right
-  return `<h1>${state.tab==='home'?`<span class="brand">딱복트립</span><span class="dday">${ddayTxt()}</span>`:TITLES[state.tab]}</h1>${right}${state.tab==='home'?syncDot():''}`;
+  return `<h1>${state.tab==='home'?`<span class="brand">딱복트립</span><span class="dday">${ddayTxt()}</span>`:TITLES[state.tab]}</h1>${Sync.meta.guest?'<span class="guest-b">보기 전용</span>':right+(state.tab==='home'?syncDot():'')}`;
 }
 function viewHome(){
   const all=prepItems().length,t=totals(),ds=diary(),last=ds[ds.length-1],checks=checkSet(),T=trip(),h=hotelId();
@@ -1308,9 +1317,9 @@ function viewHome(){
       <div class="card today">${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p),jp=(sg&&sg[0])||p.jp||'';return `<button class="td-row" data-tab="plan" data-day="${today}"><span class="t">${s.t||'--:--'}</span><span class="n"><b>${esc(s.title||p.n)}</b>${jp?`<span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${svg('chev')}</button>`;}).join('')}</div>${stepsLine(today)}</div>`:''}
     <div><div class="sec-h"><h2>가계부</h2><button class="more" data-tab="money">기록하기 ${svg('chev')}</button></div>
       <button class="card budget" data-tab="money"><span class="fine">지금까지 쓴 돈</span><span class="big">${won(t.sum)}</span>${catBar(t,Math.max(t.sum,settings().budget))}<span class="fine">예산 ${won(settings().budget)} 중 ${Math.round(t.sum/settings().budget*100)}%</span></button></div>
-    <button class="card vault-entry" data-vault><span class="ve-i">${svg('lock','')}</span><span class="m"><b>여권 · 카드</b><span class="s">비밀번호로 잠가 둔 여권 · 카드 정보</span></span>${svg('chev')}</button>
+    ${Sync.meta.guest?'':`<button class="card vault-entry" data-vault><span class="ve-i">${svg('lock','')}</span><span class="m"><b>여권 · 카드</b><span class="s">비밀번호로 잠가 둔 여권 · 카드 정보</span></span>${svg('chev')}</button>`}
     <button class="card em-entry" data-emergency><span class="ve-i">${svg('heart','')}</span><span class="m"><b>임산부 긴급카드</b><span class="s">아플 때 보여줄 일본어 · 119 · 한국어 핫라인</span></span>${svg('chev')}</button>
-    <button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>
+    ${Sync.meta.guest?'':`<button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>`}
   </section>`;
 }
 function viewPlan(){
@@ -1565,7 +1574,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-favview],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-favview],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-sharepop],[data-shareon],[data-shareoff],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1576,7 +1585,7 @@ document.addEventListener('click',async e=>{
   else if(ds.sound!==undefined){toggleSound();}
   else if(ds.replay!==undefined){closeAllSheets();showIntro();}
   else if(ds.settings!==undefined){settingsSheet();}
-  else if(ds.copy!==undefined){try{await navigator.clipboard.writeText(ds.copy);toast('초대 코드를 복사했어요.');}catch(err){toast('코드를 길게 눌러 복사해 주세요: '+ds.copy);}}
+  else if(ds.copy!==undefined){try{await navigator.clipboard.writeText(ds.copy);toast(/view=/.test(ds.copy)?'링크를 복사했어요.':'초대 코드를 복사했어요.');}catch(err){toast('코드를 길게 눌러 복사해 주세요: '+ds.copy);}}
   else if(ds.mycolor){document.querySelectorAll('[data-mycolor]').forEach(b=>b.setAttribute('aria-pressed',b===t));}
   else if(ds.saveprofile!==undefined){const n=$('#myName').value.trim()||'나',c=(document.querySelector('[data-mycolor][aria-pressed="true"]')||{}).dataset?.mycolor||member(me()).color;try{await Sync.updateProfile(n,c);toast('저장했어요.');closeSheet();render();}catch(err){toast('인터넷이 연결되면 다시 저장해 주세요.');}}
   else if(ds.syncnow!==undefined){await Sync.syncNow();settingsSheet();}
@@ -1656,6 +1665,9 @@ document.addEventListener('click',async e=>{
   else if(ds.ipbig){const x=state.interp[+ds.ipbig];if(x){let k='';try{k=await readingOf(x.dst);}catch(e){}bigPhrase([x.dst,k,x.src]);}}
   else if(ds.aisave){const it=state.ocrAi&&state.ocrAi.items[+ds.aisave];if(it){await savePhrase(it.ja,it.ko);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.pushtoggle!==undefined){pushToggle();}
+  else if(ds.sharepop!==undefined){sharePop();}
+  else if(ds.shareon!==undefined){try{await Sync.share('on');sharePop();}catch(e){toast('링크를 만들지 못했어요. 인터넷을 확인해 주세요.');}}
+  else if(ds.shareoff!==undefined){if(!confirm('링크를 끌까요? 이미 받은 사람도 더는 볼 수 없어요.'))return;try{await Sync.share('off');sharePop();toast('링크를 껐어요.');}catch(e){toast('끄지 못했어요. 인터넷을 확인해 주세요.');}}
   else if(ds.ocrprecise!==undefined){if(state.ocrFile)ocrImage(state.ocrFile,true);}
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.addpop){addPop(ds.addpop);}
@@ -1817,7 +1829,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v102';
+const APP_VER='v103';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
@@ -1845,7 +1857,10 @@ window.addEventListener('popstate',()=>{
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS[h]&&h!==state.tab&&!GATED.has(h))go(h);});
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.values(maps).forEach(m=>{try{m.invalidateSize({animate:false});}catch(e){}}),150);});
 // re-render when the other person's changes arrive, unless someone is typing
-Sync.on(what=>{if(what!=='status'&&what!=='files')refreshIntro();const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#main').contains(a);
+Sync.on(what=>{
+  if(what==='readonly'){toast('보기 전용 링크라 바꿀 수 없어요.');return;}
+  if(what==='noshare'){toast('이 링크는 꺼져 있어요. 보내 준 사람에게 다시 받아 주세요.');return;}
+  if(what!=='status'&&what!=='files')refreshIntro();const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#main').contains(a);
   if(what==='status'){const d=document.querySelector('.syncdot');if(d)d.outerHTML=syncDot();return;}
   if(what==='files'){hydrateFiles($('#main'));return;}
   if(!typing&&!GATED.has(state.tab)&&$('#sheetRoot').innerHTML==='')render();});

@@ -32,13 +32,31 @@ const Sync=(()=>{
   let members=LS.get('members',[]);       // [{user_id,display_name,color}]
   let pendingFiles=LS.get('pendingFiles',[]); // [path]
   let channel=null, pushTimer=null, busy=false, status='idle', listeners=new Set();
-  const save=()=>{LS.set('items',items);LS.set('meta',meta);LS.set('pendingFiles',pendingFiles);};
+  const save=()=>{if(meta.guest)return;LS.set('items',items);LS.set('meta',meta);LS.set('pendingFiles',pendingFiles);};
   const emit=what=>listeners.forEach(f=>{try{f(what);}catch(e){console.error(e);}});
   const setStatus=s=>{if(status!==s){status=s;emit('status');}};
   const online=()=>navigator.onLine!==false;
   const key=(k,i)=>k+':'+i;
 
+  /* read-only view through a share link (?view=KEY): the trip is loaded through public read-only functions,
+     kept in memory only, refreshed every minute, and nothing can be changed */
+  const VIEW=(()=>{try{const q=new URLSearchParams(location.search).get('view');if(q){sessionStorage.setItem('tt:view',q);return q;}return sessionStorage.getItem('tt:view');}catch(e){return null;}})();
+  if(VIEW){items={};meta={tripId:'view',guest:true};members=[];pendingFiles=[];}
+  async function guestPull(){
+    if(!sb) return;
+    if(!online()){setStatus('offline');return;}
+    setStatus('syncing');
+    try{
+      const [{data,error},{data:ms}]=await Promise.all([sb.rpc('trip_share_items',{p_token:VIEW}),sb.rpc('trip_share_members',{p_token:VIEW})]);
+      if(error) throw error;
+      if(!data||!data.length){setStatus('error');emit('noshare');return;}
+      const next={};data.forEach(r=>{next[key(r.kind,r.id)]={kind:r.kind,id:r.id,data:r.data||{},deleted:false,updated_at:r.updated_at,dirty:false};});
+      items=next;members=ms||[];setStatus('synced');emit('items');emit('members');
+    }catch(e){console.warn('view',e);setStatus(online()?'error':'offline');}
+  }
+
   function put(kind,id,data,opts={}){
+    if(meta.guest){emit('readonly');return;}
     items[key(kind,id)]={kind,id,data,deleted:!!opts.deleted,updated_at:new Date().toISOString(),dirty:true};
     save();emit('items');schedulePush();
   }
@@ -101,6 +119,7 @@ const Sync=(()=>{
     }
   }
   async function syncNow(){
+    if(meta.guest) return guestPull();
     if(!sb||!meta.tripId||busy) return;
     if(!online()){setStatus('offline');return;}
     const s=await session(); if(!s){setStatus('signedout');return;}
@@ -150,10 +169,13 @@ const Sync=(()=>{
   async function signOut(){try{if(channel){sb.removeChannel(channel);channel=null;}await sb.auth.signOut();}catch(e){}
     items={};meta={};members=[];pendingFiles=[];['items','meta','members','pendingFiles'].forEach(LS.del);emit('items');}
 
+  if(VIEW) setInterval(()=>{if(document.visibilityState==='visible')guestPull();},60000);
+  // members turn the read-only link on or off, or read it
+  async function share(mode){const {data,error}=await sb.rpc('trip_share_set',{p_trip:meta.tripId,p_mode:mode});if(error)throw error;return data;}
   window.addEventListener('online',()=>syncNow());
   window.addEventListener('offline',()=>setStatus('offline'));
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncNow();});
 
-  return {sb,put,remove,get,list,syncNow,addFile,fileURL,hasFile,signIn,signUp,signOut,session,myTrip,createTrip,joinTrip,updateProfile,
+  return {sb,put,remove,get,list,syncNow,share,addFile,fileURL,hasFile,signIn,signUp,signOut,session,myTrip,createTrip,joinTrip,updateProfile,
     on:f=>listeners.add(f),get meta(){return meta;},get members(){return members;},get status(){return status;},dirtyCount};
 })();
