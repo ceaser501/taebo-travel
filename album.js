@@ -1,18 +1,19 @@
 /* ===================== 딱복이 사진첩: ultrasound photos and other baby pictures =====================
    Rows are trip items of kind 'album' ({file, date, cap, by, at}); the photo itself is a private trip file. */
-// a sleeping baby in a soft circle (drawn here, so it works offline)
+// a swaddled, sleeping baby in a soft circle (drawn here, so it works offline)
 function babyArt(cls=''){return `<svg class="baby-art ${cls}" viewBox="0 0 120 120" aria-hidden="true">
-  <circle cx="60" cy="62" r="52" fill="#e8f1fa"/>
-  <path d="M22 96c10-14 24-20 38-20s28 6 38 20c-10 10-23 16-38 16s-28-6-38-16z" fill="#f6d3c4"/>
-  <circle cx="60" cy="56" r="27" fill="#f9dccf"/>
-  <circle cx="34" cy="58" r="5.5" fill="#f6cbbb"/><circle cx="86" cy="58" r="5.5" fill="#f6cbbb"/>
-  <path d="M58 30c-3-5 1-10 6-9" stroke="#8a6a5c" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M46 57q4 4 8 0M66 57q4 4 8 0" stroke="#6d5249" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <ellipse cx="44" cy="65" rx="5" ry="3" fill="#f5b3b8" opacity=".7"/><ellipse cx="76" cy="65" rx="5" ry="3" fill="#f5b3b8" opacity=".7"/>
-  <path d="M56 70q4 3 8 0" stroke="#d98c86" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <circle cx="44" cy="88" r="7" fill="#f9dccf"/><circle cx="77" cy="86" r="7" fill="#f9dccf"/>
-  <path d="M98 22l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#fff" opacity=".9"/>
-  <path d="M18 34c0-3 4-4 5-1 1-3 5-2 5 1 0 3-5 6-5 6s-5-3-5-6z" fill="#f7c6d2"/></svg>`;}
+  <circle cx="60" cy="62" r="52" fill="#e9f2fb"/>
+  <ellipse cx="60" cy="86" rx="31" ry="25" fill="#fbe1e7"/><circle cx="60" cy="53" r="29" fill="#fbe1e7"/>
+  <path d="M33 58a27 27 0 0 1 54 0" fill="none" stroke="#f5c9d4" stroke-width="2.5"/>
+  <circle cx="60" cy="56" r="20" fill="#fde7da"/>
+  <path d="M56 38q3-5 8-1" fill="none" stroke="#9a7466" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M48.5 56q3.5 3 7 0M64.5 56q3.5 3 7 0" fill="none" stroke="#6b4f45" stroke-width="2.2" stroke-linecap="round"/>
+  <ellipse cx="47" cy="62.5" rx="4.2" ry="2.6" fill="#f6a9b5" opacity=".6"/><ellipse cx="73" cy="62.5" rx="4.2" ry="2.6" fill="#f6a9b5" opacity=".6"/>
+  <path d="M57.5 65q2.5 2 5 0" fill="none" stroke="#d98a85" stroke-width="2" stroke-linecap="round"/>
+  <path d="M36 80q24 13 48 0" fill="none" stroke="#f5c9d4" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M55 92c0-3.5 4.5-4.5 5-1 .5-3.5 5-2.5 5 1 0 3.5-5 6.5-5 6.5s-5-3-5-6.5z" fill="#f29bb0"/>
+  <path d="M97 24l1.8 4.4 4.4 1.8-4.4 1.8-1.8 4.4-1.8-4.4-4.4-1.8 4.4-1.8z" fill="#fff"/>
+  <path d="M22 40l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#fff"/></svg>`;}
 const albumRows=()=>Sync.list('album').sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.at||'').localeCompare(a.at||''));
 const albumDate=d=>{if(!d)return '';const x=new Date(d+'T00:00:00');return `${x.getFullYear()}.${x.getMonth()+1}.${x.getDate()}`;};
 // home: a card with the newest photos (members only; the photos are private)
