@@ -29,6 +29,21 @@
             </intent-filter>
         </activity>
 
+        <!-- 딱복트립's 「새로 받기」 opens ttakbok://sync: send now, then close -->
+        <activity
+            android:name=".SyncActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ttakbok" android:host="sync" />
+            </intent-filter>
+        </activity>
+
         <!-- the same explanation on Android 14 and later -->
         <activity-alias
             android:name="ViewPermissionUsageActivity"

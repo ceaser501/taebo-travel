@@ -1115,3 +1115,5 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .mleg2{position:absolute;left:10px;top:10px;z-index:500;display:flex;gap:10px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 10px;box-shadow:0 1px 4px rgba(30,40,90,.15);font-size:12px;color:var(--ink2)}
 .mleg2 span{display:inline-flex;align-items:center;gap:5px}
 .mleg2 svg{width:22px;height:6px;stroke:var(--c);fill:none}
+.st-refresh{display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;min-height:44px}
+.st-refresh svg{width:17px;height:17px}

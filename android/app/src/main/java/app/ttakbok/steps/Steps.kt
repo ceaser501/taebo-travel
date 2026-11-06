@@ -59,9 +59,9 @@ object Steps {
         return days.values.last()
     }
 
-    /** Send every hour while there is internet, even when the app is closed. */
+    /** Send every 15 minutes (the shortest Android allows) while there is internet, even when the app is closed. */
     fun schedule(ctx: Context) {
-        val req = PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS)
+        val req = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
         WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("steps", ExistingPeriodicWorkPolicy.UPDATE, req)

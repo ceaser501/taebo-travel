@@ -1,6 +1,10 @@
 /* ===================== 걸음 수: what each of us walked, sent every hour by the 딱복 걸음 app =====================
    Rows are trip items of kind 'steps' ({who, date, steps, at}), one per person and day. */
 const STEPS_APK='https://github.com/ceaser501/taebo-travel/releases/latest/download/ttakbok-steps.apk';
+// 「새로 받기」: opens the 딱복 걸음 app for a moment (ttakbok://sync); it sends today's steps and closes.
+// Without the app installed, Android falls back to downloading it.
+const STEPS_SYNC=`intent://sync#Intent;scheme=ttakbok;package=app.ttakbok.steps;S.browser_fallback_url=${encodeURIComponent(STEPS_APK)};end`;
+let stepWait=0;
 const isoDay=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const stepRows=()=>Sync.list('steps');
 // everyone in the trip, plus anyone who has sent steps; each with a name and their colour
@@ -20,7 +24,8 @@ function stepsSheet(){
   const max=Math.max(1000,...days.flatMap(d=>ppl.map(p=>stepsOf(p.id,d.date)||0)));
   const top=Math.ceil(max/2000)*2000,last=stepRows().map(r=>r.at).filter(Boolean).sort().pop();
   const total=p=>days.reduce((s,d)=>s+(stepsOf(p.id,d.date)||0),0);
-  openSheet(`<div class="stepsv">${shHead('걸음 수',last?`${new Date(last).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준<br>한 시간마다 들어와요`:'딱복 걸음 앱이 한 시간마다 보내요',`<span class="em-ic st-ic">${svg('walk','')}</span>`)}
+  openSheet(`<div class="stepsv">${shHead('걸음 수',last?`${new Date(last).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준<br>15분마다 들어와요`:'딱복 걸음 앱이 15분마다 보내요',`<span class="em-ic st-ic">${svg('walk','')}</span>`)}
+    ${/android/i.test(navigator.userAgent)&&!Sync.meta.guest?`<a class="btn acc st-refresh" href="${STEPS_SYNC}" data-stepsync>${svg('sync')}새로 받기</a>`:''}
     <div class="st-today">${ppl.map(p=>`<div class="st-tile" style="--pc:${p.color}"><span class="who"><i></i>${esc(p.name)}</span><b class="mono">${fmtSteps(stepsOf(p.id,today))}</b><span class="u">오늘 걸음</span></div>`).join('')}</div>
     ${any?`<div class="seg st-seg" role="group" aria-label="기간">${startDate()?`<button data-stepmode="trip" aria-pressed="${mode==='trip'}">여행 ${DAYS.length}일</button>`:''}<button data-stepmode="week" aria-pressed="${mode==='week'}">최근 7일</button></div>
     <div class="card st-chart"><div class="st-legend">${ppl.map(p=>`<span style="--pc:${p.color}"><i></i>${esc(p.name)}</span>`).join('')}</div>
@@ -34,6 +39,10 @@ function stepsSheet(){
       <li>「딱복 걸음」 앱을 설치하고 딱복트립과 같은 계정으로 로그인해 주세요.</li></ul>
       <a class="btn" href="${STEPS_APK}">${svg('walk')}딱복 걸음 앱 받기</a></div>
   </div>`);}
-document.addEventListener('click',e=>{const t=e.target.closest('[data-steps],[data-stepmode]');if(!t)return;
+// back from the app: pull the new numbers and redraw the page
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible'||Date.now()-stepWait>120000)return;stepWait=0;
+  setTimeout(async()=>{await Sync.syncNow();if($('#sheetRoot .stepsv'))stepsSheet();toast('걸음 수를 새로 받았어요.');},2500);});
+document.addEventListener('click',e=>{if(e.target.closest('[data-stepsync]')){stepWait=Date.now();return;}
+  const t=e.target.closest('[data-steps],[data-stepmode]');if(!t)return;
   if(t.dataset.steps!==undefined)stepsSheet();else{state.stepMode=t.dataset.stepmode;stepsSheet();}});
 if(typeof state!=='undefined'&&state.tab==='home')render();

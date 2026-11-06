@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
             }
             box.addView(button("지금 보내기", false) { lifecycleScope.launch { send(status) } })
             box.addView(button("로그아웃", false) { trip.signOut(); draw() })
-            box.addView(text("한 시간마다 오늘과 지난 이틀의 걸음 수를 보내요. 딱복트립 일정 탭에서 날짜별로 볼 수 있어요.", 13f, mute).apply { gravity = Gravity.START })
+            box.addView(text("15분마다 오늘과 지난 이틀의 걸음 수를 보내요. 딱복트립 걸음 수 화면의 「새로 받기」로 바로 보낼 수도 있어요.", 13f, mute).apply { gravity = Gravity.START })
             send(status)
         }
     }
