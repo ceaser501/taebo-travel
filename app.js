@@ -1314,8 +1314,8 @@ function viewHome(){
       <div class="card today">${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p),jp=(sg&&sg[0])||p.jp||'';return `<button class="td-row" data-tab="plan" data-day="${today}"><span class="t">${s.t||'--:--'}</span><span class="n"><b>${esc(s.title||p.n)}</b>${jp?`<span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${svg('chev')}</button>`;}).join('')}</div>${(()=>{const w=dayWalk(today);return w.km>=.1?`<div class="wk-box">${walkLine(w)}</div>`:'';})()}</div>`:''}
     <div><div class="sec-h"><h2>가계부</h2><button class="more" data-tab="money">기록하기 ${svg('chev')}</button></div>
       <button class="card budget" data-tab="money"><span class="fine">지금까지 쓴 돈</span><span class="big">${won(t.sum)}</span>${catBar(t,Math.max(t.sum,settings().budget))}<span class="fine">예산 ${won(settings().budget)} 중 ${Math.round(t.sum/settings().budget*100)}%</span></button></div>
-    <button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>
     <button class="card em-entry" data-emergency><span class="ve-i">${svg('heart','')}</span><span class="m"><b>임산부 긴급카드</b><span class="s">아플 때 보여줄 일본어 · 119 · 한국어 핫라인</span></span>${svg('chev')}</button>
+    <button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>
   </section>`;
 }
 function viewPlan(){
@@ -1816,7 +1816,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v87';
+const APP_VER='v88';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
