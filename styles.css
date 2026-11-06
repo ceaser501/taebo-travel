@@ -1152,7 +1152,7 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .alview .al-cap{font:inherit;font-size:15px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 
 /* home: a sleeping baby at the bottom, with a little speech bubble */
-.home-baby{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 0 0}
+.home-baby{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;padding:0;margin:-16px 0 -24px}
 .home-baby .baby-art{width:150px;height:150px}
 .home-baby .bub{position:relative;background:var(--card);border:1.5px solid #e2d6d2;border-radius:999px;padding:9px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:8px}
 .home-baby .bub::after{content:"";position:absolute;left:50%;bottom:-7px;width:12px;height:12px;background:var(--card);border-right:1.5px solid #e2d6d2;border-bottom:1.5px solid #e2d6d2;transform:translateX(-50%) rotate(45deg)}
