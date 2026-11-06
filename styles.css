@@ -1119,3 +1119,11 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .st-refresh svg{width:17px;height:17px}
 .st-ref{display:inline-flex;align-items:center;gap:3px;margin-left:6px;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;background:var(--accent-soft);border-radius:999px;padding:2px 9px;vertical-align:1px}
 .st-ref svg{width:12px;height:12px}
+/* the add button sits on the photo's top-right corner (filled, so it stands out on any photo) */
+.fv-plus{top:10px;right:10px;bottom:auto;height:36px;padding:0 13px 0 10px;font-size:13.5px;box-shadow:0 3px 10px rgba(30,40,90,.3)}
+.fv-plus svg{width:16px;height:16px}
+.fv-b{padding-right:14px}.fv-top{margin-right:0}
+/* a card without photos keeps it at the bottom right */
+.fvcard:not(:has(.fv-ph)) .fv-plus{top:auto;bottom:12px}
+.fvcard:not(:has(.fv-ph)) .fv-b{padding-right:110px}
+.fvcard:not(:has(.fv-ph)) .fv-top{margin-right:-96px}
