@@ -1037,4 +1037,4 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .btn.sm.rcpt svg{width:16px;height:16px}
 .btn.sm.rcpt.busy{opacity:.6;pointer-events:none}
 /* settings: every button in a row is the same width */
-.fsec .lrow>.btn.sm{min-width:104px;justify-content:center}
+.fsec .lrow{gap:18px}.fsec .lrow>.btn.sm{min-width:86px;padding:0 12px;justify-content:center}
