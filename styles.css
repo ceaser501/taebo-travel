@@ -992,9 +992,9 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .fv-plus.sec{color:var(--accent)}
 .fv-b{padding-right:110px}.fv-top{margin-right:-96px}
 .hero.home-hero{justify-content:flex-start}
-/* home trip card: words at the top left, the heart and plane drawing pushed to the right below the words */
-.hero.home-hero{min-height:190px;background:#b6cbf7}
-.hero.home-hero svg.art{top:26%;height:100%}
+/* home trip card: compact; title on the left (wraps to two lines), heart and plane beside it */
+.hero.home-hero{min-height:124px}
+.hero.home-hero h2{max-width:60%}
 /* favourites: category filter under the all / not-in-schedule switch */
 .favcats{flex-wrap:nowrap;overflow-x:auto;margin:-2px -16px 12px;padding:0 16px;scrollbar-width:none}
 .favcats::-webkit-scrollbar{display:none}

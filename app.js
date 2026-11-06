@@ -1173,8 +1173,8 @@ function syncText(){const s=Sync.status,n=Sync.dirtyCount();
 const syncDot=()=>`<button class="syncdot gearbtn s-${Sync.status}" data-settings aria-label="설정 · 동기화 상태: ${syncText()}">${svg('gear')}${Sync.status==='synced'||Sync.status==='syncing'?'':'<b class="sbadge"></b>'}</button>`;
 function totals(){const t={sum:0,by:{}};expenses().forEach(e=>{const v=toKRW(e);t.sum+=v;t.by[e.cat]=(t.by[e.cat]||0)+v;});return t;}
 function catBar(t,base){return `<div class="bar">${Object.keys(XCAT).filter(k=>t.by[k]).map(k=>`<i style="width:${(t.by[k]/base*100).toFixed(2)}%;background:var(${XCAT[k]})"></i>`).join('')}</div>`;}
-// fly: an optional transform for the heart and plane (the home card moves them below its words)
-function heroArt(fly){return `<svg class="art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6cbf7"/><stop offset=".7" stop-color="#dcdcf8"/><stop offset="1" stop-color="#f6e2e2"/></linearGradient></defs><rect width="400" height="200" fill="url(#hD)"/>${cloud(-20,24,.8,.8)}${fly?cloud(-30,150,1,1):cloud(300,130,1.2,1)}<g${fly?` transform="${fly}"`:''}><path d="M170 120 C 230 100, 262 70, 250 52 C 242 40, 226 44, 222 56 C 218 44, 202 40, 194 52 C 182 70, 214 100, 222 112 C 240 132, 300 90, 350 40" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><g transform="translate(352 38) rotate(-45)">${planeTop('#fff','#b9c3ea')}</g></g></svg>`;}
+// fly: an optional transform for the heart and plane; the home card puts them beside its title, climbing more gently
+function heroArt(fly){return `<svg class="art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6cbf7"/><stop offset=".7" stop-color="#dcdcf8"/><stop offset="1" stop-color="#f6e2e2"/></linearGradient></defs><rect width="400" height="200" fill="url(#hD)"/>${cloud(-20,24,.8,.8)}${fly?cloud(-30,150,1,1):cloud(300,130,1.2,1)}<g${fly?` transform="${fly}"`:''}><path d="M170 120 C 230 100, 262 70, 250 52 C 242 40, 226 44, 222 56 C 218 44, 202 40, 194 52 C 182 70, 214 100, 222 112 ${fly?'C 240 132, 296 108, 340 78':'C 240 132, 300 90, 350 40'}" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><g transform="${fly?'translate(342 76) rotate(-32)':'translate(352 38) rotate(-45)'}">${planeTop('#fff','#b9c3ea')}</g></g></svg>`;}
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(state.tab==='home'||(state.tab==='auth'&&!document.activeElement.closest('form')))render();});
 function installCard(){
@@ -1251,7 +1251,7 @@ function viewHome(){
   const onTrip=(()=>{const n=daysUntil();return n!=null&&n<=0&&n>-DAYS.length;})(),today=onTrip?1-daysUntil():1,first=planOf(today).slice(0,4);
   const nPlaces=Object.keys(PL).length,nStops=DAYS.reduce((a,d)=>a+planOf(d.id).length,0);
   return `<section class="view">
-    <div class="hero home-hero">${heroArt()}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}</p></div></div>
+    <div class="hero home-hero">${heroArt('translate(136 24) scale(.64)')}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}</p></div></div>
     ${installCard()}
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
@@ -1768,7 +1768,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v80';
+const APP_VER='v81';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
