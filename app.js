@@ -1321,7 +1321,7 @@ function viewHome(){
     ${Sync.meta.guest?'':`<button class="card vault-entry" data-vault><span class="ve-i">${svg('lock','')}</span><span class="m"><b>여권 · 카드</b><span class="s">비밀번호로 잠가 둔 여권 · 카드 정보</span></span>${svg('chev')}</button>`}
     <button class="card em-entry" data-emergency><span class="ve-i">${svg('heart','')}</span><span class="m"><b>임산부 긴급카드</b><span class="s">아플 때 보여줄 일본어 · 119 · 한국어 핫라인</span></span>${svg('chev')}</button>
     ${Sync.meta.guest?'':`<button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>`}
-    ${typeof babyArt==='function'?`<div class="home-baby" aria-hidden="true"><span class="bub">엄마 아빠랑 첫 여행 가요</span>${babyArt()}</div>`:''}
+    ${typeof babyArt==='function'?`<div class="home-baby" aria-hidden="true">${babyArt()}</div>`:''}
   </section>`;
 }
 function viewPlan(){
@@ -1831,7 +1831,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v109';
+const APP_VER='v110';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
