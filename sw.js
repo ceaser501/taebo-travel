@@ -1,7 +1,7 @@
 /* Offline support: the app shell is cached on install, fonts and the Supabase library are cached on first use.
    Supabase API and storage calls always go to the network; the app keeps its own copy of data and files. */
-const VERSION='taebo-travel-v92';
-const SHELL=['./','index.html','styles.css','data.js','sync.js','app.js','vault.js','emergency.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png',
+const VERSION='taebo-travel-v93';
+const SHELL=['./','index.html','styles.css','data.js','sync.js','app.js','vault.js','emergency.js','steps.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png',
   'vendor/supabase-2.45.4.js','vendor/591.supabase.js','vendor/leaflet-1.9.4/leaflet.js','vendor/leaflet-1.9.4/leaflet.css','vendor/maplibre-gl-4.7.1/maplibre-gl.js','vendor/maplibre-gl-4.7.1/maplibre-gl.css','vendor/maplibre-gl-4.7.1/leaflet-maplibre-gl.js'];
 const TILES='taebo-tiles-v3';
 // GitHub Pages keeps files in its CDN for 10 minutes; asking with this version in the URL gets the new files right after a deploy
