@@ -17,6 +17,8 @@ function babyArt(cls=''){return `<svg class="baby-art ${cls}" viewBox="0 0 120 1
   </g>
   <path d="M97 24l1.8 4.4 4.4 1.8-4.4 1.8-1.8 4.4-1.8-4.4-4.4-1.8 4.4-1.8z" fill="#fff"/>
   <path d="M84 40l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z" fill="#fff"/>
+  <path d="M0 3.5c0-3.5 4.5-4.5 5-1 .5-3.5 5-2.5 5 1 0 3.5-5 6.5-5 6.5S0 7 0 3.5z" fill="#a9c2e8" transform="translate(13 78) rotate(-12 5 5) scale(.95)"/>
+  <path d="M0 3.5c0-3.5 4.5-4.5 5-1 .5-3.5 5-2.5 5 1 0 3.5-5 6.5-5 6.5S0 7 0 3.5z" fill="#8fb0e0" transform="translate(97 80) rotate(14 5 5) scale(.8)"/>
   <text x="92" y="58" font-family="sans-serif" font-size="9" font-weight="700" fill="#9fb6d6">z</text>
   <text x="99" y="48" font-family="sans-serif" font-size="7" font-weight="700" fill="#b7c9e2">z</text></svg>`;}
 const albumRows=()=>Sync.list('album').sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.at||'').localeCompare(a.at||''));
