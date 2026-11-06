@@ -112,6 +112,7 @@ const Sync=(()=>{
     const paths=[];
     list('ticket').forEach(t=>(t.files||[]).forEach(f=>paths.push(f.path)));
     list('diary').forEach(d=>d.photo&&paths.push(d.photo));
+    list('album').forEach(a=>a.file&&paths.push(a.file));
     const have=new Set(await FileCache.keys());
     for(const p of paths){ if(have.has(p)) continue;
       const {data,error}=await sb.storage.from(BUCKET).download(p);
@@ -133,7 +134,7 @@ const Sync=(()=>{
     if(!sb||!meta.tripId||channel) return;
     channel=sb.channel('trip-'+meta.tripId)
       .on('postgres_changes',{event:'*',schema:'public',table:'trip_items',filter:'trip_id=eq.'+meta.tripId},p=>{
-        const r=p.new; if(r&&r.kind&&merge(r)){save();emit('items');if(r.kind==='ticket'||r.kind==='diary')prefetchFiles().catch(()=>{});}
+        const r=p.new; if(r&&r.kind&&merge(r)){save();emit('items');if(r.kind==='ticket'||r.kind==='diary'||r.kind==='album')prefetchFiles().catch(()=>{});}
       }).subscribe();
   }
   async function addFile(blob,ext){

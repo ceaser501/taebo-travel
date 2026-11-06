@@ -1127,3 +1127,35 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .fvcard:not(:has(.fv-ph)) .fv-plus{top:auto;bottom:12px}
 .fvcard:not(:has(.fv-ph)) .fv-b{padding-right:110px}
 .fvcard:not(:has(.fv-ph)) .fv-top{margin-right:-96px}
+
+/* soft baby-room drawings behind the page: clouds, flowers, hearts and a gentle line (cards stay on top) */
+.app{isolation:isolate}
+.app::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="460" height="1500" viewBox="0 0 460 1500"%3E %3Cpath d="M-20 420 C 120 330 300 520 480 380" fill="none" stroke="%23d0dff2" stroke-width="3"/%3E %3Cpath d="M-20 1180 C 160 1080 260 1300 480 1150" fill="none" stroke="%23d0dff2" stroke-width="3"/%3E %3Cg transform="translate(410 150)" fill="%23d5e3f5"%3E%3Ccircle r="13"/%3E%3Cg%3E%3Cellipse cx="0" cy="-26" rx="13" ry="17"/%3E%3Cellipse cx="0" cy="-26" rx="13" ry="17" transform="rotate(72)"/%3E%3Cellipse cx="0" cy="-26" rx="13" ry="17" transform="rotate(144)"/%3E%3Cellipse cx="0" cy="-26" rx="13" ry="17" transform="rotate(216)"/%3E%3Cellipse cx="0" cy="-26" rx="13" ry="17" transform="rotate(288)"/%3E%3C/g%3E%3C/g%3E %3Cg fill="%23dbe7f7"%3E%3Ccircle cx="20" cy="760" r="46"/%3E%3Ccircle cx="70" cy="736" r="40"/%3E%3Ccircle cx="104" cy="772" r="30"/%3E%3Crect x="-30" y="760" width="134" height="42" rx="21"/%3E%3C/g%3E %3Cpath d="M36 300c0-7 9-9 12-2 3-7 12-5 12 2 0 8-12 15-12 15s-12-7-12-15z" fill="%23f5cdd9"/%3E %3Cpath d="M392 640c0-6 7-8 10-2 3-6 10-4 10 2 0 6-10 12-10 12s-10-6-10-12z" fill="%23f5cdd9"/%3E %3Cpath d="M300 990c0-7 9-9 12-2 3-7 12-5 12 2 0 8-12 15-12 15s-12-7-12-15z" fill="%23d5e3f5"/%3E %3Cpath d="M120 1380l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="%23d5e3f5"/%3E %3Cpath d="M430 900l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="%23f5cdd9"/%3E %3Cg transform="translate(36 1040)" fill="%23d5e3f5"%3E%3Ccircle r="9"/%3E%3Cellipse cx="0" cy="-18" rx="9" ry="12"/%3E%3Cellipse cx="0" cy="-18" rx="9" ry="12" transform="rotate(72)"/%3E%3Cellipse cx="0" cy="-18" rx="9" ry="12" transform="rotate(144)"/%3E%3Cellipse cx="0" cy="-18" rx="9" ry="12" transform="rotate(216)"/%3E%3Cellipse cx="0" cy="-18" rx="9" ry="12" transform="rotate(288)"/%3E%3C/g%3E %3C/svg%3E') repeat-y center top/460px auto}
+/* 딱복이 사진첩 */
+.baby-art{display:block;flex:none}
+.album-entry{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;cursor:pointer;font:inherit;color:inherit;background:linear-gradient(120deg,#fdf6f8,#f2f7fd)}
+.album-entry .ae-art{width:52px;height:52px}
+.album-entry .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.album-entry .m b{font-size:15.5px}.album-entry .s{font-size:12.5px;color:var(--mute)}
+.album-entry .ae-th{display:flex;flex:none}
+.album-entry .ae-th img{width:40px;height:40px;border-radius:10px;object-fit:cover;border:2px solid var(--card);background:#20232e;margin-left:-12px;box-shadow:0 2px 6px rgba(30,40,90,.15)}
+.album-entry .ae-th img:first-child{margin-left:0}
+.album-entry>svg:last-child{width:18px;height:18px;stroke:var(--mute);fill:none;stroke-width:2}
+.albumv{display:flex;flex-direction:column;gap:14px}
+.albumv .sh-art{width:44px;height:44px}
+.album-add{align-self:stretch;justify-content:center}
+.album-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.al-t{border:0;padding:0;background:var(--card);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;text-align:left;font:inherit;color:inherit;cursor:pointer;box-shadow:0 1px 0 var(--line),0 4px 14px rgba(30,40,90,.06)}
+.al-t img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#20232e;display:block}
+.al-t span{padding:8px 10px;font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.album-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 0;text-align:center}
+.album-empty .baby-art{width:120px;height:120px}
+.alview{display:flex;flex-direction:column;gap:12px;padding-bottom:20px}
+.alview img{width:100%;border-radius:16px;background:#20232e}
+.alview .al-cap{font:inherit;font-size:15px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+
+/* home: a sleeping baby at the bottom, with a little speech bubble */
+.home-baby{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 0 0}
+.home-baby .baby-art{width:150px;height:150px}
+.home-baby .bub{position:relative;background:var(--card);border:1.5px solid #e2d6d2;border-radius:999px;padding:9px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:8px}
+.home-baby .bub::after{content:"";position:absolute;left:50%;bottom:-7px;width:12px;height:12px;background:var(--card);border-right:1.5px solid #e2d6d2;border-bottom:1.5px solid #e2d6d2;transform:translateX(-50%) rotate(45deg)}
