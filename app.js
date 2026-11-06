@@ -1615,7 +1615,9 @@ document.addEventListener('click',async e=>{
   else if(ds.addfav!==undefined){addFavPop();}
   else if(ds.forceupdate!==undefined){forceUpdate();}
   else if(ds.favhide!==undefined){LS.set('favHide',ds.favhide==='1');render();}
-  else if(ds.favcat!==undefined){LS.set('favCat',ds.favcat);render();}
+  else if(ds.favcat!==undefined){LS.set('favCat',ds.favcat);
+    // keep the chip row where it was (redrawing would scroll it back to the start)
+    const row=$('.favcats'),sl=row?row.scrollLeft:0;render();const r2=$('.favcats');if(r2)r2.scrollLeft=sl;}
   else if(ds.delfav){closeHoldPop();const sv=savedSet();sv.delete(ds.delfav);setSaved(sv);render();}
   else if(ds.popcat){state.popCat=ds.popcat;document.querySelectorAll('[data-popcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const i=document.querySelector('#fpop input');if(i)i.focus();}
   else if(ds.closefp!==undefined){closeFloat();}
@@ -1766,7 +1768,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v79';
+const APP_VER='v80';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
