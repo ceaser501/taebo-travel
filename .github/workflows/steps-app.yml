@@ -1,0 +1,59 @@
+# Builds the 딱복 걸음 Android app (android/) and puts the APK on a GitHub release,
+# so it can be downloaded on the phone from:
+# https://github.com/ceaser501/taebo-travel/releases/latest/download/ttakbok-steps.apk
+name: steps-app
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/steps-app.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      # the signing key lives only in this repository's private Actions cache, created on the first build
+      - name: Signing key (restore)
+        uses: actions/cache/restore@v4
+        id: key
+        with:
+          path: ~/.steps-key
+          key: steps-signing-key-v1
+      - name: Signing key (create on first build)
+        if: steps.key.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.steps-key
+          openssl rand -hex 24 > ~/.steps-key/pass
+          keytool -genkeypair -keystore ~/.steps-key/steps.keystore -storepass "$(cat ~/.steps-key/pass)" -keypass "$(cat ~/.steps-key/pass)" \
+            -alias steps -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Ttakbok Steps"
+      - name: Signing key (keep)
+        if: steps.key.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.steps-key
+          key: steps-signing-key-v1
+      - name: Build
+        working-directory: android
+        run: |
+          export STEPS_KEYSTORE=~/.steps-key/steps.keystore
+          export STEPS_KEY_PASS="$(cat ~/.steps-key/pass)"
+          gradle --no-daemon assembleRelease
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk ttakbok-steps.apk
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: steps-${{ github.run_number }}
+          name: 딱복 걸음 ${{ github.run_number }}
+          body: 딱복트립에 걸음 수를 보내는 앱이에요. 휴대폰에서 ttakbok-steps.apk를 받아 설치하세요.
+          files: ttakbok-steps.apk
+          make_latest: true
