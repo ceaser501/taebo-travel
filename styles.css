@@ -1002,3 +1002,6 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .favcats button i{width:8px;height:8px;border-radius:50%;background:var(--c)}
 .favcats button[aria-pressed="true"]{background:var(--ink,#2b2f45);border-color:var(--ink,#2b2f45)}
 .favcats button[aria-pressed="true"] i{background:#fff}
+/* tighter: switch → category filter → cards (the view's 26px gap is too wide here) */
+.favseg{margin-bottom:-14px}
+.favcats{margin:0 -16px -14px}
