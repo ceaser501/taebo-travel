@@ -760,6 +760,23 @@ async function readReceipt(file){const btn=$('#rcptBtn');if(btn){btn.classList.a
     toast('영수증을 읽었어요. 맞는지 보고 「기록하기」를 눌러 주세요.');
   }catch(e){toast(e.message==='offline'?'인터넷이 연결되면 읽을 수 있어요.':'영수증을 읽지 못했어요. 잠시 뒤 다시 해 주세요.');}
   finally{const b=$('#rcptBtn');if(b){b.classList.remove('busy');b.lastChild.textContent='영수증';}}}
+/* reservation reminders: this phone subscribes to push; the server (push-tick) sends them before timed tickets */
+const VAPID_PUBLIC='BB_VEPBj94dYGvAVrz9roqknji1DT_rAH4PoFVEPjfRJWELHaBvCquf_XXk4F3MXdTGSytORZciTLfo5-qqcuZM';
+const b64u=s=>{const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0));};
+async function pushToggle(){const btn=$('#pushBtn');
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){toast('이 브라우저는 알림을 지원하지 않아요. 앱을 설치해서 열어 주세요.');return;}
+  try{const reg=await navigator.serviceWorker.ready,old=await reg.pushManager.getSubscription();
+    if(LS.get('pushOn',false)&&old){if(!confirm('예약 알림을 끌까요?'))return;
+      await Sync.sb.from('trip_push_subs').delete().eq('endpoint',old.endpoint);await old.unsubscribe();LS.set('pushOn',false);if(btn)btn.textContent='켜기';toast('예약 알림을 껐어요.');return;}
+    const perm=await Notification.requestPermission();if(perm!=='granted'){toast('알림이 막혀 있어요. 휴대폰 설정에서 이 앱의 알림을 허용해 주세요.');return;}
+    const sub=old||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUBLIC)}),k=sub.toJSON().keys;
+    const {error}=await Sync.sb.from('trip_push_subs').upsert({endpoint:sub.endpoint,trip_id:Sync.meta.tripId,p256dh:k.p256dh,auth:k.auth});if(error)throw error;
+    LS.set('pushOn',true);if(btn)btn.textContent='켜짐';
+    // a test notification right away, so it is clear that it works
+    const {data:{session}}=await Sync.sb.auth.getSession();
+    fetch(`${Sync.sb.supabaseUrl}/functions/v1/push-tick`,{method:'POST',headers:{'Content-Type':'application/json',apikey:Sync.sb.supabaseKey,Authorization:`Bearer ${session?session.access_token:''}`},body:JSON.stringify({test:true})}).catch(()=>{});
+    toast('예약 알림을 켰어요. 시험 알림을 보냈어요.');
+  }catch(e){console.warn('push',e);toast('알림을 켜지 못했어요. 인터넷을 확인하고 다시 해 주세요.');}}
 async function readWithClaude(b64,onPart,precise){
   try{const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);
     const {data:{session}}=await Sync.sb.auth.getSession();
@@ -1060,6 +1077,7 @@ function settingsSheet(){
 
       <button class="btn pri" data-saveprofile>저장</button></section>
     <section class="fsec"><h4>앱</h4>
+      ${row('예약 알림','비행기 · 예약 티켓 · 체크인 시간 전에 휴대폰으로 알려줘요',`<button class="btn sm" data-pushtoggle id="pushBtn">${LS.get('pushOn',false)?'켜짐':'켜기'}</button>`)}
       ${row('동기화',esc(syncText()),`<button class="btn sm" data-syncnow>${svg('sync')}지금</button>`)}
       ${row('오프라인 지도·음성',off?'받아 둠 · '+new Date(off).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요',`<button class="btn sm" data-offlinemap>받기</button>`)}
       ${row('효과음','',`<button class="btn sm" data-sound aria-pressed="${state.sound}">${state.sound?'켜짐':'꺼짐'}</button>`)}
@@ -1547,7 +1565,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1637,6 +1655,7 @@ document.addEventListener('click',async e=>{
   else if(ds.ipsave){const x=state.interp[+ds.ipsave];if(x){await savePhrase(x.src,x.dst);toast('회화 목록에 넣었어요.');}}
   else if(ds.ipbig){const x=state.interp[+ds.ipbig];if(x){let k='';try{k=await readingOf(x.dst);}catch(e){}bigPhrase([x.dst,k,x.src]);}}
   else if(ds.aisave){const it=state.ocrAi&&state.ocrAi.items[+ds.aisave];if(it){await savePhrase(it.ja,it.ko);t.disabled=true;toast('회화 목록에 넣었어요.');}}
+  else if(ds.pushtoggle!==undefined){pushToggle();}
   else if(ds.ocrprecise!==undefined){if(state.ocrFile)ocrImage(state.ocrFile,true);}
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.addpop){addPop(ds.addpop);}
@@ -1797,7 +1816,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v85';
+const APP_VER='v86';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

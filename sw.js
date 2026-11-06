@@ -1,6 +1,6 @@
 /* Offline support: the app shell is cached on install, fonts and the Supabase library are cached on first use.
    Supabase API and storage calls always go to the network; the app keeps its own copy of data and files. */
-const VERSION='taebo-travel-v85';
+const VERSION='taebo-travel-v86';
 const SHELL=['./','index.html','styles.css','data.js','sync.js','app.js','vault.js','emergency.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png',
   'vendor/supabase-2.45.4.js','vendor/591.supabase.js','vendor/leaflet-1.9.4/leaflet.js','vendor/leaflet-1.9.4/leaflet.css','vendor/maplibre-gl-4.7.1/maplibre-gl.js','vendor/maplibre-gl-4.7.1/maplibre-gl.css','vendor/maplibre-gl-4.7.1/leaflet-maplibre-gl.js'];
 const TILES='taebo-tiles-v3';
@@ -32,3 +32,8 @@ self.addEventListener('fetch',e=>{
     e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{const c=r.clone();caches.open(VERSION).then(x=>x.put(e.request,c));return r;})));
   }
 });
+/* reservation reminders sent by the server (push-tick) */
+self.addEventListener('push',e=>{let d={};try{d=e.data?e.data.json():{};}catch(_){d={title:'딱복트립',body:e.data?e.data.text():''};}
+  e.waitUntil(self.registration.showNotification(d.title||'딱복트립',{body:d.body||'',icon:'icons/icon-192.png',badge:'icons/icon-192.png',data:{url:d.url||'./'},vibrate:[120,60,120]}));});
+self.addEventListener('notificationclick',e=>{e.notification.close();const url=new URL(e.notification.data&&e.notification.data.url||'./',self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(ws=>{const w=ws.find(x=>x.url.startsWith(self.registration.scope));if(w){w.focus();return w.navigate(url);}return self.clients.openWindow(url);}));});
