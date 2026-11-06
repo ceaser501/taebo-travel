@@ -1028,9 +1028,11 @@ function toolSheet(k){
   if(k==='rate')rateSheet();
   if(k==='talk')talkSheet();
   if(k==='home'){const h=hotelId();if(!h){openSheet(`${shHead('숙소가 아직 없어요','여행 정보에서 숙소를 정하거나 숙소를 장소로 등록해 주세요.')}<button class="btn acc" data-tripsetup>여행 정보 열기</button>`);return;}
-    openSheet(`${shHead('숙소로 돌아가기',`${esc(PL[h].n)}${PL[h].en?`<br><span class="en-n">${esc(PL[h].en)}</span>`:''}`,thumb(h))}
-    <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>
-    ${(()=>{const p=hotelPhrase();return p?`<div class="grp">택시 기사에게</div><div class="signs"><div class="sign tap" data-bighotel role="button" tabindex="0" aria-label="크게 보기"><div class="sj"><span class="ja${jaFit(p[0])}" lang="ja" translate="no">${esc(p[0])}</span><span class="kana" lang="ja" translate="no">${esc(p[1])}</span>${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div><button class="say-zone" data-say="${esc(p[0])}" aria-label="듣기">${svg('speak')}<span>듣기</span></button></div></div><div class="grp">간판·주소</div>`:'';})()}${signRows(h)}${PL[h].en||PL[h].addrEn?`<div class="grp">영문</div><div class="en-box">${PL[h].en?`<b>${esc(PL[h].en)}</b>`:''}${PL[h].addrEn?`<span>${esc(PL[h].addrEn)}</span>`:''}</div>`:''}`);}
+    // like the hotel's own detail: Korean name with a speaker, the Japanese and English names, the address; then the two routes
+    const P=PL[h],sg=mainSign(h),jp=(sg&&sg[0])||P.jp||'';
+    openSheet(`${shHead(`${esc(P.n)}${jp?`<button class="say-ic" data-say="${esc(jp)}" aria-label="일본어로 듣기">${svg('speak')}</button>`:''}`,`${jp?`<span class="jp-n" lang="ja" translate="no">${esc(jp)}</span>${P.en?`<span class="en-n"> · ${esc(P.en)}</span>`:''}<br>`:P.en?`<span class="en-n">${esc(P.en)}</span><br>`:''}숙소로 돌아가기`,thumb(h))}
+    ${P.addr?`<div class="addr-l"><span class="k">주소</span><span>${esc(P.addr.replace(/^日本[、,]\s*/,'').replace(/^(〒\d{3}-\d{4})\s*/,'$1\n'))}</span></div>`:''}
+    <div class="sh-acts"><a class="btn acc" href="${placeDir(null,h,'transit')}" target="_blank" rel="noopener">${svg('train')}대중교통으로</a><a class="btn" href="${placeDir(null,h,'driving')}" target="_blank" rel="noopener">${svg('taxi')}택시 경로</a></div>`);}
 }
 
 /* ---------- trip setup ---------- */
@@ -1296,13 +1298,11 @@ function viewHome(){
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
       <button class="tool" data-tool="talk" style="--tc:#e6e6fd"><span class="ti">${svg('talk','')}</span><b>일본어 회화</b><small>듣기 · 크게 보여주기</small></button>
-      <button class="tool" data-tab="places" style="--tc:#e0f1e8"><span class="ti">${svg('grid','')}</span><b>장소 · 간판</b><small>${nPlaces}곳 등록</small></button>
+      <button class="tool" data-steps style="--tc:#dff3e8"><span class="ti">${svg('walk','')}</span><b>걸음 수</b><small>${(()=>{const n=typeof stepsOf==='function'?stepsOf(me(),typeof isoDay==='function'?isoDay(new Date()):''):null;return n!=null?`오늘 ${n.toLocaleString('ko-KR')}보`:'둘이 걸은 걸음';})()}</small></button>
       <button class="tool" data-tool="home" style="--tc:#ffe1e6"><span class="ti">${svg('home','')}</span><b>숙소 가는 길</b><small>${h?'지금 위치에서':'숙소 미정'}</small></button>
       <button class="tool" data-tool="rate" style="--tc:#dff3e8"><span class="ti">${svg('yen','')}</span><b>환율</b><small>¥1,000 ≈ ${won(1000*rate())}</small></button>
       <button class="tool" data-tool="weather" style="--tc:#fff1c7"><span class="ti">${svg('sun','')}</span><b>날씨</b><small>${esc(T.city||'여행지')} 예보</small></button>
       <button class="tool" data-tab="prep" style="--tc:#f1e3fb"><span class="ti">${svg('list','')}</span><b>준비물</b><small>${[...checks].length}/${all} 완료</small></button></div></div>
-    ${typeof stepsEntry==='function'?stepsEntry():''}
-    <button class="card vault-entry" data-vault><span class="ve-i">${svg('lock','')}</span><span class="m"><b>여권 · 카드</b><span class="s">비밀번호로 잠가 둔 여권 · 카드 정보</span></span>${svg('chev')}</button>
     <div><div class="sec-h"><h2>티켓</h2><button class="more" data-tab="tickets">티켓 지갑 ${svg('chev')}</button></div>
       <div class="card">${slotStatus().map(s=>{const f=s.dir?flights()[s.dir]:null,air=f&&(f.no||f.fromCity||f.toCity);
         return `<button class="rsv-row${s.t?'':' need'}" ${s.t?`data-showticket="${s.t.id}"`:`data-slot="${esc(s.slot)}"`}><span class="ri">${svg(s.type==='항공권'?'plane':s.type==='숙소'?'bed':'ticket','')}</span><span class="m">${air?`<span class="s">${DIRS[s.dir]} · ${dayDate(s.day)}</span>${flightLine(f)}`:`<b>${esc(s.t?s.t.title:s.title)}</b><span class="s">${dayDate(s.day)}${(s.t&&s.t.time||s.time)?' · '+esc(s.t&&s.t.time||s.time):''}</span>`}</span>${air&&f.no?`<span class="r mono">${esc(f.no)}</span>`:''}${s.t?'':'<span class="r add">+ 추가</span>'}</button>`;}).join('')}</div></div>
@@ -1310,6 +1310,7 @@ function viewHome(){
       <div class="card today">${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p),jp=(sg&&sg[0])||p.jp||'';return `<button class="td-row" data-tab="plan" data-day="${today}"><span class="t">${s.t||'--:--'}</span><span class="n"><b>${esc(s.title||p.n)}</b>${jp?`<span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${svg('chev')}</button>`;}).join('')}</div>${stepsLine(today)}</div>`:''}
     <div><div class="sec-h"><h2>가계부</h2><button class="more" data-tab="money">기록하기 ${svg('chev')}</button></div>
       <button class="card budget" data-tab="money"><span class="fine">지금까지 쓴 돈</span><span class="big">${won(t.sum)}</span>${catBar(t,Math.max(t.sum,settings().budget))}<span class="fine">예산 ${won(settings().budget)} 중 ${Math.round(t.sum/settings().budget*100)}%</span></button></div>
+    <button class="card vault-entry" data-vault><span class="ve-i">${svg('lock','')}</span><span class="m"><b>여권 · 카드</b><span class="s">비밀번호로 잠가 둔 여권 · 카드 정보</span></span>${svg('chev')}</button>
     <button class="card em-entry" data-emergency><span class="ve-i">${svg('heart','')}</span><span class="m"><b>임산부 긴급카드</b><span class="s">아플 때 보여줄 일본어 · 119 · 한국어 핫라인</span></span>${svg('chev')}</button>
     <button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>
   </section>`;
@@ -1818,7 +1819,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v94';
+const APP_VER='v95';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

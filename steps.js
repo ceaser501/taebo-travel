@@ -20,7 +20,7 @@ function stepsSheet(){
   const max=Math.max(1000,...days.flatMap(d=>ppl.map(p=>stepsOf(p.id,d.date)||0)));
   const top=Math.ceil(max/2000)*2000,last=stepRows().map(r=>r.at).filter(Boolean).sort().pop();
   const total=p=>days.reduce((s,d)=>s+(stepsOf(p.id,d.date)||0),0);
-  openSheet(`<div class="stepsv">${shHead('걸음 수',last?`${new Date(last).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준 · 한 시간마다 들어와요`:'딱복 걸음 앱이 한 시간마다 보내요',`<span class="em-ic st-ic">${svg('walk','')}</span>`)}
+  openSheet(`<div class="stepsv">${shHead('걸음 수',last?`${new Date(last).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준<br>한 시간마다 들어와요`:'딱복 걸음 앱이 한 시간마다 보내요',`<span class="em-ic st-ic">${svg('walk','')}</span>`)}
     <div class="st-today">${ppl.map(p=>`<div class="st-tile" style="--pc:${p.color}"><span class="who"><i></i>${esc(p.name)}</span><b class="mono">${fmtSteps(stepsOf(p.id,today))}</b><span class="u">오늘 걸음</span></div>`).join('')}</div>
     ${any?`<div class="seg st-seg" role="group" aria-label="기간">${startDate()?`<button data-stepmode="trip" aria-pressed="${mode==='trip'}">여행 ${DAYS.length}일</button>`:''}<button data-stepmode="week" aria-pressed="${mode==='week'}">최근 7일</button></div>
     <div class="card st-chart"><div class="st-legend">${ppl.map(p=>`<span style="--pc:${p.color}"><i></i>${esc(p.name)}</span>`).join('')}</div>
