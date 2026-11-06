@@ -1075,3 +1075,11 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .st-tr.th{border-top:0;font-size:12.5px;color:var(--mute);font-weight:600}
 .st-tr.now{font-weight:700}.st-tr.tot{font-weight:800;border-top:1px solid var(--line)}
 .st-seg{margin:0}
+/* favourites: list / map switch and the map legend */
+:root{--fav-only:#8e98c9}
+.fav-top{display:flex;align-items:center;gap:8px;margin-bottom:-14px}.fav-top .favseg{flex:1;margin:0}
+.fav-top .vt{flex:none}
+.mpin.dot.fill{border:2.5px solid #fff;width:22px;height:22px;margin:4px}
+.fav-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:12.5px;color:var(--ink2)}
+.fav-leg span{display:inline-flex;align-items:center;gap:5px}.fav-leg b{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.fav-leg .h b{width:16px;height:10px;border-radius:3px;background:var(--ink,#2b2f45)}

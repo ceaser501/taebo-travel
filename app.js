@@ -328,6 +328,7 @@ function mapCfg(key){
   if(key==='plan'){const d=state.day,st=planOf(d),ids=numbered(d);
     return {pins:ids.map((id,i)=>({id,c:dayOf(d).c,num:i+1})),routes:[d],labels:true,air:st.some(s=>isAir(s.p))};}
   if(key==='home'){const pins=[];DAYS.forEach(d=>numbered(d.id).forEach((id,i)=>pins.push({id,c:d.c,num:i+1})));return {pins,routes:DAYS.map(d=>d.id),static:true};}
+  if(key==='fav')return {pins:favIds().filter(id=>id!==hotelId()&&!isAir(id)).map(id=>{const d=DAYS.find(x=>planOf(x.id).some(s=>s.p===id));return {id,c:d?d.c:'--fav-only',fill:true};}),routes:[],labels:false};
   return {pins:placeList().filter(id=>!isAir(id)).map(id=>({id,c:CAT[PL[id].cat]?CAT[PL[id].cat].c:'--c-air'})),routes:[],labels:false};
 }
 /* real street paths for the lines between stops (walking and taxi). Google has no transit routes for Japan,
@@ -356,7 +357,7 @@ function mountLeaflet(key){
       const line=L.polyline([a,z],{color:col,weight:cfg.static?3:4,opacity:.85,dashArray:how==='walk'?'1 8':how==='taxi'?'10 7':null,lineCap:'round'}).addTo(m);
       routePath(a,z,how).then(pth=>{if(pth&&maps[key]===m)line.setLatLngs(pth);});}});
   cfg.pins.forEach(pn=>{if(!hasLL(pn.id))return;const p=PL[pn.id],col=cssVar(pn.c);pts.push(p.ll);
-    const html=pn.num?`<span class="mpin num" style="background:${col}">${pn.num}</span>`:`<span class="mpin dot" style="border-color:${col}"></span>`;
+    const html=pn.num?`<span class="mpin num" style="background:${col}">${pn.num}</span>`:(pn.fill?`<span class="mpin dot fill" style="background:${col}"></span>`:`<span class="mpin dot" style="border-color:${col}"></span>`);
     const mk=L.marker(p.ll,{icon:L.divIcon({className:'mpin-wrap',html,iconSize:[30,30],iconAnchor:[15,15]}),keyboard:!cfg.static}).addTo(m);
     if(!cfg.static){mk.on('click',()=>placeSheet(pn.id));mk.bindTooltip(esc(p.short||p.n),{permanent:!!cfg.labels,direction:'right',offset:[14,0],className:'mlabel'});}});
   if(h&&hasLL(h)){pts.push(PL[h].ll);const mk=L.marker(PL[h].ll,{icon:L.divIcon({className:'mpin-wrap',html:'<span class="mpin home">숙소</span>',iconSize:[40,22],iconAnchor:[20,11]})}).addTo(m);if(!cfg.static)mk.on('click',()=>placeSheet(h));}
@@ -384,7 +385,7 @@ function loadGoogle(){
   return gReady;
 }
 // Google calls this when the key is refused (wrong site, API not enabled, billing); fall back to the offline map
-window.gm_authFailure=()=>{gFailed=true;console.warn('Google Maps key refused');['home','plan','places'].forEach(k=>{if(maps[k]&&maps[k].google)mountMap(k);});};
+window.gm_authFailure=()=>{gFailed=true;console.warn('Google Maps key refused');['home','plan','places','fav'].forEach(k=>{if(maps[k]&&maps[k].google)mountMap(k);});};
 const GSTYLE=[
   {featureType:'poi',stylers:[{visibility:'off'}]},
   {featureType:'poi.park',elementType:'geometry',stylers:[{visibility:'on'},{color:'#dcefe3'}]},
@@ -420,7 +421,7 @@ function mountGoogle(key){
       const line=new google.maps.Polyline({map:m,path:[ll(a),ll(z)],strokeColor:col,strokeOpacity:dashed?0:.85,strokeWeight:cfg.static?3:4,icons:dashed?[{icon:sym,offset:'0',repeat:how==='walk'?'8px':'14px'}]:[]});objs.push(line);
       routePath(a,z,how).then(pth=>{if(pth)line.setPath(pth.map(ll));});}});
   cfg.pins.forEach(pn=>{if(!hasLL(pn.id))return;const p=PL[pn.id],col=cssVar(pn.c);b.extend(ll(p.ll));n++;
-    const html=(pn.num?`<span class="mpin num" style="background:${col}">${pn.num}</span>`:`<span class="mpin dot" style="border-color:${col}"></span>`)+(cfg.labels?`<span class="glabel">${esc(p.short||p.n)}</span>`:'');
+    const html=(pn.num?`<span class="mpin num" style="background:${col}">${pn.num}</span>`:(pn.fill?`<span class="mpin dot fill" style="background:${col}"></span>`:`<span class="mpin dot" style="border-color:${col}"></span>`))+(cfg.labels?`<span class="glabel">${esc(p.short||p.n)}</span>`:'');
     const o=new M(new google.maps.LatLng(p.ll[0],p.ll[1]),html,cfg.static?null:()=>placeSheet(pn.id));o.setMap(m);objs.push(o);});
   if(h&&hasLL(h)){b.extend(ll(PL[h].ll));n++;const o=new M(new google.maps.LatLng(PL[h].ll[0],PL[h].ll[1]),'<span class="mpin home">숙소</span>',cfg.static?null:()=>placeSheet(h));o.setMap(m);objs.push(o);}
   const fit=()=>{if(n>1)m.fitBounds(b,cfg.static?18:40);else if(n===1){m.setCenter(b.getCenter());m.setZoom(15);}};
@@ -1382,15 +1383,20 @@ function favInner(id,d){const p=PL[id],c=CAT[p.cat]||CAT['기타'],days=DAYS.fil
       ${d&&d.rating?`<div class="gc-r"><span>${d.rating.toFixed(1)}</span>${stars(d.rating)}<span class="cnt">(${(d.userRatingCount||0).toLocaleString('ko-KR')}개)</span></div>`:''}
       ${type||pr?`<div class="gc-t">${esc([type,pr].filter(Boolean).join(' · '))}</div>`:''}
       ${d&&d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}</div>`;}
+function favIds(){const all=[...savedSet()].filter(id=>PL[id]),inPlan=id=>DAYS.some(d=>planOf(d.id).some(x=>x.p===id)),hide=LS.get('favHide',false),
+  cats=CAT_LIST.filter(c=>all.some(id=>PL[id].cat===c)),cat=cats.includes(LS.get('favCat',''))?LS.get('favCat',''):'';
+  return all.filter(id=>(!hide||!inPlan(id))&&(!cat||PL[id].cat===cat));}
 function viewFav(){
   const all=[...savedSet()].filter(id=>PL[id]),inPlan=id=>DAYS.some(d=>planOf(d.id).some(x=>x.p===id)),hide=LS.get('favHide',false),nIn=all.filter(inPlan).length;
   // category filter: only the categories that have favourites
   const cats=CAT_LIST.filter(c=>all.some(id=>PL[id].cat===c)),cat=cats.includes(LS.get('favCat',''))?LS.get('favCat',''):'';
-  const ids=all.filter(id=>(!hide||!inPlan(id))&&(!cat||PL[id].cat===cat));
+  const ids=favIds(),onMap=state.favView==='map';
   setTimeout(fillFavCards,0);
   return `<section class="view">
-    ${all.length?`<div class="seg favseg" role="group" aria-label="보기"><button type="button" data-favhide="0" aria-pressed="${!hide}">전체 ${all.length}</button><button type="button" data-favhide="1" aria-pressed="${hide}">일정에 안 넣은 곳 ${all.length-nIn}</button></div>
+    ${all.length?`<div class="fav-top"><div class="seg favseg" role="group" aria-label="보기"><button type="button" data-favhide="0" aria-pressed="${!hide}">전체 ${all.length}</button><button type="button" data-favhide="1" aria-pressed="${hide}">안 넣은 곳 ${all.length-nIn}</button></div>
+      <div class="vt" role="group" aria-label="보기 방식"><button data-favview="list" aria-pressed="${!onMap}">목록</button><button data-favview="map" aria-pressed="${onMap}">지도</button></div></div>
     ${cats.length>1?`<div class="chips favcats" role="group" aria-label="분류">${['',...cats].map(c=>`<button type="button" data-favcat="${esc(c)}" aria-pressed="${cat===c}" ${c?`style="--c:var(${CAT[c].c})"`:''}>${c?`<i></i>${esc(c)} ${all.filter(id=>PL[id].cat===c).length}`:'전체'}</button>`).join('')}</div>`:''}
+    ${onMap?`<div>${mapBox('fav','places',mapCfg('fav'))}<div class="mleg fav-leg">${DAYS.map(d=>`<span style="--c:var(${d.c})"><b></b>DAY ${d.id}</span>`).join('')}<span style="--c:var(--fav-only)"><b></b>즐겨찾기만</span><span class="h"><b></b>숙소</span></div></div>`:''}
     <div class="favs">${ids.map(id=>{const p=PL[id],c0=p.gid&&LS.get('gpi:'+p.gid,null),days=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>d.id);
       return `<div class="card fvcard" data-hold="${id}" data-holdkind="fav"><a class="fv-main" href="${(c0&&c0.d&&c0.d.googleMapsUri)||placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}">${favInner(id,c0&&c0.d)}</a>
         <button class="fv-plus" data-addto="${id}" >${svg('plus')}일정</button></div>`;}).join('')||`<p class="fine empty">${cat?'이 분류에는 보여줄 곳이 없어요.':'모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.'}</p>`}</div>
@@ -1535,7 +1541,7 @@ function render(){
   $('#top').innerHTML=header();$('#main').innerHTML=VIEWS[state.tab]();
   $('#tabs').hidden=GATED.has(state.tab)||!$('#intro').hidden;
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===state.tab||(state.tab==='places'&&b.dataset.tab==='home')||(state.tab==='prep'&&b.dataset.tab==='home')));
-  ['home','plan','places'].forEach(mountMap);hydrateFiles($('#main'));
+  ['home','plan','places','fav'].forEach(mountMap);hydrateFiles($('#main'));
 }
 function go(tab,scroll=true,fromBack=false){if(!VIEWS[tab])tab='home';if(!Sync.meta.tripId&&!GATED.has(tab))tab='auth';closeAllSheets();const changed=tab!==state.tab;state.tab=tab;state.edit=false;
   if(!GATED.has(tab)&&!fromBack){if(changed&&byTap())history.pushState({k:'tab'},'','#'+tab);else if(location.hash.slice(1)!==tab)history.replaceState(history.state,'','#'+tab);}render();if(scroll)window.scrollTo(0,0);}
@@ -1560,7 +1566,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-favview],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1657,6 +1663,7 @@ document.addEventListener('click',async e=>{
   else if(ds.addfav!==undefined){addFavPop();}
   else if(ds.forceupdate!==undefined){forceUpdate();}
   else if(ds.favhide!==undefined){LS.set('favHide',ds.favhide==='1');render();}
+  else if(ds.favview){state.favView=ds.favview;render();}
   else if(ds.favcat!==undefined){LS.set('favCat',ds.favcat);
     // keep the chip row where it was (redrawing would scroll it back to the start)
     const row=$('.favcats'),sl=row?row.scrollLeft:0;render();const r2=$('.favcats');if(r2)r2.scrollLeft=sl;}
@@ -1811,7 +1818,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v93';
+const APP_VER='v94';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
