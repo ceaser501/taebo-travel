@@ -1102,3 +1102,8 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 /* steps table: names and numbers centred in even columns */
 .st-tr{grid-template-columns:1.1fr repeat(var(--n),1fr)}
 .st-tr span:not(:first-child){text-align:center}
+/* the dotted line down the left runs without gaps: through each travel connector and up to each number */
+.stop .rail::after{top:0;bottom:0}
+.stops>li.stop:first-child .rail::after{top:26px}
+.stops>li.stop:last-child .rail::after{display:block;bottom:auto;height:26px}
+.stop .rail .num{position:relative;z-index:1}
