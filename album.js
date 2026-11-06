@@ -1,19 +1,24 @@
 /* ===================== 딱복이 사진첩: ultrasound photos and other baby pictures =====================
    Rows are trip items of kind 'album' ({file, date, cap, by, at}); the photo itself is a private trip file. */
-// a swaddled, sleeping baby in a soft circle (drawn here, so it works offline)
+// a swaddled baby lying asleep on a pillow, in a soft circle (drawn here, so it works offline)
 function babyArt(cls=''){return `<svg class="baby-art ${cls}" viewBox="0 0 120 120" aria-hidden="true">
   <circle cx="60" cy="62" r="52" fill="#e9f2fb"/>
-  <ellipse cx="60" cy="86" rx="31" ry="25" fill="#fbe1e7"/><circle cx="60" cy="53" r="29" fill="#fbe1e7"/>
-  <path d="M33 58a27 27 0 0 1 54 0" fill="none" stroke="#f5c9d4" stroke-width="2.5"/>
-  <circle cx="60" cy="56" r="20" fill="#fde7da"/>
-  <path d="M56 38q3-5 8-1" fill="none" stroke="#9a7466" stroke-width="2.2" stroke-linecap="round"/>
-  <path d="M48.5 56q3.5 3 7 0M64.5 56q3.5 3 7 0" fill="none" stroke="#6b4f45" stroke-width="2.2" stroke-linecap="round"/>
-  <ellipse cx="47" cy="62.5" rx="4.2" ry="2.6" fill="#f6a9b5" opacity=".6"/><ellipse cx="73" cy="62.5" rx="4.2" ry="2.6" fill="#f6a9b5" opacity=".6"/>
-  <path d="M57.5 65q2.5 2 5 0" fill="none" stroke="#d98a85" stroke-width="2" stroke-linecap="round"/>
-  <path d="M36 80q24 13 48 0" fill="none" stroke="#f5c9d4" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M55 92c0-3.5 4.5-4.5 5-1 .5-3.5 5-2.5 5 1 0 3.5-5 6.5-5 6.5s-5-3-5-6.5z" fill="#f29bb0"/>
+  <ellipse cx="44" cy="52" rx="27" ry="14" fill="#fff" opacity=".9" transform="rotate(-30 44 52)"/>
+  <g transform="translate(2 2) rotate(-30 60 66) scale(.9) translate(7 6)">
+    <ellipse cx="60" cy="86" rx="31" ry="25" fill="#fbe1e7"/><circle cx="60" cy="53" r="29" fill="#fbe1e7"/>
+    <path d="M33 58a27 27 0 0 1 54 0" fill="none" stroke="#f5c9d4" stroke-width="2.5"/>
+    <circle cx="60" cy="56" r="20" fill="#fde7da"/>
+    <path d="M56 38q3-5 8-1" fill="none" stroke="#9a7466" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M48.5 56q3.5 3 7 0M64.5 56q3.5 3 7 0" fill="none" stroke="#6b4f45" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="47" cy="62.5" rx="4.2" ry="2.6" fill="#f6a9b5" opacity=".6"/><ellipse cx="73" cy="62.5" rx="4.2" ry="2.6" fill="#f6a9b5" opacity=".6"/>
+    <path d="M57.5 65q2.5 2 5 0" fill="none" stroke="#d98a85" stroke-width="2" stroke-linecap="round"/>
+    <path d="M36 80q24 13 48 0" fill="none" stroke="#f5c9d4" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M55 92c0-3.5 4.5-4.5 5-1 .5-3.5 5-2.5 5 1 0 3.5-5 6.5-5 6.5s-5-3-5-6.5z" fill="#f29bb0"/>
+  </g>
   <path d="M97 24l1.8 4.4 4.4 1.8-4.4 1.8-1.8 4.4-1.8-4.4-4.4-1.8 4.4-1.8z" fill="#fff"/>
-  <path d="M22 40l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#fff"/></svg>`;}
+  <path d="M84 40l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z" fill="#fff"/>
+  <text x="92" y="58" font-family="sans-serif" font-size="9" font-weight="700" fill="#9fb6d6">z</text>
+  <text x="99" y="48" font-family="sans-serif" font-size="7" font-weight="700" fill="#b7c9e2">z</text></svg>`;}
 const albumRows=()=>Sync.list('album').sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.at||'').localeCompare(a.at||''));
 const albumDate=d=>{if(!d)return '';const x=new Date(d+'T00:00:00');return `${x.getFullYear()}.${x.getMonth()+1}.${x.getDate()}`;};
 // home: a card with the newest photos (members only; the photos are private)
