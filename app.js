@@ -1251,7 +1251,7 @@ function viewHome(){
   const onTrip=(()=>{const n=daysUntil();return n!=null&&n<=0&&n>-DAYS.length;})(),today=onTrip?1-daysUntil():1,first=planOf(today).slice(0,4);
   const nPlaces=Object.keys(PL).length,nStops=DAYS.reduce((a,d)=>a+planOf(d.id).length,0);
   return `<section class="view">
-    <div class="hero home-hero">${heroArt('translate(136 24) scale(.64)')}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}</p></div></div>
+    <div class="hero home-hero">${heroArt('translate(146 24) scale(.64)')}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}</p></div></div>
     ${installCard()}
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
@@ -1768,7 +1768,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v81';
+const APP_VER='v82';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
