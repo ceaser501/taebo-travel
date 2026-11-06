@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "app.ttakbok.steps"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.ttakbok.steps"
