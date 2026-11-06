@@ -1345,7 +1345,7 @@ function viewPlan(){
   });
   return `<section class="view">
     <div class="seg ${DAYS.length<=3?'days':''}" role="group" aria-label="날짜">${DAYS.map(x=>`<button class="pill" style="--c:var(${x.c})" data-day="${x.id}" aria-pressed="${x.id===d}"><span><i style="margin-right:5px;vertical-align:1px"></i>DAY ${x.id}</span><small>${esc(x.label)}</small></button>`).join('')}</div>
-    ${nums.length||st.some(s=>hasLL(s.p))?`<div>${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg"><span><i></i>전철·버스</span><span><i class="taxi"></i>택시</span><span><i class="walk"></i>도보</span><span class="fine">도보·택시는 실제 길로, 전철은 직선으로 이어요</span></div></div>`:''}
+    ${nums.length||st.some(s=>hasLL(s.p))?`<div class="plan-map">${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg2" style="--c:var(${day.c})">${[['전철','',''],['택시','7 5',''],['도보','0.1 6','round']].map(([l,da,cap])=>`<span><svg viewBox="0 0 24 6" aria-hidden="true"><line x1="2" y1="3" x2="22" y2="3" stroke-width="3" ${da?`stroke-dasharray="${da}"`:''} stroke-linecap="${cap||'butt'}"/></svg>${l}</span>`).join('')}</div></div>`:''}
     <div class="card dayboard" style="--c:var(${day.c})"><div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span><h2><button class="dt-btn" data-daytitlepop="${d}" aria-label="DAY ${d} 제목 바꾸기">${esc(day.title||'일정')}</button></h2><span class="date">${esc(day.label)}</span></div>
       <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 오른쪽 위 「추가」로 장소를 넣어 보세요.'}</p>${stepsLine(d)}</div>
     <div>${fl&&d===1?flightRow:''}<ol class="stops">${list}</ol>${fl&&d!==1?flightRow:''}</div>
@@ -1829,7 +1829,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v103';
+const APP_VER='v104';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
