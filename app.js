@@ -1071,7 +1071,7 @@ function settingsSheet(){
       ${row('오프라인 지도·음성',off?'받아 둠 · '+new Date(off).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요',`<button class="btn sm" data-offlinemap data-label="다운로드">다운로드</button>`)}
       ${row('동기화',esc(syncText()),`<button class="btn sm" data-syncnow>${svg('sync')}지금</button>`)}
       ${row('인트로','',`<button class="btn sm" data-replay>다시 보기</button>`)}
-      ${row('앱 버전',APP_VER+' · 새 기능이 안 보이면 눌러 주세요',`<button class="btn sm" data-forceupdate>새로 받기</button>`)}</section>
+      ${row('앱 버전',APP_VER,`<button class="btn sm" data-forceupdate>새로 받기</button>`)}</section>
     <section class="fsec"><h4>데이터</h4>
       ${!Object.keys(PL).length?row('도쿄 예시','장소 20여 곳과 2박 3일 일정',`<button class="btn sm" data-importtpl>불러오기</button>`):''}
       ${Object.keys(PL).length||Sync.list('ticket').length?row('새로 시작','항공권만 남기고 모두 지워요',`<button class="btn sm danger-t" data-wipeall>지우기</button>`):''}
@@ -1805,7 +1805,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v90';
+const APP_VER='v91';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
