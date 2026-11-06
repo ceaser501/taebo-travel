@@ -1032,3 +1032,9 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .em-row .say-ic{margin:0;flex:none}
 .em-more{display:flex;flex-direction:column;gap:8px}
 .bs-ja.mid{font-size:clamp(32px,10vw,56px)}.bs-ja.long{font-size:clamp(24px,7.4vw,40px);line-height:1.4}
+/* how much walking the day takes */
+.wk-box{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.wk{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:13px;border-radius:999px;padding:5px 11px;background:#e8f5ec;color:#1d6b3a}
+.wk svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}
+.wk b{font-weight:800}.wk.lv1{background:#fff3dc;color:#8a5a00}.wk.lv2{background:#fde4e8;color:#b3263f}
+.wk-box .fine{margin:0}
