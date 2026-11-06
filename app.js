@@ -1250,7 +1250,7 @@ function viewHome(){
   const onTrip=(()=>{const n=daysUntil();return n!=null&&n<=0&&n>-DAYS.length;})(),today=onTrip?1-daysUntil():1,first=planOf(today).slice(0,4);
   const nPlaces=Object.keys(PL).length,nStops=DAYS.reduce((a,d)=>a+planOf(d.id).length,0);
   return `<section class="view">
-    <div class="hero">${heroArt()}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}${h?' · '+esc(PL[h].n):''}</p></div></div>
+    <div class="hero home-hero">${heroArt()}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}</p></div></div>
     ${installCard()}
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
@@ -1347,7 +1347,7 @@ function viewFav(){
     ${all.length?`<div class="seg favseg" role="group" aria-label="보기"><button type="button" data-favhide="0" aria-pressed="${!hide}">전체 ${all.length}</button><button type="button" data-favhide="1" aria-pressed="${hide}">일정에 안 넣은 곳 ${all.length-nIn}</button></div>
     <div class="favs">${ids.map(id=>{const p=PL[id],c0=p.gid&&LS.get('gpi:'+p.gid,null),days=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>d.id);
       return `<div class="card fvcard" data-hold="${id}" data-holdkind="fav"><a class="fv-main" href="${(c0&&c0.d&&c0.d.googleMapsUri)||placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}">${favInner(id,c0&&c0.d)}</a>
-        <button class="fv-plus${days.length?' sec':''}" data-addto="${id}" >${svg('plus')}${days.length?'다른 날':'일정'}</button></div>`;}).join('')||'<p class="fine empty">모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.</p>'}</div>
+        <button class="fv-plus" data-addto="${id}" >${svg('plus')}일정</button></div>`;}).join('')||'<p class="fine empty">모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.</p>'}</div>
     <p class="fine">카드를 누르면 구글 지도로 열려요. 길게 누르면 즐겨찾기에서 뺄 수 있고, 일정에 넣은 건 그대로 남아요.</p>`
     :`<div class="card empty-fav"><b>아직 즐겨찾기가 없어요</b><p class="fine">오른쪽 위 「추가」에 구글 지도 공유 링크를 붙여 넣거나 장소 이름을 쓰면 여기 모여요. 나중에 하나씩 일정에 넣으면 돼요.</p><button class="btn acc" data-addfav>${svg('plus')}추가</button></div>`}
   </section>`;
@@ -1760,7 +1760,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v76';
+const APP_VER='v77';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

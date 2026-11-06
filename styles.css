@@ -991,3 +991,7 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .fv-plus svg{width:17px;height:17px}
 .fv-plus.sec{color:var(--accent)}
 .fv-b{padding-right:110px}.fv-top{margin-right:-96px}
+.hero.home-hero{justify-content:flex-start}
+/* home trip card: words at the top left, the heart and plane drawing pushed to the right below the words */
+.hero.home-hero{min-height:190px;background:#b6cbf7}
+.hero.home-hero svg.art{top:26%;height:100%}
