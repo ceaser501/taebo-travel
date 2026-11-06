@@ -1173,7 +1173,8 @@ function syncText(){const s=Sync.status,n=Sync.dirtyCount();
 const syncDot=()=>`<button class="syncdot gearbtn s-${Sync.status}" data-settings aria-label="설정 · 동기화 상태: ${syncText()}">${svg('gear')}${Sync.status==='synced'||Sync.status==='syncing'?'':'<b class="sbadge"></b>'}</button>`;
 function totals(){const t={sum:0,by:{}};expenses().forEach(e=>{const v=toKRW(e);t.sum+=v;t.by[e.cat]=(t.by[e.cat]||0)+v;});return t;}
 function catBar(t,base){return `<div class="bar">${Object.keys(XCAT).filter(k=>t.by[k]).map(k=>`<i style="width:${(t.by[k]/base*100).toFixed(2)}%;background:var(${XCAT[k]})"></i>`).join('')}</div>`;}
-function heroArt(){return `<svg class="art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6cbf7"/><stop offset=".7" stop-color="#dcdcf8"/><stop offset="1" stop-color="#f6e2e2"/></linearGradient></defs><rect width="400" height="200" fill="url(#hD)"/>${cloud(-20,24,.8,.8)}${cloud(300,130,1.2,1)}<path d="M170 120 C 230 100, 262 70, 250 52 C 242 40, 226 44, 222 56 C 218 44, 202 40, 194 52 C 182 70, 214 100, 222 112 C 240 132, 300 90, 350 40" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><g transform="translate(352 38) rotate(-45)">${planeTop('#fff','#b9c3ea')}</g></svg>`;}
+// fly: an optional transform for the heart and plane (the home card moves them below its words)
+function heroArt(fly){return `<svg class="art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6cbf7"/><stop offset=".7" stop-color="#dcdcf8"/><stop offset="1" stop-color="#f6e2e2"/></linearGradient></defs><rect width="400" height="200" fill="url(#hD)"/>${cloud(-20,24,.8,.8)}${fly?cloud(-30,150,1,1):cloud(300,130,1.2,1)}<g${fly?` transform="${fly}"`:''}><path d="M170 120 C 230 100, 262 70, 250 52 C 242 40, 226 44, 222 56 C 218 44, 202 40, 194 52 C 182 70, 214 100, 222 112 C 240 132, 300 90, 350 40" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><g transform="translate(352 38) rotate(-45)">${planeTop('#fff','#b9c3ea')}</g></g></svg>`;}
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(state.tab==='home'||(state.tab==='auth'&&!document.activeElement.closest('form')))render();});
 function installCard(){
@@ -1341,13 +1342,17 @@ function favInner(id,d){const p=PL[id],c=CAT[p.cat]||CAT['기타'],days=DAYS.fil
       ${type||pr?`<div class="gc-t">${esc([type,pr].filter(Boolean).join(' · '))}</div>`:''}
       ${d&&d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}</div>`;}
 function viewFav(){
-  const all=[...savedSet()].filter(id=>PL[id]),inPlan=id=>DAYS.some(d=>planOf(d.id).some(x=>x.p===id)),hide=LS.get('favHide',false),ids=hide?all.filter(id=>!inPlan(id)):all,nIn=all.filter(inPlan).length;
+  const all=[...savedSet()].filter(id=>PL[id]),inPlan=id=>DAYS.some(d=>planOf(d.id).some(x=>x.p===id)),hide=LS.get('favHide',false),nIn=all.filter(inPlan).length;
+  // category filter: only the categories that have favourites
+  const cats=CAT_LIST.filter(c=>all.some(id=>PL[id].cat===c)),cat=cats.includes(LS.get('favCat',''))?LS.get('favCat',''):'';
+  const ids=all.filter(id=>(!hide||!inPlan(id))&&(!cat||PL[id].cat===cat));
   setTimeout(fillFavCards,0);
   return `<section class="view">
     ${all.length?`<div class="seg favseg" role="group" aria-label="보기"><button type="button" data-favhide="0" aria-pressed="${!hide}">전체 ${all.length}</button><button type="button" data-favhide="1" aria-pressed="${hide}">일정에 안 넣은 곳 ${all.length-nIn}</button></div>
+    ${cats.length>1?`<div class="chips favcats" role="group" aria-label="분류">${['',...cats].map(c=>`<button type="button" data-favcat="${esc(c)}" aria-pressed="${cat===c}" ${c?`style="--c:var(${CAT[c].c})"`:''}>${c?`<i></i>${esc(c)} ${all.filter(id=>PL[id].cat===c).length}`:'전체'}</button>`).join('')}</div>`:''}
     <div class="favs">${ids.map(id=>{const p=PL[id],c0=p.gid&&LS.get('gpi:'+p.gid,null),days=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>d.id);
       return `<div class="card fvcard" data-hold="${id}" data-holdkind="fav"><a class="fv-main" href="${(c0&&c0.d&&c0.d.googleMapsUri)||placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}">${favInner(id,c0&&c0.d)}</a>
-        <button class="fv-plus" data-addto="${id}" >${svg('plus')}일정</button></div>`;}).join('')||'<p class="fine empty">모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.</p>'}</div>
+        <button class="fv-plus" data-addto="${id}" >${svg('plus')}일정</button></div>`;}).join('')||`<p class="fine empty">${cat?'이 분류에는 보여줄 곳이 없어요.':'모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.'}</p>`}</div>
     <p class="fine">카드를 누르면 구글 지도로 열려요. 길게 누르면 즐겨찾기에서 뺄 수 있고, 일정에 넣은 건 그대로 남아요.</p>`
     :`<div class="card empty-fav"><b>아직 즐겨찾기가 없어요</b><p class="fine">오른쪽 위 「추가」에 구글 지도 공유 링크를 붙여 넣거나 장소 이름을 쓰면 여기 모여요. 나중에 하나씩 일정에 넣으면 돼요.</p><button class="btn acc" data-addfav>${svg('plus')}추가</button></div>`}
   </section>`;
@@ -1514,7 +1519,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1610,6 +1615,7 @@ document.addEventListener('click',async e=>{
   else if(ds.addfav!==undefined){addFavPop();}
   else if(ds.forceupdate!==undefined){forceUpdate();}
   else if(ds.favhide!==undefined){LS.set('favHide',ds.favhide==='1');render();}
+  else if(ds.favcat!==undefined){LS.set('favCat',ds.favcat);render();}
   else if(ds.delfav){closeHoldPop();const sv=savedSet();sv.delete(ds.delfav);setSaved(sv);render();}
   else if(ds.popcat){state.popCat=ds.popcat;document.querySelectorAll('[data-popcat]').forEach(b=>b.setAttribute('aria-pressed',b===t));const i=document.querySelector('#fpop input');if(i)i.focus();}
   else if(ds.closefp!==undefined){closeFloat();}
@@ -1760,7 +1766,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v77';
+const APP_VER='v78';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

@@ -995,3 +995,10 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 /* home trip card: words at the top left, the heart and plane drawing pushed to the right below the words */
 .hero.home-hero{min-height:190px;background:#b6cbf7}
 .hero.home-hero svg.art{top:26%;height:100%}
+/* favourites: category filter under the all / not-in-schedule switch */
+.favcats{flex-wrap:nowrap;overflow-x:auto;margin:-2px -16px 12px;padding:0 16px;scrollbar-width:none}
+.favcats::-webkit-scrollbar{display:none}
+.favcats button{flex:none;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;font-size:13.5px}
+.favcats button i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.favcats button[aria-pressed="true"]{background:var(--ink,#2b2f45);border-color:var(--ink,#2b2f45)}
+.favcats button[aria-pressed="true"] i{background:#fff}
