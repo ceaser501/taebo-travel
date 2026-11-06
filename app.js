@@ -1299,7 +1299,6 @@ function viewHome(){
     <div class="hero home-hero">${heroArt('translate(146 24) scale(.64)')}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}</p></div></div>
     ${installCard()}
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
-    <button class="card em-entry" data-emergency><span class="ve-i">${svg('heart','')}</span><span class="m"><b>임산부 긴급카드</b><span class="s">아플 때 보여줄 일본어 · 119 · 한국어 핫라인</span></span>${svg('chev')}</button>
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
       <button class="tool" data-tool="talk" style="--tc:#e6e6fd"><span class="ti">${svg('talk','')}</span><b>일본어 회화</b><small>듣기 · 크게 보여주기</small></button>
       <button class="tool" data-tab="places" style="--tc:#e0f1e8"><span class="ti">${svg('grid','')}</span><b>장소 · 간판</b><small>${nPlaces}곳 등록</small></button>
@@ -1316,6 +1315,7 @@ function viewHome(){
     <div><div class="sec-h"><h2>가계부</h2><button class="more" data-tab="money">기록하기 ${svg('chev')}</button></div>
       <button class="card budget" data-tab="money"><span class="fine">지금까지 쓴 돈</span><span class="big">${won(t.sum)}</span>${catBar(t,Math.max(t.sum,settings().budget))}<span class="fine">예산 ${won(settings().budget)} 중 ${Math.round(t.sum/settings().budget*100)}%</span></button></div>
     <button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>
+    <button class="card em-entry" data-emergency><span class="ve-i">${svg('heart','')}</span><span class="m"><b>임산부 긴급카드</b><span class="s">아플 때 보여줄 일본어 · 119 · 한국어 핫라인</span></span>${svg('chev')}</button>
   </section>`;
 }
 function viewPlan(){
@@ -1816,7 +1816,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v86';
+const APP_VER='v87';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

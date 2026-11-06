@@ -13,8 +13,8 @@ const EM_PHRASES=[
 ];
 const EM_CALLS=[
   ['119','구급차 · 119','일본어로 말해요. 위 문장을 보여 주거나 들려주세요.'],
-  ['050-3816-2787','관광객 핫라인 (JNTO)','24시간 · 한국어 · 병원 안내와 통역'],
-  ['+82-2-3210-0404','영사콜센터 (서울)','24시간 · 한국어 · 사건사고 도움'],
+  ['050-3816-2787','관광객 핫라인 (JNTO)','24시간 · 한국어 · 병원 안내'],
+  ['+82-2-3210-0404','영사콜센터 (서울)','24시간 · 한국어'],
   ['110','경찰 · 110','분실 · 도난 · 사고'],
 ];
 const emInfo=()=>Sync.get('emergency','info')||{};
@@ -30,15 +30,15 @@ function emergencySheet(){
   const m=emInfo(),pw=pregWeeks(m.due),card=emCardPhrase(),h=typeof hotelPhrase==='function'&&hotelPhrase();
   const q=encodeURIComponent;
   openSheet(`<div class="emer">${shHead('임산부 긴급카드','위급할 때 이 화면을 직원이나 구급대원에게 보여 주세요.',`<span class="em-ic">${svg('heart','')}</span>`)}
-    <button class="em-main" data-emcard><span class="ja" lang="ja" translate="no">${esc(card[0]).replace(/\n/g,'<br>')}</span><span class="ko">${esc(card[2])}</span><span class="tap">눌러서 크게 보여주기</span></button>
     <div class="em-me">${pw?`<span><b>임신 ${pw.w}주 ${pw.d}일</b>${m.due?` · 예정일 ${esc(m.due)}`:''}</span>`:'<span class="fine">출산 예정일을 넣으면 임신 주수가 자동으로 나와요.</span>'}
       <button class="ic-btn" data-emedit aria-label="내 정보 고치기">${svg('pen')}</button></div>
     ${m.hosp||m.note?`<div class="em-note">${m.hosp?`<div><span class="k">한국 병원</span>${esc(m.hosp)}${m.hospTel?` · <a href="tel:${esc(m.hospTel.replace(/[^+\d]/g,''))}">${esc(m.hospTel)}</a>`:''}</div>`:''}${m.note?`<div><span class="k">메모</span>${esc(m.note)}</div>`:''}</div>`:''}
+    <button class="em-main" data-emcard><span class="ja" lang="ja" translate="no">${esc(card[0]).replace(/\n/g,'<br>')}</span><span class="ko">${esc(card[2])}</span><span class="tap">눌러서 크게 보여주기</span></button>
     <div><div class="grp" style="margin-top:0">바로 전화</div><div class="em-calls">${EM_CALLS.map(([n,t,s])=>`<a class="em-call${n==='119'?' red':''}" href="tel:${n.replace(/[^+\d]/g,'')}"><span class="m"><b>${t}</b><span>${s}</span></span><span class="n mono">${n}</span></a>`).join('')}</div></div>
     <div><div class="grp">가까운 병원 찾기</div><div class="em-find">
       <a class="btn" href="https://www.google.com/maps/search/?api=1&query=${q('産婦人科')}" target="_blank" rel="noopener">${svg('pin')}산부인과</a>
       <a class="btn" href="https://www.google.com/maps/search/?api=1&query=${q('救急病院')}" target="_blank" rel="noopener">${svg('pin')}응급실 (救急病院)</a></div></div>
-    <div><div class="grp">이렇게 말해요 · 누르면 크게, 스피커는 일본어로</div><div class="em-ph">${EM_PHRASES.map((p,i)=>`<div class="em-row"><button class="em-say" data-emph="${i}"><b lang="ja" translate="no">${esc(p[0])}</b><span>${esc(p[2])}</span></button><button class="say-ic" data-say="${esc(p[0])}" aria-label="일본어로 듣기">${svg('speak')}</button></div>`).join('')}</div></div>
+    <div><div class="grp">위급 상황시 필요 회화</div><div class="em-ph">${EM_PHRASES.map((p,i)=>`<div class="em-row"><button class="em-say" data-emph="${i}"><b lang="ja" translate="no">${esc(p[0])}</b><span>${esc(p[2])}</span></button><button class="say-ic" data-say="${esc(p[0])}" aria-label="일본어로 듣기">${svg('speak')}</button></div>`).join('')}</div></div>
     <div class="em-more">${h?`<button class="btn ghost" data-bighotel>${svg('home')}숙소 주소 보여주기</button>`:''}<button class="btn ghost" data-vault>${svg('lock')}보험 · 여권 (여권·카드)</button></div>
   </div>`);}
 function emEditPop(){const m=emInfo();
