@@ -1243,11 +1243,11 @@ function header(){
   if(state.tab==='prep')return `<button class="back" data-tab="home" aria-label="홈으로">${svg('back')}</button><h1>${TITLES.prep}</h1>`;
   const right=state.tab==='plan'?`<button class="btn sm acc" data-pick="${state.day}">${svg('plus')}추가</button>`:state.tab==='fav'?`<button class="btn sm acc" data-addfav>${svg('plus')}추가</button>`:state.tab==='tickets'?`<button class="btn sm acc" data-addticket>${svg('plus')}추가</button>`:'';
   // title (with D-day on home) on the left; the tab's own action, settings gear (home only) at the far right
-  return `<h1>${state.tab==='home'?`${esc(trip().title)}<span class="dday">${ddayTxt()}</span>`:TITLES[state.tab]}</h1>${right}${state.tab==='home'?syncDot():''}`;
+  return `<h1>${state.tab==='home'?`<span class="brand">딱복트립</span><span class="dday">${ddayTxt()}</span>`:TITLES[state.tab]}</h1>${right}${state.tab==='home'?syncDot():''}`;
 }
 function viewHome(){
   const all=prepItems().length,t=totals(),ds=diary(),last=ds[ds.length-1],checks=checkSet(),T=trip(),h=hotelId();
-  const today=(()=>{const n=daysUntil();return n!=null&&n<=0&&n>-DAYS.length?1-n:1;})(),first=planOf(today).slice(0,4);
+  const onTrip=(()=>{const n=daysUntil();return n!=null&&n<=0&&n>-DAYS.length;})(),today=onTrip?1-daysUntil():1,first=planOf(today).slice(0,4);
   const nPlaces=Object.keys(PL).length,nStops=DAYS.reduce((a,d)=>a+planOf(d.id).length,0);
   return `<section class="view">
     <div class="hero">${heroArt()}<div class="in"><h2>${esc(T.title)}</h2><p><span class="mono">${esc(rangeText())}</span>${T.city?' · '+esc(T.city):''}${h?' · '+esc(PL[h].n):''}</p></div></div>
@@ -1264,8 +1264,8 @@ function viewHome(){
     <div><div class="sec-h"><h2>티켓</h2><button class="more" data-tab="tickets">티켓 지갑 ${svg('chev')}</button></div>
       <div class="card">${slotStatus().map(s=>{const f=s.dir?flights()[s.dir]:null,air=f&&(f.no||f.fromCity||f.toCity);
         return `<button class="rsv-row${s.t?'':' need'}" ${s.t?`data-showticket="${s.t.id}"`:`data-slot="${esc(s.slot)}"`}><span class="ri">${svg(s.type==='항공권'?'plane':s.type==='숙소'?'bed':'ticket','')}</span><span class="m">${air?`<span class="s">${DIRS[s.dir]} · ${dayDate(s.day)}</span>${flightLine(f)}`:`<b>${esc(s.t?s.t.title:s.title)}</b><span class="s">${dayDate(s.day)}${(s.t&&s.t.time||s.time)?' · '+esc(s.t&&s.t.time||s.time):''}</span>`}</span>${air&&f.no?`<span class="r mono">${esc(f.no)}</span>`:''}${s.t?'':'<span class="r add">+ 추가</span>'}</button>`;}).join('')}</div></div>
-    ${first.length?`<div><div class="sec-h"><h2>DAY ${today} · ${esc(dayOf(today).label)}</h2><button class="more" data-tab="plan" data-day="${today}">전체 일정 ${svg('chev')}</button></div>
-      <div>${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p);return `<div class="mini"><span class="t">${s.t||'--:--'}</span><span class="n">${esc(s.title||p.n)}</span>${sg?`<span class="jp-s" lang="ja">${esc(sg[0])}</span>`:''}</div>`;}).join('')}</div></div>`:''}
+    ${first.length?`<div><div class="sec-h"><h2>${onTrip?`오늘 일정 · DAY ${today}`:`DAY ${today} · ${esc(dayOf(today).label)}`}</h2><button class="more" data-tab="plan" data-day="${today}">전체 일정 ${svg('chev')}</button></div>
+      <div class="card today">${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p),jp=(sg&&sg[0])||p.jp||'';return `<button class="td-row" data-tab="plan" data-day="${today}"><span class="t">${s.t||'--:--'}</span><span class="n"><b>${esc(s.title||p.n)}</b>${jp?`<span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${svg('chev')}</button>`;}).join('')}</div></div>`:''}
     <div><div class="sec-h"><h2>가계부</h2><button class="more" data-tab="money">기록하기 ${svg('chev')}</button></div>
       <button class="card budget" data-tab="money"><span class="fine">지금까지 쓴 돈</span><span class="big">${won(t.sum)}</span>${catBar(t,Math.max(t.sum,settings().budget))}<span class="fine">예산 ${won(settings().budget)} 중 ${Math.round(t.sum/settings().budget*100)}%</span></button></div>
     <button class="btn ghost" data-settings>${svg('gear')}우리 여행 · 초대 코드 · 동기화</button>
@@ -1330,14 +1330,24 @@ function gcardInner(id,d){const p=PL[id],c=CAT[p.cat]||CAT['기타'];
     ${d&&d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}
     ${d&&d.photos&&d.photos.length?`<div class="gc-ph">${d.photos.slice(0,4).map(ph=>`<img loading="lazy" src="${gPhoto(ph.name)}" alt="">`).join('')}</div>`:!d&&navigator.onLine?'<div class="gc-ph wait"><i></i><i></i><i></i></div>':''}`;}
 /* ===================== favorites: places found but not yet put in the schedule ===================== */
+// a favourite card: photos first (with the days it is in the schedule), then name and category on one line, rating, type, open now
+function favInner(id,d){const p=PL[id],c=CAT[p.cat]||CAT['기타'],days=DAYS.filter(x=>planOf(x.id).some(s=>s.p===id)).map(x=>x.id);
+  const type=(d&&d.primaryTypeDisplayName&&d.primaryTypeDisplayName.text)||p.d||'',pr=d&&priceText(d.priceRange),ph=d&&d.photos?d.photos.slice(0,2).map(x=>gPhoto(x.name,600)):[];
+  const day=days.length?`<span class="fv-day">${svg('check')}DAY ${days.join('·')}</span>`:'';
+  return `${ph.length?`<div class="fv-ph${ph.length<2?' one':''}">${ph.map(u=>`<img loading="lazy" src="${u}" alt="">`).join('')}${day}</div>`:!d&&p.gid&&navigator.onLine?`<div class="fv-ph wait"><i></i><i></i>${day}</div>`:''}
+    <div class="fv-b"><div class="fv-top"><b>${esc(p.n)}</b><span class="gc-cat" style="--c:var(${c.c})">${esc(p.cat)}</span></div>
+      ${!ph.length&&!(!d&&p.gid&&navigator.onLine)&&day?`<div>${day}</div>`:''}
+      ${d&&d.rating?`<div class="gc-r"><span>${d.rating.toFixed(1)}</span>${stars(d.rating)}<span class="cnt">(${(d.userRatingCount||0).toLocaleString('ko-KR')}개)</span></div>`:''}
+      ${type||pr?`<div class="gc-t">${esc([type,pr].filter(Boolean).join(' · '))}</div>`:''}
+      ${d&&d.currentOpeningHours?`<div class="gc-o">${openText(d.currentOpeningHours)}</div>`:''}</div>`;}
 function viewFav(){
   const all=[...savedSet()].filter(id=>PL[id]),inPlan=id=>DAYS.some(d=>planOf(d.id).some(x=>x.p===id)),hide=LS.get('favHide',false),ids=hide?all.filter(id=>!inPlan(id)):all,nIn=all.filter(inPlan).length;
   setTimeout(fillFavCards,0);
   return `<section class="view">
     ${all.length?`<div class="seg favseg" role="group" aria-label="보기"><button type="button" data-favhide="0" aria-pressed="${!hide}">전체 ${all.length}</button><button type="button" data-favhide="1" aria-pressed="${hide}">일정에 안 넣은 곳 ${all.length-nIn}</button></div>
     <div class="favs">${ids.map(id=>{const p=PL[id],c0=p.gid&&LS.get('gpi:'+p.gid,null),days=DAYS.filter(d=>planOf(d.id).some(x=>x.p===id)).map(d=>d.id);
-      return `<div class="card gcard${days.length?' planned':''}" data-hold="${id}" data-holdkind="fav"><a class="gc-main" href="${placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}">${gcardInner(id,c0&&c0.d)}</a>
-        <div class="gc-acts">${days.length?`<span class="gc-in">${svg('check')}DAY ${days.join('·')} 일정에 있어요</span>`:''}<button class="btn sm ${days.length?'':'acc'}" data-addto="${id}">${svg('plus')}${days.length?'다른 날에도':'일정에 넣기'}</button></div></div>`;}).join('')||'<p class="fine empty">모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.</p>'}</div>
+      return `<div class="card fvcard" data-hold="${id}" data-holdkind="fav"><a class="fv-main" href="${(c0&&c0.d&&c0.d.googleMapsUri)||placeSearch(id)}" target="_blank" rel="noopener" data-gcard="${id}">${favInner(id,c0&&c0.d)}</a>
+        <button class="fv-plus${days.length?' sec':''}" data-addto="${id}" aria-label="${days.length?'다른 날 일정에도 넣기':'일정에 넣기'}">${svg('plus')}</button></div>`;}).join('')||'<p class="fine empty">모두 일정에 넣었어요. 「전체」를 누르면 다 보여요.</p>'}</div>
     <p class="fine">카드를 누르면 구글 지도로 열려요. 길게 누르면 즐겨찾기에서 뺄 수 있고, 일정에 넣은 건 그대로 남아요.</p>`
     :`<div class="card empty-fav"><b>아직 즐겨찾기가 없어요</b><p class="fine">오른쪽 위 「추가」에 구글 지도 공유 링크를 붙여 넣거나 장소 이름을 쓰면 여기 모여요. 나중에 하나씩 일정에 넣으면 돼요.</p><button class="btn acc" data-addfav>${svg('plus')}추가</button></div>`}
   </section>`;
@@ -1345,7 +1355,7 @@ function viewFav(){
 // fills each card with Google's details, a few at a time
 async function fillFavCards(){const cards=[...document.querySelectorAll('[data-gcard]')];let k=0;
   const work=async()=>{while(k<cards.length){const el=cards[k++],id=el.dataset.gcard,p=PL[id];if(!p||!p.gid)continue;
-    const d=await placeInfo(p.gid);if(!el.isConnected)continue;if(d){el.innerHTML=gcardInner(id,d);if(d.googleMapsUri)el.href=d.googleMapsUri;}else{const w=el.querySelector('.gc-ph.wait');if(w)w.remove();}}};
+    const d=await placeInfo(p.gid);if(!el.isConnected)continue;if(d){el.innerHTML=favInner(id,d);if(d.googleMapsUri)el.href=d.googleMapsUri;}else el.innerHTML=favInner(id,{});}};
   await Promise.all([work(),work(),work()]);}
 function addFavPop(){
   floatPop(`<div class="fp-h"><b>즐겨찾기 추가</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
@@ -1750,7 +1760,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v74';
+const APP_VER='v75';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
