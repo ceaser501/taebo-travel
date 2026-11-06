@@ -1067,7 +1067,7 @@ function settingsSheet(){
       <button class="lrow tap" data-tripsetup><div class="lm"><b>${esc(T.title)}</b><span>${esc([T.city,rangeText()].filter(Boolean).join(' · '))}</span></div>${svg('chev')}</button></section>
     <section class="fsec"><h4>함께하는 사람</h4>
       ${Sync.members.map(x=>`<div class="lrow">${avatar(x.user_id)}<div class="lm"><b>${esc(x.display_name)}</b></div>${x.user_id===me()?'<span class="chip">나</span>':''}</div>`).join('')||'<p class="fine">동기화되면 보여요.</p>'}
-      ${row('초대 코드',`<span class="mono code-s">${esc(m.inviteCode||'—')}</span> · 가입 후 '초대 코드로 참여'에 입력`,`<button class="btn sm" data-copy="${esc(m.inviteCode||'')}">복사</button>`)}</section>
+      ${row('초대 코드',`<span class="mono code-s">${esc(m.inviteCode||'—')}</span> · 가입 후<br>'초대 코드로 참여'에 입력`,`<button class="btn sm" data-copy="${esc(m.inviteCode||'')}">복사</button>`)}</section>
     <section class="fsec"><h4>내 정보</h4>
       <div><label class="f" for="myName">이름</label><input type="text" id="myName" value="${esc(mine.display_name)}" maxlength="12"></div>
         <div><label class="f">색</label><span class="colors">${COLORS.map(c=>`<button type="button" class="cdot" data-mycolor="${c}" aria-pressed="${mine.color===c}" style="--c:${c}" aria-label="색 ${c}"></button>`).join('')}</span></div>
@@ -1819,7 +1819,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v99';
+const APP_VER='v100';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
