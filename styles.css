@@ -1097,3 +1097,8 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .quick5 button small{font-weight:400}
 .rseg button[aria-pressed="true"]{font-weight:600}
 .quick5 button{font-weight:400}
+/* settings buttons a little taller */
+.fsec .btn.sm{min-height:40px}
+/* steps table: names and numbers centred in even columns */
+.st-tr{grid-template-columns:1.1fr repeat(var(--n),1fr)}
+.st-tr span:not(:first-child){text-align:center}
