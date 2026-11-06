@@ -1038,3 +1038,7 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .wk svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}
 .wk b{font-weight:800}.wk.lv1{background:#fff3dc;color:#8a5a00}.wk.lv2{background:#fde4e8;color:#b3263f}
 .wk-box .fine{margin:0}
+/* receipt button on the expense form */
+.btn.sm.rcpt{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.btn.sm.rcpt svg{width:16px;height:16px}
+.btn.sm.rcpt.busy{opacity:.6;pointer-events:none}

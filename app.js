@@ -744,6 +744,22 @@ async function ocrImage(file,precise){
 }
 
 // Claude's answer arrives a piece at a time; onPart gets what can already be shown (title, summary, finished dishes)
+// a receipt photo fills in the expense form; nothing is saved until 「기록하기」 is pressed
+async function readReceipt(file){const btn=$('#rcptBtn');if(btn){btn.classList.add('busy');btn.lastChild.textContent='읽는 중…';}
+  try{if(!navigator.onLine)throw new Error('offline');
+    const blob=await downscale(file,1568),b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
+    const {data:{session}}=await Sync.sb.auth.getSession();
+    const r=await fetch(`${Sync.sb.supabaseUrl}/functions/v1/receipt-read`,{method:'POST',headers:{'Content-Type':'application/json',apikey:Sync.sb.supabaseKey,Authorization:`Bearer ${session?session.access_token:Sync.sb.supabaseKey}`},body:JSON.stringify({image:b64,media_type:'image/jpeg'})});
+    const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||'http');
+    if(!j.is_receipt||j.total==null){toast('영수증을 찾지 못했어요. 금액이 잘 보이게 다시 찍어 주세요.');return;}
+    // the receipt's date picks the trip day (before the trip → 여행 전)
+    let day=state.form.day;if(j.date&&startDate()){const n=Math.round((new Date(j.date+'T00:00:00')-startDate())/86400000);day=n<0?0:n<DAYS.length?n+1:day;}
+    Object.assign(state.form,{cur:j.currency||'JPY',cat:j.category||state.form.cat,day});render();
+    const a=$('#amtIn'),t=$('#titleIn');if(a)a.value=String(j.total);if(t)t.value=[j.shop_ko,j.summary_ko].filter(Boolean).join(' · ');
+    if(a)a.closest('form').scrollIntoView({behavior:'smooth',block:'start'});
+    toast('영수증을 읽었어요. 맞는지 보고 「기록하기」를 눌러 주세요.');
+  }catch(e){toast(e.message==='offline'?'인터넷이 연결되면 읽을 수 있어요.':'영수증을 읽지 못했어요. 잠시 뒤 다시 해 주세요.');}
+  finally{const b=$('#rcptBtn');if(b){b.classList.remove('busy');b.lastChild.textContent='영수증';}}}
 async function readWithClaude(b64,onPart,precise){
   try{const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);
     const {data:{session}}=await Sync.sb.auth.getSession();
@@ -1227,7 +1243,7 @@ function viewMoney(){
       <div class="bar"><i style="width:${pct}%;background:#fff"></i></div>
       <div class="row"><label for="budgetIn">예산 <input id="budgetIn" inputmode="numeric" value="${st.budget.toLocaleString('ko-KR')}"> 원</label><span>남은 돈 ${won(Math.max(0,st.budget-t.sum))}</span></div></div>
     ${t.sum?`<div><div class="sec-h"><h2>분류별</h2></div>${catBar(t,t.sum)}<div class="cats" style="margin-top:10px">${Object.keys(XCAT).filter(k=>t.by[k]).map(k=>`<span style="--c:var(${XCAT[k]})"><i></i>${k} <b>${Math.round(t.by[k]/t.sum*100)}%</b></span>`).join('')}</div></div>`:''}
-    <form class="card form" id="expForm" novalidate><div class="sec-h" style="margin:0"><h2>${f.editX?'지출 수정':'지출 기록'}</h2></div>
+    <form class="card form" id="expForm" novalidate><div class="sec-h" style="margin:0"><h2>${f.editX?'지출 수정':'지출 기록'}</h2>${f.editX?'':`<label class="btn sm rcpt" for="rcptIn" id="rcptBtn">${svg('camera')}영수증</label><input type="file" id="rcptIn" accept="image/*" hidden>`}</div>
       <div class="amt"><input id="amtIn" inputmode="decimal" placeholder="0" aria-label="금액"><div class="cur" role="group" aria-label="통화"><button type="button" data-cur="JPY" aria-pressed="${f.cur==='JPY'}">¥</button><button type="button" data-cur="KRW" aria-pressed="${f.cur==='KRW'}">₩</button><button type="button" data-cur="USD" aria-pressed="${f.cur==='USD'}">$</button></div></div>
       <div><label class="f">분류</label><div class="catpick">${Object.keys(XCAT).map(k=>`<button type="button" data-xcat="${k}" aria-pressed="${f.cat===k}" style="--c:var(${XCAT[k]})"><i></i>${k}</button>`).join('')}</div></div>
       <div><label class="f">날짜</label><div class="catpick">${dayOpts().map(([v,l])=>`<button type="button" data-xday="${v}" aria-pressed="${f.day===v}">${l}</button>`).join('')}</div></div>
@@ -1707,6 +1723,7 @@ document.addEventListener('change',async e=>{
   if(t.dataset.check){const s=checkSet();t.checked?s.add(t.dataset.check):s.delete(t.dataset.check);setChecks(s);render();}
   if(t.id==='budgetIn'){const v=parseInt(t.value.replace(/[^0-9]/g,''),10);if(v>0)setSettings({budget:v});render();}
   if(t.id==='rateIn'){const r=parseFloat(t.value);if(r>0)setSettings({rate:r/100});}
+  if(t.id==='rcptIn'&&t.files&&t.files[0]){const f=t.files[0];t.value='';readReceipt(f);return;}
   if(t.id==='ocrIn'&&t.files&&t.files[0]){const f=t.files[0];t.value='';ocrImage(f);return;}
   if(t.id==='photoIn'&&t.files&&t.files[0]){try{const b=await downscale(t.files[0],1400);state.dform.photoBlob=b;state.dform.photoURL=URL.createObjectURL(b);state.derr='';}catch(err){state.derr='이 사진은 열 수 없어요. 다른 사진을 골라 주세요.';}keep(['diaryText']);}
   if(t.id==='tFileIn'&&t.files){for(const f of t.files){if(f.size>15*1024*1024){toast(f.name+' 은(는) 15MB보다 커서 뺐어요.');continue;}state.tf.newFiles.push({blob:f,name:f.name,url:f.type.startsWith('image/')?URL.createObjectURL(f):''});}$('#tFiles').innerHTML=filesEditHTML();hydrateFiles($('#tFiles'));t.value='';}
@@ -1780,7 +1797,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v84';
+const APP_VER='v85';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
