@@ -1005,3 +1005,30 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 /* tighter: switch → category filter → cards (the view's 26px gap is too wide here) */
 .favseg{margin-bottom:-14px}
 .favcats{margin:0 -16px -14px}
+/* 임산부 긴급카드 */
+.em-entry{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;cursor:pointer;font:inherit;color:inherit;border-color:#f6c9d1;background:#fff5f7}
+.em-entry .ve-i{width:40px;height:40px;border-radius:12px;background:#e5486b;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.em-entry .ve-i svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.em-entry .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.em-entry .m b{font-size:15.5px}.em-entry .s{font-size:12.5px;color:var(--mute)}
+.em-entry>svg{width:16px;height:16px;stroke:var(--mute);fill:none;stroke-width:2}
+.emer{display:flex;flex-direction:column;gap:16px}
+.em-ic{width:48px;height:48px;border-radius:50%;background:#e5486b;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.em-ic svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2}
+.em-main{display:flex;flex-direction:column;gap:8px;text-align:left;border:0;border-radius:18px;padding:16px 18px;background:#fff;box-shadow:0 0 0 2px #e5486b inset;cursor:pointer;font:inherit;color:inherit}
+.em-main .ja{font-size:22px;font-weight:800;line-height:1.45;font-family:"Hiragino Sans","Noto Sans JP",var(--f-body)}
+.em-main .ko{font-size:14px;color:var(--ink2)}.em-main .tap{font-size:12px;color:#e5486b;font-weight:700}
+.em-me{display:flex;align-items:center;gap:10px;background:var(--soft);border-radius:14px;padding:10px 12px}.em-me>span{flex:1;font-size:14.5px}
+.em-note{display:flex;flex-direction:column;gap:4px;font-size:14px;background:var(--soft);border-radius:14px;padding:10px 12px}.em-note .k{color:var(--mute);font-size:12.5px;margin-right:8px}
+.em-calls{display:flex;flex-direction:column;gap:8px}
+.em-call{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-decoration:none;color:inherit}
+.em-call .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.em-call .m b{font-size:15px}.em-call .m span{font-size:12.5px;color:var(--mute)}
+.em-call .n{font-weight:700;color:var(--accent);font-size:14px;white-space:nowrap}
+.em-call.red{background:#e5486b;border-color:#e5486b;color:#fff}.em-call.red .m span,.em-call.red .n{color:#fff}
+.em-find{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.em-ph{display:flex;flex-direction:column;gap:6px}
+.em-row{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 8px 8px 14px}
+.em-say{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;border:0;background:none;text-align:left;font:inherit;color:inherit;cursor:pointer;padding:2px 0}
+.em-say b{font-size:16.5px;font-family:"Hiragino Sans","Noto Sans JP",var(--f-body)}.em-say span{font-size:13px;color:var(--mute)}
+.em-row .say-ic{margin:0;flex:none}
+.em-more{display:flex;flex-direction:column;gap:8px}
+.bs-ja.mid{font-size:clamp(32px,10vw,56px)}.bs-ja.long{font-size:clamp(24px,7.4vw,40px);line-height:1.4}
