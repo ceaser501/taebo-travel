@@ -1038,3 +1038,8 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .btn.sm.rcpt.busy{opacity:.6;pointer-events:none}
 /* settings: every button in a row is the same width */
 .fsec .lrow{gap:18px}.fsec .lrow>.btn.sm{min-width:86px;padding:0 12px;justify-content:center}
+/* steps from 딱복 걸음 */
+.stp{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin-top:8px;font-size:13.5px;color:var(--ink2)}
+.stp>svg{width:16px;height:16px;stroke:var(--mute);fill:none;stroke-width:2}
+.stp span{display:inline-flex;align-items:center;gap:5px}.stp i{width:8px;height:8px;border-radius:50%;background:var(--pc)}
+.stp b{font-family:var(--f-mono);color:var(--ink)}
