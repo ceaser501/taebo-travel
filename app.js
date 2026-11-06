@@ -265,17 +265,6 @@ const allPhrases=()=>{const hid=hiddenPhrases(),h=hotelPhrase();
   return [...myPhrases().map(p=>[p.ja,p.kana||'',p.ko,'u:'+p.id]),...PHRASES.filter(p=>!hid.has(p[0])).map(p=>[...p,'b:'+p[0]]),...(h&&!hid.has(h[0])?[[...h,'h:'+h[0]]]:[])];};
 
 /* ===================== moves between stops ===================== */
-/* how much walking a day takes: walking legs (the real street path when it has been fetched), getting to and
-   from stations, and walking inside each place (its 걷는 양, or a guess from its category). An estimate, not a pedometer. */
-const WALK_IN={1:.3,2:1,3:2.5},WALK_CAT={'관광명소':1,'쇼핑':.8,'공항':.8,'맛집':.1,'카페·간식':.1,'숙소':0,'기타':.3};
-function polyKm(pth){let k=0;for(let i=1;i<pth.length;i++)k+=hav(pth[i-1],pth[i]);return k;}
-function dayWalk(d){const st=planOf(d).filter(s=>PL[s.p]);let km=0;
-  st.forEach((s,i)=>{const p=PL[s.p];km+=p.walk?WALK_IN[p.walk]:(WALK_CAT[p.cat]??.3);
-    if(!i)return;const a=st[i-1].p,l=leg(a,s.p,s.move);if(!l)return;
-    if(l.how==='walk'){if(hasLL(a)&&hasLL(s.p)){const A=PL[a].ll,B=PL[s.p].ll,c=LS.get('rt:WALK:'+A.map(x=>x.toFixed(5))+'>'+B.map(x=>x.toFixed(5)),null);km+=c?polyKm(c.p):hav(A,B)*1.25;}}
-    else if(l.how!=='taxi')km+=.6;});
-  const lv=km<3?0:km<6?1:2;return {km,steps:Math.round(km*1400/100)*100,lv,label:['여유','보통','많음'][lv]};}
-const walkLine=w=>w.km>=.1?`<span class="wk lv${w.lv}">${svg('walk')}걷기 약 ${w.km.toFixed(1)}km · ${w.steps.toLocaleString('ko-KR')}보 <b>${w.label}</b></span>`:'';
 function hav(a,b){const R=6371,r=Math.PI/180,dl=(b[0]-a[0])*r,dn=(b[1]-a[1])*r,x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
 // a stop may carry its own move (how/min/note) set while planning; otherwise estimate from distance
 function leg(a,b,move){
@@ -327,7 +316,7 @@ async function saveOfflineMap(btn){
     if(v.total)LS.set('offlineVoiceAt',new Date().toISOString());
     toast((fail?`지도를 받았어요 (${want.size-fail}/${want.size}). 일부는 다시 받아 주세요.`:`장소 ${pts.length}곳 주변 지도를 받았어요.`)+(v.total&&!v.off?` 일본어 음성 ${v.done}개도 받았어요.`:v.off?' 자연스러운 음성은 아직 꺼져 있어요.':''));
   }catch(e){toast('지도를 받지 못했어요. 잠시 뒤 다시 해 주세요.');}
-  finally{if(btn){btn.disabled=false;btn.textContent='오프라인 지도 받기';}}
+  finally{if(btn){btn.disabled=false;btn.textContent=btn.dataset.label||'오프라인 지도 받기';}}
 }
 const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#5a6fe3';
 function mapCfg(key){
@@ -767,7 +756,7 @@ async function pushToggle(){const btn=$('#pushBtn');
   if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){toast('이 브라우저는 알림을 지원하지 않아요. 앱을 설치해서 열어 주세요.');return;}
   try{const reg=await navigator.serviceWorker.ready,old=await reg.pushManager.getSubscription();
     if(LS.get('pushOn',false)&&old){if(!confirm('예약 알림을 끌까요?'))return;
-      await Sync.sb.from('trip_push_subs').delete().eq('endpoint',old.endpoint);await old.unsubscribe();LS.set('pushOn',false);if(btn)btn.textContent='켜기';toast('예약 알림을 껐어요.');return;}
+      await Sync.sb.from('trip_push_subs').delete().eq('endpoint',old.endpoint);await old.unsubscribe();LS.set('pushOn',false);if(btn)btn.textContent='꺼짐';toast('예약 알림을 껐어요.');return;}
     const perm=await Notification.requestPermission();if(perm!=='granted'){toast('알림이 막혀 있어요. 휴대폰 설정에서 이 앱의 알림을 허용해 주세요.');return;}
     const sub=old||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUBLIC)}),k=sub.toJSON().keys;
     const {error}=await Sync.sb.from('trip_push_subs').upsert({endpoint:sub.endpoint,trip_id:Sync.meta.tripId,p256dh:k.p256dh,auth:k.auth});if(error)throw error;
@@ -1077,10 +1066,10 @@ function settingsSheet(){
 
       <button class="btn pri" data-saveprofile>저장</button></section>
     <section class="fsec"><h4>앱</h4>
-      ${row('예약 알림','비행기 · 예약 티켓 · 체크인 시간 전에 휴대폰으로 알려줘요',`<button class="btn sm" data-pushtoggle id="pushBtn">${LS.get('pushOn',false)?'켜짐':'켜기'}</button>`)}
-      ${row('동기화',esc(syncText()),`<button class="btn sm" data-syncnow>${svg('sync')}지금</button>`)}
-      ${row('오프라인 지도·음성',off?'받아 둠 · '+new Date(off).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요',`<button class="btn sm" data-offlinemap>받기</button>`)}
+      ${row('예약 알림','비행기 · 예약 티켓 · 체크인 시간 전에 휴대폰으로 알려줘요',`<button class="btn sm" data-pushtoggle id="pushBtn">${LS.get('pushOn',false)?'켜짐':'꺼짐'}</button>`)}
       ${row('효과음','',`<button class="btn sm" data-sound aria-pressed="${state.sound}">${state.sound?'켜짐':'꺼짐'}</button>`)}
+      ${row('오프라인 지도·음성',off?'받아 둠 · '+new Date(off).toLocaleDateString('ko-KR'):'출발 전에 한 번 받아 두세요',`<button class="btn sm" data-offlinemap data-label="다운로드">다운로드</button>`)}
+      ${row('동기화',esc(syncText()),`<button class="btn sm" data-syncnow>${svg('sync')}지금</button>`)}
       ${row('인트로','',`<button class="btn sm" data-replay>다시 보기</button>`)}
       ${row('앱 버전',APP_VER+' · 새 기능이 안 보이면 눌러 주세요',`<button class="btn sm" data-forceupdate>새로 받기</button>`)}</section>
     <section class="fsec"><h4>데이터</h4>
@@ -1311,7 +1300,7 @@ function viewHome(){
       <div class="card">${slotStatus().map(s=>{const f=s.dir?flights()[s.dir]:null,air=f&&(f.no||f.fromCity||f.toCity);
         return `<button class="rsv-row${s.t?'':' need'}" ${s.t?`data-showticket="${s.t.id}"`:`data-slot="${esc(s.slot)}"`}><span class="ri">${svg(s.type==='항공권'?'plane':s.type==='숙소'?'bed':'ticket','')}</span><span class="m">${air?`<span class="s">${DIRS[s.dir]} · ${dayDate(s.day)}</span>${flightLine(f)}`:`<b>${esc(s.t?s.t.title:s.title)}</b><span class="s">${dayDate(s.day)}${(s.t&&s.t.time||s.time)?' · '+esc(s.t&&s.t.time||s.time):''}</span>`}</span>${air&&f.no?`<span class="r mono">${esc(f.no)}</span>`:''}${s.t?'':'<span class="r add">+ 추가</span>'}</button>`;}).join('')}</div></div>
     ${first.length?`<div><div class="sec-h"><h2>${onTrip?`오늘 일정 · DAY ${today}`:`DAY ${today} · ${esc(dayOf(today).label)}`}</h2><button class="more" data-tab="plan" data-day="${today}">전체 일정 ${svg('chev')}</button></div>
-      <div class="card today">${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p),jp=(sg&&sg[0])||p.jp||'';return `<button class="td-row" data-tab="plan" data-day="${today}"><span class="t">${s.t||'--:--'}</span><span class="n"><b>${esc(s.title||p.n)}</b>${jp?`<span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${svg('chev')}</button>`;}).join('')}</div>${(()=>{const w=dayWalk(today);return w.km>=.1?`<div class="wk-box">${walkLine(w)}</div>`:'';})()}</div>`:''}
+      <div class="card today">${first.map(s=>{const p=PL[s.p],sg=mainSign(s.p),jp=(sg&&sg[0])||p.jp||'';return `<button class="td-row" data-tab="plan" data-day="${today}"><span class="t">${s.t||'--:--'}</span><span class="n"><b>${esc(s.title||p.n)}</b>${jp?`<span lang="ja" translate="no">${esc(jp)}</span>`:''}</span>${svg('chev')}</button>`;}).join('')}</div></div>`:''}
     <div><div class="sec-h"><h2>가계부</h2><button class="more" data-tab="money">기록하기 ${svg('chev')}</button></div>
       <button class="card budget" data-tab="money"><span class="fine">지금까지 쓴 돈</span><span class="big">${won(t.sum)}</span>${catBar(t,Math.max(t.sum,settings().budget))}<span class="fine">예산 ${won(settings().budget)} 중 ${Math.round(t.sum/settings().budget*100)}%</span></button></div>
     <button class="card em-entry" data-emergency><span class="ve-i">${svg('heart','')}</span><span class="m"><b>임산부 긴급카드</b><span class="s">아플 때 보여줄 일본어 · 119 · 한국어 핫라인</span></span>${svg('chev')}</button>
@@ -1343,7 +1332,7 @@ function viewPlan(){
     <div class="seg ${DAYS.length<=3?'days':''}" role="group" aria-label="날짜">${DAYS.map(x=>`<button class="pill" style="--c:var(${x.c})" data-day="${x.id}" aria-pressed="${x.id===d}"><span><i style="margin-right:5px;vertical-align:1px"></i>DAY ${x.id}</span><small>${esc(x.label)}</small></button>`).join('')}</div>
     ${nums.length||st.some(s=>hasLL(s.p))?`<div>${mapBox('plan','plan',mapCfg('plan'))}<div class="mleg"><span><i></i>전철·버스</span><span><i class="taxi"></i>택시</span><span><i class="walk"></i>도보</span><span class="fine">도보·택시는 실제 길로, 전철은 직선으로 이어요</span></div></div>`:''}
     <div class="card dayboard" style="--c:var(${day.c})"><div><div class="day-h" style="--c:var(${day.c})"><span class="dn">DAY ${d}</span><h2><button class="dt-btn" data-daytitlepop="${d}" aria-label="DAY ${d} 제목 바꾸기">${esc(day.title||'일정')}</button></h2><span class="date">${esc(day.label)}</span></div>
-      <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 오른쪽 위 「추가」로 장소를 넣어 보세요.'}</p>${st.length?(()=>{const w=dayWalk(d);return w.km>=.1?`<div class="wk-box">${walkLine(w)}${w.lv===2?'<p class="fine">많이 걷는 날이에요. 중간에 카페에서 쉬거나 택시를 섞어 보세요.</p>':''}</div>`:'';})():''}</div>
+      <p class="fine">${st.length?`장소 ${nums.length}곳${tot?` · 이동 약 ${tot}분`:''}`:'아직 이날 일정이 없어요. 오른쪽 위 「추가」로 장소를 넣어 보세요.'}</p></div>
     <div>${fl&&d===1?flightRow:''}<ol class="stops">${list}</ol>${fl&&d!==1?flightRow:''}</div>
       ${st.length?'<p class="fine plan-hint">길게 눌러 끌면 순서 변경 · 오른쪽으로 밀면 삭제</p>':''}</div>
   </section>`;
@@ -1816,7 +1805,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v88';
+const APP_VER='v89';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
