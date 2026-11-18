@@ -611,7 +611,7 @@ function talkSheet(msg){
   openSheet(`${shHead('일본어 회화','한국어로 쓰면 일본어로, 일본어를 쓰면 뜻을 달아 목록에 넣어요.')}
     <form id="trForm" class="srow"><input type="text" id="trIn" class="sinput" placeholder="예: 이거 맵나요? / 辛いですか" autocomplete="off" enterkeyhint="done"><button class="btn acc" type="submit">번역</button></form>
     <p class="fine" id="trMsg" ${msg?'':'hidden'}>${esc(msg||'')}</p>
-    <div class="ttools"><label class="ttool">${svg('camera')}<span><b>사진 번역</b><small>간판·메뉴를 찍어요</small></span><input type="file" id="ocrIn" accept="image/*" capture="environment" hidden></label>
+    <div class="ttools"><label class="ttool">${svg('camera')}<span><b>사진 번역</b><small>찍으면 사진 위에 번역</small></span><input type="file" id="ocrIn" accept="image/*" hidden></label>
       <button class="ttool" data-interp>${svg('mic')}<span><b>대화 통역</b><small>말하면 바로 번역</small></span></button></div>
     <div class="signs">${allPhrases().map((p,i)=>`<div class="sign tap" data-bigphrase="${i}" ${p[3]?`data-hold="${esc(p[3])}"`:''} role="button" tabindex="0" aria-label="${esc(p[2])} 크게 보기"><div class="sj"><span class="ja${jaFit(p[0])}" lang="ja" translate="no">${esc(p[0])}</span>${p[1]?`<span class="kana" lang="ja" translate="no">${esc(p[1])}</span>`:''}${koSay(p[1],p[0])?`<span class="pron">${esc(koSay(p[1],p[0]))}</span>`:''}<span class="ko">${esc(p[2])}</span></div>
       <button class="say-zone" data-say="${esc(p[0])}" aria-label="${esc(p[2])} 듣기">${svg('speak')}<span>듣기</span></button></div>`).join('')}</div>
@@ -707,8 +707,95 @@ let kuroP=null;
 async function savePhrase(ja,ko){let kana='';try{kana=await readingOf(ja);}catch(e){}Sync.put('phrase',uid(),{ja,kana,ko,by:me(),at:new Date().toISOString()});cloudTTS(ja,false).catch(()=>{});}
 
 /* ---------- photo translation: Cloud Vision reads the Japanese, Cloud Translation turns it into Korean ---------- */
-async function ocrImage(file,precise){
-  openOverlay(`<div class="ocr"><div class="ov-top"><b>사진 번역</b><button class="ov-x" data-closeov aria-label="닫기">×</button></div><div id="ocrBody"><p class="fine" style="text-align:center;padding:30px 0">글자를 읽는 중…</p></div></div>`);
+/* ---------- photo translation on the photo itself: Cloud Vision finds each block of text and where it is,
+   Cloud Translation turns it into Korean, and the Korean is painted over the original in the same place ---------- */
+const KN={'〇':0,'零':0,'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
+// prices written in kanji (九五〇 or 千二百) become digits
+function kanjiNum(t){if(/^[〇零一二三四五六七八九]{2,}$/.test(t))return t.split('').map(c=>KN[c]).join('');
+  if(/^[〇零一二三四五六七八九十百千]+$/.test(t)&&/[十百千]/.test(t)){let tot=0,cur=0;for(const c of t){if(c in KN)cur=KN[c];else{tot+=(cur||1)*{'十':10,'百':100,'千':1000}[c];cur=0;}}return String(tot+cur);}return null;}
+async function visionBlocks(b64){
+  const r=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'DOCUMENT_TEXT_DETECTION'}],imageContext:{languageHints:['ja','en']}}]})});
+  if(r.status===403)throw new Error('vision-off');if(!r.ok)throw new Error('http');
+  const fa=(((await r.json()).responses||[])[0]||{}).fullTextAnnotation;if(!fa)return [];
+  // one entry per line (a column, for vertical writing): Vision marks where each line ends
+  const out=[],skip=/^[\d\s.,:;\-‐–—~〜・･/()（）「」【】\[\]!?！？¥￥円%＋+*※★☆#]+$/;
+  fa.pages.forEach(pg=>pg.blocks.forEach(b=>b.paragraphs.forEach(p=>{
+    const pv=p.boundingBox.vertices.map(v=>({x:v.x||0,y:v.y||0})),ang=Math.atan2(pv[1].y-pv[0].y,pv[1].x-pv[0].x);
+    let t='',pts=[];const flush=()=>{t=t.trim();if(t&&!skip.test(t)&&pts.length){
+        const xs=pts.map(q=>q.x),ys=pts.map(q=>q.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+        // a tilted photo keeps the paragraph's own corners; an upright one gets the line's exact box
+        out.push({src:t,v:Math.abs(ang)>.14&&Math.abs(Math.abs(ang)-Math.PI/2)>.14?pv:[{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1}]});}t='';pts=[];};
+    p.words.forEach(w=>w.symbols.forEach(sy=>{t+=sy.text;(sy.boundingBox?sy.boundingBox.vertices:[]).forEach(v=>pts.push({x:v.x||0,y:v.y||0}));
+      const br=sy.property&&sy.property.detectedBreak,bt=br?br.type:'';if(/SPACE/.test(bt)&&bt!=='EOL_SURE_SPACE')t+=' ';if(bt==='EOL_SURE_SPACE'||bt==='LINE_BREAK')flush();}));
+    flush();})));
+  return out;}
+async function translateMany(texts){const out=[];
+  for(let i=0;i<texts.length;i+=100){const r=await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:texts.slice(i,i+100),target:'ko',format:'text'})});
+    if(r.status===403)throw new Error('disabled');if(!r.ok)throw new Error('http');(await r.json()).data.translations.forEach(x=>out.push(x.translatedText));}
+  return out;}
+// paints the Korean over each block, on a patch the colour of the paper around it
+function paintTranslation(img,blocks){
+  const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const g=c.getContext('2d');g.drawImage(img,0,0);
+  const px=g.getImageData(0,0,c.width,c.height).data,at=(x,y)=>{x=Math.max(0,Math.min(c.width-1,x|0));y=Math.max(0,Math.min(c.height-1,y|0));const i=(y*c.width+x)*4;return [px[i],px[i+1],px[i+2]];};
+  const minFs=Math.max(9,c.width/120),font=fs=>`700 ${fs}px "Pretendard","Noto Sans KR","Apple SD Gothic Neo",sans-serif`;
+  blocks.forEach(b=>{if(!b.ko)return;const v=b.v,cx=(v[0].x+v[2].x)/2,cy=(v[0].y+v[2].y)/2;
+    const w=Math.hypot(v[1].x-v[0].x,v[1].y-v[0].y),h=Math.hypot(v[2].x-v[1].x,v[2].y-v[1].y),ang=Math.atan2(v[1].y-v[0].y,v[1].x-v[0].x);
+    if(w<4||h<4)return;
+    // the paper colour: the pixels just outside the box
+    const xs=v.map(p=>p.x),ys=v.map(p=>p.y),x0=Math.min(...xs)-3,x1=Math.max(...xs)+3,y0=Math.min(...ys)-3,y1=Math.max(...ys)+3,sm=[];
+    for(let k=0;k<=12;k++){const fx=x0+(x1-x0)*k/12,fy=y0+(y1-y0)*k/12;sm.push(at(fx,y0),at(fx,y1),at(x0,fy),at(x1,fy));}
+    const col=[0,1,2].map(i=>{const a=sm.map(q=>q[i]).sort((p,q)=>p-q);return a[a.length>>1];}),lum=(col[0]*299+col[1]*587+col[2]*114)/1000;
+    const ink=lum>140?'#14182b':'#ffffff',text=b.ko;
+    g.save();g.translate(cx,cy);g.rotate(ang);
+    const vertical=h>w*1.4&&b.src.replace(/\s/g,'').length>1;let bw=w,bh=h,draw;
+    if(vertical){ // a column: Korean letters stacked top to bottom
+      const ch=[...text.replace(/\s+/g,'')];let fs=Math.min(w*.92,h*1.25/ch.length);fs=Math.max(fs,Math.min(w*.92,minFs*.8));bh=Math.max(h,fs*ch.length);bw=Math.max(w,fs*1.1);
+      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';ch.forEach((t,i)=>g.fillText(t,0,-bh/2+fs*(i+.5)));};
+    }else{ // a line or a paragraph: the biggest size at which the words wrap inside the box
+      let fs=Math.min(h*.82,60),lines=[text];
+      const wrap=(fs,maxW)=>{g.font=font(fs);const words=text.split(/(\s+)/),out=[];let cur='';
+        words.forEach(wd=>{const t=cur+wd;if(g.measureText(t).width>maxW&&cur.trim()){out.push(cur.trim());cur=wd.trimStart();}else cur=t;});if(cur.trim())out.push(cur.trim());
+        return out.flatMap(l=>{if(g.measureText(l).width<=maxW)return [l];const r=[];let t='';[...l].forEach(ch=>{if(g.measureText(t+ch).width>maxW&&t){r.push(t);t=ch;}else t+=ch;});if(t)r.push(t);return r;});};
+      for(;fs>minFs;fs-=Math.max(.5,fs*.06)){lines=wrap(fs,w);if(lines.length*fs*1.15<=h*1.05)break;}
+      if(fs<=minFs){fs=minFs;lines=wrap(fs,Math.max(w,minFs*6));}
+      g.font=font(fs);bw=Math.max(w,...lines.map(l=>g.measureText(l).width));bh=Math.max(h,lines.length*fs*1.15);
+      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';lines.forEach((l,i)=>g.fillText(l,0,-bh/2+fs*1.15*(i+.5)));};}
+    const pad=Math.max(2,Math.min(bw,bh)*.08);g.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},.94)`;
+    g.beginPath();(g.roundRect?g.roundRect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2,pad):g.rect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2));g.fill();
+    g.fillStyle=ink;draw();g.restore();});
+  return c;}
+async function ocrImage(file){
+  state.ocrFile=file;
+  openOverlay(`<div class="ocr"><div class="ov-top"><b>사진 번역</b><button class="ov-x" data-closeov aria-label="닫기">×</button></div><div id="ocrBody"><p class="fine" style="text-align:center;padding:30px 0">사진을 준비하는 중…</p></div></div>`);
+  const body=()=>$('#ocrBody');
+  try{
+    if(!navigator.onLine)throw new Error('offline');
+    const blob=await downscale(file,1600),url=URL.createObjectURL(blob);
+    const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
+    if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"><div class="tr-wait"><div class="ai-bar"><i></i></div><span>글자를 찾아 번역하는 중…</span></div></div>`;
+    const img=new Image();img.src=url;await img.decode();
+    const blocks=await visionBlocks(b64);
+    if(!blocks.length){if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"></div><p class="fine" style="text-align:center">글자를 찾지 못했어요. 글자가 크게 나오게 다시 찍어 보세요.</p>`;return;}
+    const todo=blocks.filter(b=>{const n=kanjiNum(b.src.replace(/\s/g,''));if(n){b.ko=n;return false;}return !/[가-힣]/.test(b.src);});
+    const ko=await translateMany(todo.map(b=>b.src));todo.forEach((b,i)=>b.ko=ko[i]);
+    const out=paintTranslation(img,blocks),tu=await new Promise(r=>out.toBlob(x=>r(URL.createObjectURL(x)),'image/jpeg',.9));
+    state.ocr=blocks.filter(b=>b.ko&&b.ko!==b.src).map(b=>[b.src,b.ko]);
+    if(!body())return;
+    body().innerHTML=`<div class="tr-wrap"><img class="tr-img" id="trImg" src="${tu}" data-tr="${tu}" data-orig="${url}" alt="번역한 사진"><button class="tr-sw" data-trswap>원본 보기</button></div>
+      <p class="fine" style="text-align:center;margin:0">사진을 누르면 크게 볼 수 있어요</p>
+      <div class="tr-acts"><a class="btn" href="${tu}" download="번역사진.jpg">${svg('share')}사진 저장</a><button class="btn" data-trmenu>${svg('list')}메뉴 · 가격 정리</button></div>
+      <details class="tr-list"><summary>번역한 글자 모두 보기 (${state.ocr.length})</summary><div class="ocr-lines">${state.ocr.map(([a,b],i)=>`<div class="ol"><button class="ol-m" data-say="${esc(a)}"><span class="ja" lang="ja" translate="no">${esc(a)}</span><span class="ko">${esc(b)}</span></button><button class="btn sm" data-ocrsave="${i}" aria-label="회화에 넣기">${svg('plus')}</button></div>`).join('')}</div></details>`;
+  }catch(e){if(body())body().innerHTML=`<p class="fine" style="text-align:center;padding:24px 0">${e.message==='vision-off'?'사진 번역이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Vision API를 켜 주세요.':e.message==='offline'?'사진 번역은 인터넷이 필요해요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.'}</p>`;}
+}
+document.addEventListener('click',e=>{const im=e.target.closest&&e.target.closest('#trImg');if(im)trZoom(im.src);});
+// tap the photo: full screen, tap again to zoom in, drag to look around
+function trZoom(src){const el=document.createElement('div');el.className='tr-full';el.innerHTML=`<img src="${src}" alt="번역한 사진 크게"><button class="ov-x" aria-label="닫기">×</button>`;
+  document.body.appendChild(el);const im=el.querySelector('img');
+  el.addEventListener('click',e=>{if(e.target.closest('.ov-x')){el.remove();return;}if(e.target!==im)return;
+    const z=el.classList.toggle('z');if(z){const r=im.getBoundingClientRect(),fx=(e.clientX-r.left)/r.width,fy=(e.clientY-r.top)/r.height;requestAnimationFrame(()=>{el.scrollLeft=im.scrollWidth*fx-el.clientWidth/2;el.scrollTop=im.scrollHeight*fy-el.clientHeight/2;});}});}
+async function ocrMenu(file,precise){
+  openOverlay(`<div class="ocr"><div class="ov-top"><b>메뉴 · 가격 정리</b><button class="ov-x" data-closeov aria-label="닫기">×</button></div><div id="ocrBody"><p class="fine" style="text-align:center;padding:30px 0">글자를 읽는 중…</p></div></div>`);
   const body=()=>$('#ocrBody');
   try{
     if(!navigator.onLine)throw new Error('offline');
@@ -1576,7 +1663,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-favview],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-sharepop],[data-shareon],[data-shareoff],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-favview],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-trswap],[data-trmenu],[data-sharepop],[data-shareon],[data-shareoff],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1670,7 +1757,9 @@ document.addEventListener('click',async e=>{
   else if(ds.sharepop!==undefined){sharePop();}
   else if(ds.shareon!==undefined){try{await Sync.share('on');sharePop();}catch(e){toast('링크를 만들지 못했어요. 인터넷을 확인해 주세요.');}}
   else if(ds.shareoff!==undefined){if(!confirm('링크를 끌까요? 이미 받은 사람도 더는 볼 수 없어요.'))return;try{await Sync.share('off');sharePop();toast('링크를 껐어요.');}catch(e){toast('끄지 못했어요. 인터넷을 확인해 주세요.');}}
-  else if(ds.ocrprecise!==undefined){if(state.ocrFile)ocrImage(state.ocrFile,true);}
+  else if(ds.trswap!==undefined){const im=$('#trImg');if(im){const o=im.src===im.dataset.orig;im.src=o?im.dataset.tr:im.dataset.orig;t.textContent=o?'원본 보기':'번역 보기';}}
+  else if(ds.trmenu!==undefined){if(state.ocrFile)ocrMenu(state.ocrFile);}
+  else if(ds.ocrprecise!==undefined){if(state.ocrFile)ocrMenu(state.ocrFile,true);}
   else if(ds.ocrsave){const x=state.ocr&&state.ocr[+ds.ocrsave];if(x){await savePhrase(x[0],x[1]);t.disabled=true;toast('회화 목록에 넣었어요.');}}
   else if(ds.addpop){addPop(ds.addpop);}
   else if(ds.addfav!==undefined){addFavPop();}
@@ -1831,7 +1920,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v114';
+const APP_VER='v115';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
