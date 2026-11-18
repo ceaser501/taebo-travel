@@ -741,6 +741,14 @@ async function visionBlocks(b64){
       if(bt==='EOL_SURE_SPACE'||bt==='LINE_BREAK'){addLine(syms,ang,pv);syms=[];}}));
     addLine(syms,ang,pv);})));
   return out;}
+// Claude translates the lines knowing it is a menu or a sign (豚玉 → 돼지고기 오코노미야키, not "돼지구슬");
+// signed-out viewers, or a failed call, fall back to plain machine translation
+async function koForPhoto(texts){if(!texts.length)return [];
+  try{const {data:{session}}=await Sync.sb.auth.getSession();
+    if(session){const r=await fetch(`${Sync.sb.supabaseUrl}/functions/v1/photo-text-ko`,{method:'POST',headers:{'Content-Type':'application/json',apikey:Sync.sb.supabaseKey,Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({lines:texts.slice(0,300)})});
+      if(r.ok){const j=await r.json();if(Array.isArray(j.ko)&&j.ko.length===Math.min(300,texts.length))return texts.length>300?[...j.ko,...await translateMany(texts.slice(300))]:j.ko;}}}
+  catch(e){console.warn('photo-text-ko',e);}
+  return translateMany(texts);}
 async function translateMany(texts){const out=[];
   for(let i=0;i<texts.length;i+=100){const r=await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:texts.slice(i,i+100),target:'ko',format:'text'})});
     if(r.status===403)throw new Error('disabled');if(!r.ok)throw new Error('http');(await r.json()).data.translations.forEach(x=>out.push(x.translatedText));}
@@ -795,7 +803,7 @@ async function ocrImage(file){
     const blocks=await visionBlocks(b64);
     if(!blocks.length){if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"></div><p class="fine" style="text-align:center">글자를 찾지 못했어요. 글자가 크게 나오게 다시 찍어 보세요.</p>`;return;}
     const todo=blocks.filter(b=>{const t=b.src.replace(/[\s,，]/g,'');if(b.num){b.ko=kanjiNum(t)||t.replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-65248));return false;}const n=kanjiNum(t);if(n){b.ko=n;b.num=true;return false;}return !/[가-힣]/.test(b.src);});
-    const ko=await translateMany(todo.map(b=>b.src));todo.forEach((b,i)=>b.ko=ko[i]);
+    const ko=await koForPhoto(todo.map(b=>b.src));todo.forEach((b,i)=>b.ko=ko[i]);
     const out=paintTranslation(img,blocks),tu=await new Promise(r=>out.toBlob(x=>r(URL.createObjectURL(x)),'image/jpeg',.9));
     state.ocr=blocks.filter(b=>b.ko&&b.ko!==b.src&&!b.num).map(b=>[b.src,b.ko]);
     if(!body())return;
@@ -1937,7 +1945,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v116';
+const APP_VER='v117';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
