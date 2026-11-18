@@ -753,42 +753,51 @@ async function translateMany(texts){const out=[];
   for(let i=0;i<texts.length;i+=100){const r=await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:texts.slice(i,i+100),target:'ko',format:'text'})});
     if(r.status===403)throw new Error('disabled');if(!r.ok)throw new Error('http');(await r.json()).data.translations.forEach(x=>out.push(x.translatedText));}
   return out;}
-// paints the Korean over each piece of text, on a patch the colour of the paper around it; everything else stays as photographed.
-// Sizes are evened out (one size for all menu columns, one for prices) so it reads like a tidy printed sheet.
+// Rewrites the photo as a tidy Korean sheet: first every translated piece of text is wiped with the paper's own shading
+// (soft edges, no stickers), then the Korean is laid out like a printed menu: columns or lines that start together
+// start at the same height and share one letter size, prices sit on one line. Pictures, frames and blank paper stay as photographed.
 function paintTranslation(img,blocks){
   const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const g=c.getContext('2d');g.drawImage(img,0,0);
   const px=g.getImageData(0,0,c.width,c.height).data,at=(x,y)=>{x=Math.max(0,Math.min(c.width-1,x|0));y=Math.max(0,Math.min(c.height-1,y|0));const i=(y*c.width+x)*4;return [px[i],px[i+1],px[i+2]];};
-  const minFs=Math.max(8,c.width/140),font=(fs,w=700)=>`${w} ${fs}px "Pretendard","Noto Sans KR","Apple SD Gothic Neo",sans-serif`,med=a=>{a=a.slice().sort((p,q)=>p-q);return a.length?a[a.length>>1]:0;};
-  const geo=b=>{const v=b.v;return {cx:(v[0].x+v[2].x)/2,cy:(v[0].y+v[2].y)/2,w:Math.hypot(v[1].x-v[0].x,v[1].y-v[0].y),h:Math.hypot(v[2].x-v[1].x,v[2].y-v[1].y),ang:Math.atan2(v[1].y-v[0].y,v[1].x-v[0].x)};};
-  const items=blocks.filter(b=>b.ko).map(b=>({...b,...geo(b)})).filter(b=>b.w>=3&&b.h>=3);
-  // one column width for all vertical text, one line height for all horizontal text of a similar size
-  const colW=med(items.filter(b=>b.vertical&&!b.num).map(b=>b.w)),lineH=med(items.filter(b=>!b.vertical&&!b.num).map(b=>b.h));
-  items.forEach(b=>{
-    const xs=b.v.map(p=>p.x),ys=b.v.map(p=>p.y),x0=Math.min(...xs)-3,x1=Math.max(...xs)+3,y0=Math.min(...ys)-3,y1=Math.max(...ys)+3,sm=[];
-    for(let k=0;k<=12;k++){const fx=x0+(x1-x0)*k/12,fy=y0+(y1-y0)*k/12;sm.push(at(fx,y0),at(fx,y1),at(x0,fy),at(x1,fy));}
-    const col=[0,1,2].map(i=>med(sm.map(q=>q[i]))),lum=(col[0]*299+col[1]*587+col[2]*114)/1000,ink=lum>140?'#1b1f33':'#ffffff';
-    const text=b.ko.trim();let bw=b.w,bh=b.h,draw;g.save();g.translate(b.cx,b.cy);g.rotate(b.ang);
-    if(b.num){ // prices and numbers: plain digits, across, as large as the spot allows
-      const t=text.replace(/\s+/g,'');let fs=b.vertical?Math.min(b.w*1.45/Math.max(2,t.length*.6),b.h*.4):Math.min(b.h*.85,b.w*1.1/(t.length*.6));fs=Math.max(minFs*.8,fs);
-      g.font=font(fs,600);bw=Math.max(b.w,g.measureText(t).width+2);bh=Math.max(b.h,fs*1.15);
-      draw=()=>{g.font=font(fs,600);g.textAlign='center';g.textBaseline='middle';g.fillText(t,0,0);};
-    }else if(b.vertical){ // a column: Korean letters stacked top to bottom, all columns in one size
-      const ch=[...text.replace(/\s+/g,'')],base=Math.min(colW||b.w,b.w*1.15)*.86;let fs=Math.min(base,b.h*1.3/ch.length);fs=Math.max(minFs*.8,fs);
-      const step=fs*1.04;bw=Math.max(b.w,fs*1.12);bh=Math.max(b.h,step*ch.length);
-      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';ch.forEach((t,i)=>g.fillText(t,0,-bh/2+step*(i+.5)+(bh-step*ch.length)/2));};
-    }else{ // a line or paragraph: wrapped inside its box, near the common line size
-      const cap=Math.min(b.h*.8,(lineH||b.h)*1.25,64);let fs=cap,lines=[text];
-      const wrap=(fs,maxW)=>{g.font=font(fs);const words=text.split(/(\s+)/),out=[];let cur='';
-        words.forEach(wd=>{const t=cur+wd;if(g.measureText(t).width>maxW&&cur.trim()){out.push(cur.trim());cur=wd.trimStart();}else cur=t;});if(cur.trim())out.push(cur.trim());
-        return out.flatMap(l=>{if(g.measureText(l).width<=maxW)return [l];const r=[];let t='';[...l].forEach(ch=>{if(g.measureText(t+ch).width>maxW&&t){r.push(t);t=ch;}else t+=ch;});if(t)r.push(t);return r;});};
-      for(;fs>minFs;fs-=Math.max(.5,fs*.06)){lines=wrap(fs,b.w*1.05);if(lines.length*fs*1.2<=b.h*1.1)break;}
-      if(fs<=minFs){fs=minFs;lines=wrap(fs,Math.max(b.w,minFs*6));}
-      g.font=font(fs);bw=Math.max(b.w,...lines.map(l=>g.measureText(l).width));bh=Math.max(b.h,lines.length*fs*1.2);
-      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';lines.forEach((l,i)=>g.fillText(l,0,-bh/2+fs*1.2*(i+.5)));};}
-    // a clean, solid patch just over the original letters
-    const pad=Math.max(1.5,Math.min(bw,bh)*.06);g.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
-    g.beginPath();(g.roundRect?g.roundRect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2,Math.min(pad*1.5,6)):g.rect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2));g.fill();
-    g.fillStyle=ink;draw();g.restore();});
+  const med=a=>{a=a.slice().sort((p,q)=>p-q);return a.length?a[a.length>>1]:0;},lumi=q=>q[0]*.299+q[1]*.587+q[2]*.114,avg=cs=>{const l=cs.slice().sort((p,q)=>lumi(q)-lumi(p)),top=l.slice(0,Math.max(1,Math.ceil(l.length*.6)));return [0,1,2].map(i=>med(top.map(q=>q[i])));};
+  const minFs=Math.max(8,c.width/150),FONT='"Pretendard","Noto Sans KR","Apple SD Gothic Neo",sans-serif',font=(fs,w)=>`${w||600} ${fs}px ${FONT}`;
+  const box=b=>{const xs=b.v.map(p=>p.x),ys=b.v.map(p=>p.y);return {x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};},all=blocks.map(box);
+  // prices are always redrawn (the original is often kanji); other text only when it was actually translated
+  const items=blocks.filter(b=>b.ko&&b.ko.trim()&&(b.num||b.ko.trim()!==b.src.trim())).map(b=>{const xs=b.v.map(p=>p.x),ys=b.v.map(p=>p.y);
+    return {...b,ko:b.ko.trim(),x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};}).filter(b=>b.x1-b.x0>=3&&b.y1-b.y0>=3);
+  items.forEach(b=>{b.w=b.x1-b.x0;b.h=b.y1-b.y0;b.cx=(b.x0+b.x1)/2;b.cy=(b.y0+b.y1)/2;});
+  // 1. wipe: each spot gets the paper shading running between its two ends, feathered at the edges
+  items.forEach(b=>{const pad=Math.max(2,Math.min(b.w,b.h)*.12),x0=b.x0-pad,x1=b.x1+pad,y0=b.y0-pad,y1=b.y1+pad,n=8,A=[],B=[];
+    for(let k=0;k<=n;k++){if(b.vertical){const fx=x0+(x1-x0)*k/n;A.push(at(fx,y0-2));B.push(at(fx,y1+2));}else{const fy=y0+(y1-y0)*k/n;A.push(at(x0-2,fy));B.push(at(x1+2,fy));}}
+    const ca=avg(A),cb=avg(B),gr=b.vertical?g.createLinearGradient(0,y0,0,y1):g.createLinearGradient(x0,0,x1,0);
+    gr.addColorStop(0,`rgb(${ca})`);gr.addColorStop(1,`rgb(${cb})`);b.ink=((ca[0]+cb[0])*299+(ca[1]+cb[1])*587+(ca[2]+cb[2])*114)/2000>140?'#22232b':'#fafafa';
+    g.save();g.fillStyle=gr;g.shadowColor=`rgb(${avg([ca,cb])})`;g.shadowBlur=pad*1.6;g.fillRect(x0,y0,x1-x0,y1-y0);g.restore();});
+  // groups: things that begin at (about) the same place are set alike
+  const groupBy=(arr,key,tol)=>{const gs=[];arr.slice().sort((p,q)=>key(p)-key(q)).forEach(b=>{const last=gs[gs.length-1];if(last&&key(b)-key(last[last.length-1])<=tol)last.push(b);else gs.push([b]);});return gs;};
+  // free room below a column (until the next piece of text under it)
+  const roomBelow=b=>{let lim=c.height-2;all.forEach(o=>{if(!(o.x0===b.x0&&o.y0===b.y0)&&o.y0>b.y0+b.h*.5&&o.x1>b.x0+b.w*.2&&o.x0<b.x1-b.w*.2)lim=Math.min(lim,o.y0);});return lim-b.y0-Math.max(3,b.w*.25);};
+  const roomRight=b=>{let lim=c.width-2;all.forEach(o=>{if(!(o.x0===b.x0&&o.y0===b.y0)&&o.x0>b.x0+b.w*.5&&o.y1>b.y0+b.h*.3&&o.y0<b.y1-b.h*.3)lim=Math.min(lim,o.x0);});return lim-b.x0-Math.max(3,b.h*.3);};
+  // 2a. vertical names: columns starting together share their top and their letter size
+  const vcol=items.filter(b=>b.vertical&&!b.num),colW=med(vcol.map(b=>b.w))||10;
+  groupBy(vcol,b=>b.y0,colW*1.2).forEach(gr=>{const top=med(gr.map(b=>b.y0)),sizes=gr.map(b=>{const n=[...b.ko.replace(/\s+/g,'')].length;b.room=Math.max(b.h,roomBelow(b)+(b.y0-top));return Math.min(colW*.86,b.w*1.1,b.room/n/1.02);});
+    const fs=Math.max(minFs,med(sizes));
+    gr.forEach(b=>{const ch=[...b.ko.replace(/\s+/g,'')],f=Math.max(minFs*.85,Math.min(fs,b.room/ch.length/1.02)),step=f*1.02;
+      g.save();g.fillStyle=b.ink;g.font=font(f);g.textAlign='center';g.textBaseline='top';ch.forEach((t,i)=>g.fillText(t,b.cx,top+step*i));g.restore();});});
+  // 2b. prices and numbers: one size and one line per row
+  const nums=items.filter(b=>b.num);
+  groupBy(nums,b=>b.cy,Math.max(6,med(nums.map(b=>Math.min(b.w,b.h)))*1.2)).forEach(gr=>{const y=med(gr.map(b=>b.cy));
+    const fs=Math.max(minFs*.9,med(gr.map(b=>{const n=b.ko.length;return b.vertical?Math.min(b.w*1.5/(n*.58),b.h*.45):Math.min(b.h*.8,b.w*1.15/(n*.58));})));
+    const xs=gr.map(b=>b.cx).sort((p,q)=>p-q),gap=xs.length>1?med(xs.slice(1).map((x,i)=>x-xs[i])):Infinity;
+    gr.forEach(b=>{g.save();g.fillStyle=b.ink;let f=fs;g.font=font(f,700);const wmax=Math.min(gap*.88,Math.max(b.w*1.6,f*2.6));while(g.measureText(b.ko).width>wmax&&f>minFs*.7){f*=.93;g.font=font(f,700);}g.textAlign='center';g.textBaseline='middle';g.fillText(b.ko,b.cx,y);g.restore();});});
+  // 2c. horizontal lines (signs, leaflets, headings): lines of a similar height share a size, left edges kept
+  const hl=items.filter(b=>!b.vertical&&!b.num);
+    const sizes=hl.map(b=>b.h);hl.forEach(b=>{const peers=sizes.filter(h=>h>b.h*.75&&h<b.h*1.33);b.fs=Math.max(minFs,Math.min(med(peers)*.78,64));});
+  hl.forEach(b=>{const maxW=Math.max(b.w,Math.min(roomRight(b),b.w*1.6));let fs=b.fs,lines;
+    const wrap=(fs)=>{g.font=font(fs);const out=[];let cur='';b.ko.split(/(\s+)/).forEach(wd=>{const t=cur+wd;if(g.measureText(t).width>maxW&&cur.trim()){out.push(cur.trim());cur=wd.trimStart();}else cur=t;});if(cur.trim())out.push(cur.trim());
+      return out.flatMap(l=>{if(g.measureText(l).width<=maxW)return [l];const r=[];let t='';[...l].forEach(ch=>{if(g.measureText(t+ch).width>maxW&&t){r.push(t);t=ch;}else t+=ch;});if(t)r.push(t);return r;});};
+    for(;;fs*=.92){lines=wrap(fs);if(lines.length*fs*1.25<=Math.max(b.h*1.15,fs*1.25)||fs<=minFs)break;}
+    const lh=fs*1.25,top=b.cy-lines.length*lh/2;g.save();g.fillStyle=b.ink;g.font=font(fs);g.textAlign='left';g.textBaseline='middle';
+    lines.forEach((l,i)=>g.fillText(l,b.x0,top+lh*(i+.5)));g.restore();});
   return c;}
 async function ocrImage(file){
   state.ocrFile=file;
@@ -1945,7 +1954,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v117';
+const APP_VER='v118';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
