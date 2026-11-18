@@ -718,51 +718,68 @@ async function visionBlocks(b64){
     body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'DOCUMENT_TEXT_DETECTION'}],imageContext:{languageHints:['ja','en']}}]})});
   if(r.status===403)throw new Error('vision-off');if(!r.ok)throw new Error('http');
   const fa=(((await r.json()).responses||[])[0]||{}).fullTextAnnotation;if(!fa)return [];
-  // one entry per line (a column, for vertical writing): Vision marks where each line ends
-  const out=[],skip=/^[\d\s.,:;\-‐–—~〜・･/()（）「」【】\[\]!?！？¥￥円%＋+*※★☆#]+$/;
+  const out=[],junk=/^[\s.,:;\-‐–—~〜・･/()（）「」【】\[\]!?！？¥￥円%＋+*※★☆#ー_|]+$/,NUM=/[0-9０-９〇零一二三四五六七八九十百千,，]/,KD=/[〇零一二三四五六七八九]/;
+  const box=pts=>{const xs=pts.map(q=>q.x),ys=pts.map(q=>q.y);return {x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};};
+  // a line (a column, in vertical writing) is cut where a name meets its price, so each gets its own place
+  const addLine=(syms,ang,pv)=>{if(!syms.length)return;const lb=box(syms.flatMap(q=>q.p)),vertical=(lb.y1-lb.y0)>(lb.x1-lb.x0)*1.4&&syms.length>1;
+    // vertical writing is read top to bottom, whatever order the letters came in
+    if(vertical)syms=syms.slice().sort((p,q)=>box(p.p).y0-box(q.p).y0);
+    const runs=[];syms.forEach(q=>{const n=NUM.test(q.t)&&!/^[十百千]$/.test(q.t)||/^[十百千]$/.test(q.t)&&runs.length&&runs[runs.length-1].n;const last=runs[runs.length-1];
+      if(last&&last.n===n)last.s.push(q);else runs.push({n,s:[q]});});
+    // a lone kanji digit inside a word (一番, 三丁目) stays part of the word
+    const merged=[];runs.forEach(rn=>{const t=rn.s.map(q=>q.t).join('');const isNum=rn.n&&(t.length>=2||/[0-9]/.test(t))&&(KD.test(t)||/[0-9]/.test(t));
+      const prev=merged[merged.length-1];if(prev&&(!isNum)===(!prev.num)){prev.s.push(...rn.s);}else merged.push({num:isNum,s:[...rn.s]});});
+    const tilted=Math.abs(ang)>.14&&Math.abs(Math.abs(ang)-Math.PI/2)>.14;
+    merged.forEach(m=>{let t=m.s.map(q=>q.t+q.sp).join('').trim();if(!t||junk.test(t))return;
+      // a vertical 二 is often read as two 一 (1200 → 11100)
+      if(m.num&&vertical&&/^111\d{2}$/.test(t))t='12'+t.slice(3);
+      const bb=box(m.s.flatMap(q=>q.p));out.push({src:t,num:m.num,vertical,v:tilted&&merged.length===1?pv:[{x:bb.x0,y:bb.y0},{x:bb.x1,y:bb.y0},{x:bb.x1,y:bb.y1},{x:bb.x0,y:bb.y1}]});});};
   fa.pages.forEach(pg=>pg.blocks.forEach(b=>b.paragraphs.forEach(p=>{
-    const pv=p.boundingBox.vertices.map(v=>({x:v.x||0,y:v.y||0})),ang=Math.atan2(pv[1].y-pv[0].y,pv[1].x-pv[0].x);
-    let t='',pts=[];const flush=()=>{t=t.trim();if(t&&!skip.test(t)&&pts.length){
-        const xs=pts.map(q=>q.x),ys=pts.map(q=>q.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
-        // a tilted photo keeps the paragraph's own corners; an upright one gets the line's exact box
-        out.push({src:t,v:Math.abs(ang)>.14&&Math.abs(Math.abs(ang)-Math.PI/2)>.14?pv:[{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1}]});}t='';pts=[];};
-    p.words.forEach(w=>w.symbols.forEach(sy=>{t+=sy.text;(sy.boundingBox?sy.boundingBox.vertices:[]).forEach(v=>pts.push({x:v.x||0,y:v.y||0}));
-      const br=sy.property&&sy.property.detectedBreak,bt=br?br.type:'';if(/SPACE/.test(bt)&&bt!=='EOL_SURE_SPACE')t+=' ';if(bt==='EOL_SURE_SPACE'||bt==='LINE_BREAK')flush();}));
-    flush();})));
+    const pv=p.boundingBox.vertices.map(v=>({x:v.x||0,y:v.y||0})),ang=Math.atan2(pv[1].y-pv[0].y,pv[1].x-pv[0].x);let syms=[];
+    p.words.forEach(w=>w.symbols.forEach(sy=>{const br=sy.property&&sy.property.detectedBreak,bt=br?br.type:'';
+      syms.push({t:sy.text,sp:/SPACE/.test(bt)&&bt!=='EOL_SURE_SPACE'?' ':'',p:(sy.boundingBox?sy.boundingBox.vertices:[]).map(v=>({x:v.x||0,y:v.y||0}))});
+      if(bt==='EOL_SURE_SPACE'||bt==='LINE_BREAK'){addLine(syms,ang,pv);syms=[];}}));
+    addLine(syms,ang,pv);})));
   return out;}
 async function translateMany(texts){const out=[];
   for(let i=0;i<texts.length;i+=100){const r=await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:texts.slice(i,i+100),target:'ko',format:'text'})});
     if(r.status===403)throw new Error('disabled');if(!r.ok)throw new Error('http');(await r.json()).data.translations.forEach(x=>out.push(x.translatedText));}
   return out;}
-// paints the Korean over each block, on a patch the colour of the paper around it
+// paints the Korean over each piece of text, on a patch the colour of the paper around it; everything else stays as photographed.
+// Sizes are evened out (one size for all menu columns, one for prices) so it reads like a tidy printed sheet.
 function paintTranslation(img,blocks){
   const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const g=c.getContext('2d');g.drawImage(img,0,0);
   const px=g.getImageData(0,0,c.width,c.height).data,at=(x,y)=>{x=Math.max(0,Math.min(c.width-1,x|0));y=Math.max(0,Math.min(c.height-1,y|0));const i=(y*c.width+x)*4;return [px[i],px[i+1],px[i+2]];};
-  const minFs=Math.max(9,c.width/120),font=fs=>`700 ${fs}px "Pretendard","Noto Sans KR","Apple SD Gothic Neo",sans-serif`;
-  blocks.forEach(b=>{if(!b.ko)return;const v=b.v,cx=(v[0].x+v[2].x)/2,cy=(v[0].y+v[2].y)/2;
-    const w=Math.hypot(v[1].x-v[0].x,v[1].y-v[0].y),h=Math.hypot(v[2].x-v[1].x,v[2].y-v[1].y),ang=Math.atan2(v[1].y-v[0].y,v[1].x-v[0].x);
-    if(w<4||h<4)return;
-    // the paper colour: the pixels just outside the box
-    const xs=v.map(p=>p.x),ys=v.map(p=>p.y),x0=Math.min(...xs)-3,x1=Math.max(...xs)+3,y0=Math.min(...ys)-3,y1=Math.max(...ys)+3,sm=[];
+  const minFs=Math.max(8,c.width/140),font=(fs,w=700)=>`${w} ${fs}px "Pretendard","Noto Sans KR","Apple SD Gothic Neo",sans-serif`,med=a=>{a=a.slice().sort((p,q)=>p-q);return a.length?a[a.length>>1]:0;};
+  const geo=b=>{const v=b.v;return {cx:(v[0].x+v[2].x)/2,cy:(v[0].y+v[2].y)/2,w:Math.hypot(v[1].x-v[0].x,v[1].y-v[0].y),h:Math.hypot(v[2].x-v[1].x,v[2].y-v[1].y),ang:Math.atan2(v[1].y-v[0].y,v[1].x-v[0].x)};};
+  const items=blocks.filter(b=>b.ko).map(b=>({...b,...geo(b)})).filter(b=>b.w>=3&&b.h>=3);
+  // one column width for all vertical text, one line height for all horizontal text of a similar size
+  const colW=med(items.filter(b=>b.vertical&&!b.num).map(b=>b.w)),lineH=med(items.filter(b=>!b.vertical&&!b.num).map(b=>b.h));
+  items.forEach(b=>{
+    const xs=b.v.map(p=>p.x),ys=b.v.map(p=>p.y),x0=Math.min(...xs)-3,x1=Math.max(...xs)+3,y0=Math.min(...ys)-3,y1=Math.max(...ys)+3,sm=[];
     for(let k=0;k<=12;k++){const fx=x0+(x1-x0)*k/12,fy=y0+(y1-y0)*k/12;sm.push(at(fx,y0),at(fx,y1),at(x0,fy),at(x1,fy));}
-    const col=[0,1,2].map(i=>{const a=sm.map(q=>q[i]).sort((p,q)=>p-q);return a[a.length>>1];}),lum=(col[0]*299+col[1]*587+col[2]*114)/1000;
-    const ink=lum>140?'#14182b':'#ffffff',text=b.ko;
-    g.save();g.translate(cx,cy);g.rotate(ang);
-    const vertical=h>w*1.4&&b.src.replace(/\s/g,'').length>1;let bw=w,bh=h,draw;
-    if(vertical){ // a column: Korean letters stacked top to bottom
-      const ch=[...text.replace(/\s+/g,'')];let fs=Math.min(w*.92,h*1.25/ch.length);fs=Math.max(fs,Math.min(w*.92,minFs*.8));bh=Math.max(h,fs*ch.length);bw=Math.max(w,fs*1.1);
-      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';ch.forEach((t,i)=>g.fillText(t,0,-bh/2+fs*(i+.5)));};
-    }else{ // a line or a paragraph: the biggest size at which the words wrap inside the box
-      let fs=Math.min(h*.82,60),lines=[text];
+    const col=[0,1,2].map(i=>med(sm.map(q=>q[i]))),lum=(col[0]*299+col[1]*587+col[2]*114)/1000,ink=lum>140?'#1b1f33':'#ffffff';
+    const text=b.ko.trim();let bw=b.w,bh=b.h,draw;g.save();g.translate(b.cx,b.cy);g.rotate(b.ang);
+    if(b.num){ // prices and numbers: plain digits, across, as large as the spot allows
+      const t=text.replace(/\s+/g,'');let fs=b.vertical?Math.min(b.w*1.45/Math.max(2,t.length*.6),b.h*.4):Math.min(b.h*.85,b.w*1.1/(t.length*.6));fs=Math.max(minFs*.8,fs);
+      g.font=font(fs,600);bw=Math.max(b.w,g.measureText(t).width+2);bh=Math.max(b.h,fs*1.15);
+      draw=()=>{g.font=font(fs,600);g.textAlign='center';g.textBaseline='middle';g.fillText(t,0,0);};
+    }else if(b.vertical){ // a column: Korean letters stacked top to bottom, all columns in one size
+      const ch=[...text.replace(/\s+/g,'')],base=Math.min(colW||b.w,b.w*1.15)*.86;let fs=Math.min(base,b.h*1.3/ch.length);fs=Math.max(minFs*.8,fs);
+      const step=fs*1.04;bw=Math.max(b.w,fs*1.12);bh=Math.max(b.h,step*ch.length);
+      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';ch.forEach((t,i)=>g.fillText(t,0,-bh/2+step*(i+.5)+(bh-step*ch.length)/2));};
+    }else{ // a line or paragraph: wrapped inside its box, near the common line size
+      const cap=Math.min(b.h*.8,(lineH||b.h)*1.25,64);let fs=cap,lines=[text];
       const wrap=(fs,maxW)=>{g.font=font(fs);const words=text.split(/(\s+)/),out=[];let cur='';
         words.forEach(wd=>{const t=cur+wd;if(g.measureText(t).width>maxW&&cur.trim()){out.push(cur.trim());cur=wd.trimStart();}else cur=t;});if(cur.trim())out.push(cur.trim());
         return out.flatMap(l=>{if(g.measureText(l).width<=maxW)return [l];const r=[];let t='';[...l].forEach(ch=>{if(g.measureText(t+ch).width>maxW&&t){r.push(t);t=ch;}else t+=ch;});if(t)r.push(t);return r;});};
-      for(;fs>minFs;fs-=Math.max(.5,fs*.06)){lines=wrap(fs,w);if(lines.length*fs*1.15<=h*1.05)break;}
-      if(fs<=minFs){fs=minFs;lines=wrap(fs,Math.max(w,minFs*6));}
-      g.font=font(fs);bw=Math.max(w,...lines.map(l=>g.measureText(l).width));bh=Math.max(h,lines.length*fs*1.15);
-      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';lines.forEach((l,i)=>g.fillText(l,0,-bh/2+fs*1.15*(i+.5)));};}
-    const pad=Math.max(2,Math.min(bw,bh)*.08);g.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},.94)`;
-    g.beginPath();(g.roundRect?g.roundRect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2,pad):g.rect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2));g.fill();
+      for(;fs>minFs;fs-=Math.max(.5,fs*.06)){lines=wrap(fs,b.w*1.05);if(lines.length*fs*1.2<=b.h*1.1)break;}
+      if(fs<=minFs){fs=minFs;lines=wrap(fs,Math.max(b.w,minFs*6));}
+      g.font=font(fs);bw=Math.max(b.w,...lines.map(l=>g.measureText(l).width));bh=Math.max(b.h,lines.length*fs*1.2);
+      draw=()=>{g.font=font(fs);g.textAlign='center';g.textBaseline='middle';lines.forEach((l,i)=>g.fillText(l,0,-bh/2+fs*1.2*(i+.5)));};}
+    // a clean, solid patch just over the original letters
+    const pad=Math.max(1.5,Math.min(bw,bh)*.06);g.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+    g.beginPath();(g.roundRect?g.roundRect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2,Math.min(pad*1.5,6)):g.rect(-bw/2-pad,-bh/2-pad,bw+pad*2,bh+pad*2));g.fill();
     g.fillStyle=ink;draw();g.restore();});
   return c;}
 async function ocrImage(file){
@@ -777,10 +794,10 @@ async function ocrImage(file){
     const img=new Image();img.src=url;await img.decode();
     const blocks=await visionBlocks(b64);
     if(!blocks.length){if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"></div><p class="fine" style="text-align:center">글자를 찾지 못했어요. 글자가 크게 나오게 다시 찍어 보세요.</p>`;return;}
-    const todo=blocks.filter(b=>{const n=kanjiNum(b.src.replace(/\s/g,''));if(n){b.ko=n;return false;}return !/[가-힣]/.test(b.src);});
+    const todo=blocks.filter(b=>{const t=b.src.replace(/[\s,，]/g,'');if(b.num){b.ko=kanjiNum(t)||t.replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-65248));return false;}const n=kanjiNum(t);if(n){b.ko=n;b.num=true;return false;}return !/[가-힣]/.test(b.src);});
     const ko=await translateMany(todo.map(b=>b.src));todo.forEach((b,i)=>b.ko=ko[i]);
     const out=paintTranslation(img,blocks),tu=await new Promise(r=>out.toBlob(x=>r(URL.createObjectURL(x)),'image/jpeg',.9));
-    state.ocr=blocks.filter(b=>b.ko&&b.ko!==b.src).map(b=>[b.src,b.ko]);
+    state.ocr=blocks.filter(b=>b.ko&&b.ko!==b.src&&!b.num).map(b=>[b.src,b.ko]);
     if(!body())return;
     body().innerHTML=`<div class="tr-wrap"><img class="tr-img" id="trImg" src="${tu}" data-tr="${tu}" data-orig="${url}" alt="번역한 사진"><button class="tr-sw" data-trswap>원본 보기</button></div>
       <p class="fine" style="text-align:center;margin:0">사진을 누르면 크게 볼 수 있어요</p>
@@ -1920,7 +1937,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v115';
+const APP_VER='v116';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
