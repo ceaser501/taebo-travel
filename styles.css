@@ -505,6 +505,11 @@ html{--d4:#e0679a;--d5:#3a9bd8;--d6:#b28a2e;--d7:#6b8f3a}
 .mapthumb .lmap{position:absolute;inset:0;pointer-events:none}
 .mapthumb .mlegend,.mapthumb .open{z-index:500}
 .mfit{position:absolute;right:10px;bottom:10px;z-index:500;width:36px;height:36px;border-radius:11px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink)}
+.mbig{position:absolute;right:10px;bottom:54px;z-index:500;width:36px;height:36px;border-radius:11px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink)}
+.mbig svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mapbox.full{position:fixed;z-index:36;top:calc(env(safe-area-inset-top,0px) + 10px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:10px;right:10px;max-width:520px;margin:0 auto;aspect-ratio:auto;max-height:none;box-shadow:0 18px 50px rgba(20,20,60,.35)}
+body.map-full{overflow:hidden}
+body.map-full::after{content:"";position:fixed;inset:0;z-index:35;background:rgba(30,32,60,.45)}
 .mapbox .hnd{z-index:500}
 .mpin-wrap{background:none;border:0}
 .mpin{display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:600;color:#fff;box-shadow:0 2px 6px rgba(30,40,90,.3)}

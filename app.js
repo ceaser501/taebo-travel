@@ -440,8 +440,20 @@ function mountMap(key){
   if(!gFailed&&navigator.onLine)loadGoogle().then(()=>{if(document.querySelector(`[data-map="${key}"]`)===box)mountMap(key);}).catch(()=>{});
 }
 const mapBox=(key,cls,cfg)=>`<div class="mapbox ${cls}" data-map="${key}"><div class="lmap" role="region" aria-label="지도"></div>
-  ${cfg.static?'':`<button class="mfit" data-fit aria-label="일정 전체 보기">${svg('fit')}</button>`}
+  ${cfg.static?'':`<button class="mbig" data-mapbig="${key}" aria-label="지도 크게 보기">${svg('expand')}</button><button class="mfit" data-fit aria-label="일정 전체 보기">${svg('fit')}</button>`}
   ${cfg.air?`<div class="hnd">${svg('plane')}공항 이동은 아래 일정에서 확인하세요</div>`:''}<span class="offbadge">오프라인 지도</span></div>`;
+// 지도 크게 보기: the map box fills almost the whole screen; tap again (or the dim area, or back) to shrink it
+function mapFull(key,on){const box=document.querySelector(`[data-map="${key}"]`);if(!box)return;
+  const was=box.classList.contains('full');if(on===undefined)on=!was;if(on===was)return;
+  box.classList.toggle('full',on);document.body.classList.toggle('map-full',on);
+  const b=box.querySelector('[data-mapbig]');if(b){b.innerHTML=svg(on?'x':'expand');b.setAttribute('aria-label',on?'지도 작게 보기':'지도 크게 보기');}
+  if(on)history.pushState({k:'mapfull',key},'');else if(history.state&&history.state.k==='mapfull'){ignorePop=true;history.back();}
+  const refit=()=>{const m=maps[key];if(m)try{m.invalidateSize({animate:false});}catch(e){}const f=box.querySelector('[data-fit]');if(f)f.click();};
+  requestAnimationFrame(refit);setTimeout(refit,250);}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-mapbig]');if(b){e.preventDefault();e.stopPropagation();mapFull(b.dataset.mapbig);return;}
+  if(e.target===document.body&&document.body.classList.contains('map-full')){const box=document.querySelector('.mapbox.full');if(box)mapFull(box.dataset.map,false);}},true);
+window.addEventListener('popstate',()=>{const box=document.querySelector('.mapbox.full');if(box&&!(history.state&&history.state.k==='mapfull')&&!$('#sheetRoot').innerHTML){ignorePop=true;box.classList.remove('full');document.body.classList.remove('map-full');const b=box.querySelector('[data-mapbig]');if(b)b.innerHTML=svg('expand');const m=maps[box.dataset.map];if(m)try{m.invalidateSize({animate:false});}catch(e){}const f=box.querySelector('[data-fit]');if(f)setTimeout(()=>f.click(),50);}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const box=document.querySelector('.mapbox.full');if(box)mapFull(box.dataset.map,false);}});
 /* ===================== illustrations ===================== */
 const cloud=(x,y,s,o=1,fill='#fff')=>`<g transform="translate(${x} ${y}) scale(${s})" opacity="${o}"><path d="M0 30a16 16 0 0 1 10-28 24 24 0 0 1 42-2 18 18 0 0 1 22 14 14 14 0 0 1-2 28H8A12 12 0 0 1 0 30z" fill="${fill}"/></g>`;
 const planeTop=(fill='#fff',edge='#c8cfee')=>`<g><path d="M2 -2 L-6 -20 L-1 -20 L10 -2Z M2 2 L-6 20 L-1 20 L10 2Z" fill="${fill}" stroke="${edge}" stroke-width=".8"/><path d="M-18 -1.5 L-24 -9 L-20.5 -9 L-14 -1.5Z M-18 1.5 L-24 9 L-20.5 9 L-14 1.5Z" fill="${fill}" stroke="${edge}" stroke-width=".8"/><path d="M-22 0 L18 -2.6 Q27 0 18 2.6 Z" fill="${fill}" stroke="${edge}" stroke-width=".8"/></g>`;
@@ -1667,7 +1679,7 @@ function viewOnboard(){
 const VIEWS={home:viewHome,fav:viewFav,plan:viewPlan,tickets:viewTickets,diary:viewDiary,money:viewMoney,places:viewPlaces,prep:viewPrep,auth:viewAuth,onboard:viewOnboard};
 const GATED=new Set(['auth','onboard']);
 function render(){
-  rebuild();
+  rebuild();document.body.classList.remove('map-full');
   document.title=tripInfo()?trip().title:'딱복트립';
   $('#top').innerHTML=header();$('#main').innerHTML=VIEWS[state.tab]();
   $('#tabs').hidden=GATED.has(state.tab)||!$('#intro').hidden;
@@ -1954,7 +1966,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v120';
+const APP_VER='v121';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
