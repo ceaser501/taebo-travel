@@ -1426,11 +1426,12 @@ function viewHome(){
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
       <button class="tool" data-tool="talk" style="--tc:#e6e6fd"><span class="ti">${svg('talk','')}</span><b>일본어 회화</b><small>듣기 · 크게 보여주기</small></button>
+      <label class="tool" style="--tc:#e3f1fb"><span class="ti">${svg('camera','')}</span><b>사진 번역</b><small>찍으면 바로 번역</small><input type="file" id="ocrInHome" accept="image/*" capture="environment" hidden></label>
       <button class="tool" data-tool="home" style="--tc:#ffe1e6"><span class="ti">${svg('home','')}</span><b>숙소 가는 길</b><small>${h?'지금 위치에서':'숙소 미정'}</small></button>
       <button class="tool" data-tool="rate" style="--tc:#dff3e8"><span class="ti">${svg('yen','')}</span><b>환율</b><small>¥1,000 ≈ ${won(1000*rate())}</small></button>
       <button class="tool" data-tool="weather" style="--tc:#fff1c7"><span class="ti">${svg('sun','')}</span><b>날씨</b><small>${esc(T.city||'여행지')} 예보</small></button>
-      <button class="tool" data-tab="prep" style="--tc:#f1e3fb"><span class="ti">${svg('list','')}</span><b>준비물</b><small>${[...checks].length}/${all} 완료</small></button>
-      <button class="tool" data-steps style="--tc:#dbeefc"><span class="ti">${svg('walk','')}</span><b>걸음 수</b><small>${(()=>{const n=typeof stepsOf==='function'?stepsOf(me(),typeof isoDay==='function'?isoDay(new Date()):''):null;return n!=null?`오늘 ${n.toLocaleString('ko-KR')}보`:'둘이 걸은 걸음';})()}</small></button></div></div>
+      <button class="tool" data-tab="prep" style="--tc:#f1e3fb"><span class="ti">${svg('list','')}</span><b>준비물</b><small>${[...checks].length}/${all} 완료</small></button></div></div>
+    ${typeof stepsEntry==='function'?stepsEntry():''}
     ${typeof albumEntry==='function'?albumEntry():''}
     <div><div class="sec-h"><h2>티켓</h2><button class="more" data-tab="tickets">티켓 지갑 ${svg('chev')}</button></div>
       <div class="card">${slotStatus().map(s=>{const f=s.dir?flights()[s.dir]:null,air=f&&(f.no||f.fromCity||f.toCity);
@@ -1881,7 +1882,7 @@ document.addEventListener('change',async e=>{
   if(t.id==='budgetIn'){const v=parseInt(t.value.replace(/[^0-9]/g,''),10);if(v>0)setSettings({budget:v});render();}
   if(t.id==='rateIn'){const r=parseFloat(t.value);if(r>0)setSettings({rate:r/100});}
   if(t.id==='rcptIn'&&t.files&&t.files[0]){const f=t.files[0];t.value='';readReceipt(f);return;}
-  if(t.id==='ocrIn'&&t.files&&t.files[0]){const f=t.files[0];t.value='';ocrImage(f);return;}
+  if((t.id==='ocrIn'||t.id==='ocrInHome')&&t.files&&t.files[0]){const f=t.files[0];t.value='';ocrImage(f);return;}
   if(t.id==='photoIn'&&t.files&&t.files[0]){try{const b=await downscale(t.files[0],1400);state.dform.photoBlob=b;state.dform.photoURL=URL.createObjectURL(b);state.derr='';}catch(err){state.derr='이 사진은 열 수 없어요. 다른 사진을 골라 주세요.';}keep(['diaryText']);}
   if(t.id==='tFileIn'&&t.files){for(const f of t.files){if(f.size>15*1024*1024){toast(f.name+' 은(는) 15MB보다 커서 뺐어요.');continue;}state.tf.newFiles.push({blob:f,name:f.name,url:f.type.startsWith('image/')?URL.createObjectURL(f):''});}$('#tFiles').innerHTML=filesEditHTML();hydrateFiles($('#tFiles'));t.value='';}
 });
@@ -1954,7 +1955,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v118';
+const APP_VER='v119';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
