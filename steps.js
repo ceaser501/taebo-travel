@@ -41,9 +41,15 @@ function stepsSheet(){
       <a class="btn" href="${STEPS_APK}">${svg('walk')}딱복 걸음 앱 받기</a></div>
   </div>`);}
 // back from the app: pull the new numbers and redraw the page
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible'||Date.now()-stepWait>120000)return;stepWait=0;
+let stepLeft=false;
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&stepWait){stepLeft=true;return;}if(document.visibilityState!=='visible'||Date.now()-stepWait>120000)return;stepWait=0;
   setTimeout(async()=>{await Sync.syncNow();if($('#sheetRoot .stepsv'))stepsSheet();toast('걸음 수를 새로 받았어요.');},2500);});
-document.addEventListener('click',e=>{if(e.target.closest('[data-stepsync]')){stepWait=Date.now();return;}
+// if 딱복 걸음 did not open (an app installed before 「새로 받기」 existed, or none), say what to do instead of nothing happening
+function stepsNoApp(){floatPop(`<div class="fp-h"><b>딱복 걸음 앱이 열리지 않았어요</b><button class="ov-x" data-closefp aria-label="닫기">×</button></div>
+  <p class="fine" style="margin:0">휴대폰의 딱복 걸음 앱이 예전 버전이면 「새로 받기」가 동작하지 않아요. 새 버전을 받아 설치해 주세요(지우지 않고 그대로 설치하면 돼요).</p>
+  <a class="btn acc" href="${STEPS_APK}">${svg('walk')}딱복 걸음 새 버전 받기</a>
+  <p class="fine" style="margin:0">설치한 뒤 앱을 한 번 열어 「백그라운드에서도 허락」과 「배터리 최적화 끄기」를 눌러 두면, 15분마다 저절로 들어와요.</p>`);}
+document.addEventListener('click',e=>{if(e.target.closest('[data-stepsync]')){stepWait=Date.now();stepLeft=false;setTimeout(()=>{if(stepWait&&!stepLeft&&document.visibilityState==='visible'){stepWait=0;stepsNoApp();}},2500);return;}
   const t=e.target.closest('[data-steps],[data-stepmode]');if(!t)return;
   if(t.dataset.steps!==undefined)stepsSheet();else{state.stepMode=t.dataset.stepmode;stepsSheet();}});
 if(typeof state!=='undefined'&&state.tab==='home')render();

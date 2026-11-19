@@ -6,6 +6,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -117,6 +119,15 @@ class MainActivity : ComponentActivity() {
             if (Steps.backgroundSupported(this@MainActivity) && Steps.BACKGROUND !in granted) {
                 box.addView(text("앱을 닫아도 보내려면 「항상 허용(백그라운드)」도 허락해 주세요.", 14f, mute))
                 box.addView(button("백그라운드에서도 허락", false) { askPermission.launch(setOf(Steps.READ, Steps.BACKGROUND)) })
+            }
+            // Samsung and other phones put apps to sleep to save battery, which stops the 15-minute sending
+            val pm = getSystemService(PowerManager::class.java)
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
+                box.addView(text("휴대폰이 배터리를 아끼느라 자동 전송을 멈출 수 있어요. 「배터리 최적화 끄기」를 눌러 「허용」을 골라 주세요.", 14f, mute))
+                box.addView(button("배터리 최적화 끄기", false) {
+                    try { startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) }
+                    catch (e: Exception) { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+                })
             }
             box.addView(button("지금 보내기", false) { lifecycleScope.launch { send(status) } })
             box.addView(button("로그아웃", false) { trip.signOut(); draw() })
