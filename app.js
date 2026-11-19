@@ -781,6 +781,7 @@ const KN={'〇':0,'零':0,'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':
 // prices written in kanji (九五〇 or 千二百) become digits
 function kanjiNum(t){if(/^[〇零一二三四五六七八九]{2,}$/.test(t))return t.split('').map(c=>KN[c]).join('');
   if(/^[〇零一二三四五六七八九十百千]+$/.test(t)&&/[十百千]/.test(t)){let tot=0,cur=0;for(const c of t){if(c in KN)cur=KN[c];else{tot+=(cur||1)*{'十':10,'百':100,'千':1000}[c];cur=0;}}return String(tot+cur);}return null;}
+const retry1=async f=>{try{return await f();}catch(e){if(e&&(e.message==='vision-off'||e.message==='disabled'||e.message==='offline'))throw e;await new Promise(r=>setTimeout(r,1200));return f();}};
 async function visionBlocks(b64){
   const r=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GMAPS_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'DOCUMENT_TEXT_DETECTION'}],imageContext:{languageHints:['ja','en']}}]})});
@@ -877,10 +878,10 @@ async function ocrImage(file){
     const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
     if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"><div class="tr-wait"><div class="ai-bar"><i></i></div><span>글자를 찾아 번역하는 중…</span></div></div>`;
     const img=new Image();img.src=url;await img.decode();
-    const blocks=await visionBlocks(b64);
+    const blocks=await retry1(()=>visionBlocks(b64));
     if(!blocks.length){if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"></div><p class="fine" style="text-align:center">글자를 찾지 못했어요. 글자가 크게 나오게 다시 찍어 보세요.</p>`;return;}
     const todo=blocks.filter(b=>{const t=b.src.replace(/[\s,，]/g,'');if(b.num){b.ko=kanjiNum(t)||t.replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-65248));return false;}const n=kanjiNum(t);if(n){b.ko=n;b.num=true;return false;}return !/[가-힣]/.test(b.src);});
-    const ko=await koForPhoto(todo.map(b=>b.src));todo.forEach((b,i)=>b.ko=ko[i]);
+    const ko=await retry1(()=>koForPhoto(todo.map(b=>b.src)));todo.forEach((b,i)=>b.ko=ko[i]);
     const out=paintTranslation(img,blocks),tu=await new Promise(r=>out.toBlob(x=>r(URL.createObjectURL(x)),'image/jpeg',.9));
     state.ocr=blocks.filter(b=>b.ko&&b.ko!==b.src&&!b.num).map(b=>[b.src,b.ko]);
     if(!body())return;
@@ -888,7 +889,7 @@ async function ocrImage(file){
       <p class="fine" style="text-align:center;margin:0">사진을 누르면 크게 볼 수 있어요</p>
       <div class="tr-acts"><a class="btn" href="${tu}" download="번역사진.jpg">${svg('share')}사진 저장</a><button class="btn" data-trmenu>${svg('list')}메뉴 · 가격 정리</button></div>
       <details class="tr-list"><summary>번역한 글자 모두 보기 (${state.ocr.length})</summary><div class="ocr-lines">${state.ocr.map(([a,b],i)=>`<div class="ol"><button class="ol-m" data-say="${esc(a)}"><span class="ja" lang="ja" translate="no">${esc(a)}</span><span class="ko">${esc(b)}</span></button><button class="btn sm" data-ocrsave="${i}" aria-label="회화에 넣기">${svg('plus')}</button></div>`).join('')}</div></details>`;
-  }catch(e){if(body())body().innerHTML=`<p class="fine" style="text-align:center;padding:24px 0">${e.message==='vision-off'?'사진 번역이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Vision API를 켜 주세요.':e.message==='offline'?'사진 번역은 인터넷이 필요해요.':'번역하지 못했어요. 잠시 뒤 다시 해 주세요.'}</p>`;}
+  }catch(e){if(body())body().innerHTML=`<p class="fine" style="text-align:center;padding:24px 0">${e.message==='vision-off'?'사진 번역이 아직 꺼져 있어요. 구글 콘솔에서 Cloud Vision API를 켜 주세요.':e.message==='offline'?'사진 번역은 인터넷이 필요해요.':'번역하지 못했어요.'}</p>${e.message!=='vision-off'?`<button class="btn acc" data-ocrretry style="display:block;margin:0 auto">${svg('sync')}같은 사진으로 다시 시도</button>`:''}`;console.warn('ocr',e);}
 }
 document.addEventListener('click',e=>{const im=e.target.closest&&e.target.closest('#trImg');if(im)trZoom(im.src);});
 // tap the photo: full screen, tap again to zoom in, drag to look around
@@ -1756,7 +1757,12 @@ function nowTs(){const d=new Date();return `${d.getMonth()+1}.${String(d.getDate
 function keepAdd(form,cat){render();const f=document.querySelector(`[data-addform="${form}"][data-cat="${CSS.escape(cat)}"] input`);if(f)f.focus({preventScroll:true});}
 function keep(ids){const v=ids.map(i=>[i,$('#'+i)?$('#'+i).value:'']);render();v.forEach(([i,x])=>{if($('#'+i))$('#'+i).value=x;});}
 function authMsg(e){const m=(e&&e.message)||'';if(/Invalid login/i.test(m))return '이메일 또는 비밀번호가 맞지 않아요.';if(/Email not confirmed/i.test(m))return '메일함의 확인 링크를 먼저 눌러 주세요.';if(/already registered/i.test(m))return '이미 가입된 이메일이에요. 로그인해 주세요.';if(/invite code not found/i.test(m))return '초대 코드를 찾지 못했어요. 8자리를 다시 확인해 주세요.';if(/trip is full/i.test(m))return '이 여행은 이미 4명이 참여했어요.';if(/fetch|network/i.test(m))return '인터넷 연결을 확인해 주세요.';return m||'잠시 후 다시 시도해 주세요.';}
-async function downscale(file,max){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(),'image/jpeg',0.8);};img.onerror=rej;img.src=r.result;};r.onerror=rej;r.readAsDataURL(file);});}
+async function downscale(file,max){
+  // straight from the file (no giant text copy of the photo), with the phone's own rotation applied
+  const draw=src=>{const s=Math.min(1,max/Math.max(src.width,src.height)),c=document.createElement('canvas');c.width=Math.round(src.width*s);c.height=Math.round(src.height*s);
+    c.getContext('2d').drawImage(src,0,0,c.width,c.height);if(src.close)src.close();return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',0.82));};
+  if(window.createImageBitmap){try{return await draw(await createImageBitmap(file,{imageOrientation:'from-image'}));}catch(e){}}
+  const u=URL.createObjectURL(file);try{const img=new Image();img.src=u;await img.decode();return await draw(img);}finally{URL.revokeObjectURL(u);}}
 
 document.addEventListener('click',async e=>{
   if(e.target.matches('.sheet-bg')||e.target.closest('.sh-x')){closeSheet();return;}
@@ -1766,7 +1772,7 @@ document.addEventListener('click',async e=>{
     if(e.target.closest('[data-skip]')){finishIntro();return;}
     audio(true);$('#intro')._tap();return;
   }
-  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-favview],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-trswap],[data-trmenu],[data-sharepop],[data-shareon],[data-shareoff],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
+  const t=e.target.closest('[data-editx],[data-forceupdate],[data-favhide],[data-favcat],[data-favview],[data-addfav],[data-delfav],[data-addpop],[data-popcat],[data-closefp],[data-aisave],[data-interp],[data-listen],[data-ipsay],[data-ipsave],[data-ipbig],[data-ocrsave],[data-ocrprecise],[data-trswap],[data-trmenu],[data-ocrretry],[data-sharepop],[data-shareon],[data-shareoff],[data-pushtoggle],[data-delcontact],[data-rdays],[data-mypax],[data-tpax],[data-tpaxf],[data-tdir],[data-bighotel],[data-cancelx],[data-editd],[data-canceld],[data-wipeall],[data-tab],[data-day],[data-edit],[data-stopedit],[data-stopsave],[data-stopdel],[data-stopdelok],[data-daytitlepop],[data-daytitlesave],[data-place],[data-mv],[data-del],[data-pick],[data-reset],[data-addday],[data-addto],[data-heart],[data-scat],[data-sonly],[data-sview],[data-tool],[data-quick],[data-cur],[data-xcat],[data-xday],[data-delx],[data-replay],[data-sound],[data-kind],[data-stk],[data-dday],[data-nophoto],[data-deld],[data-say],[data-sayslow],[data-bigsign],[data-bigask],[data-bigphrase],[data-settings],[data-copy],[data-mycolor],[data-saveprofile],[data-syncnow],[data-signout],[data-authmode],[data-obmode],[data-obcolor],[data-addticket],[data-slot],[data-showticket],[data-editticket],[data-delticket],[data-ttype],[data-tday],[data-rmfile],[data-install],[data-flights],[data-newplace],[data-manualplace],[data-pickres],[data-editplace],[data-delplace],[data-pfcat],[data-pfwalk],[data-pfsafe],[data-tripsetup],[data-newstay],[data-importtpl],[data-delprep],[data-offlinemap],[data-delphrase],[data-restorephrases],[data-bigja]');
   if(!t)return;const ds=t.dataset;
   if(ds.say!==undefined){speak(ds.say);}
   else if(ds.sayslow!==undefined){speak(ds.sayslow,true);}
@@ -1860,6 +1866,7 @@ document.addEventListener('click',async e=>{
   else if(ds.sharepop!==undefined){sharePop();}
   else if(ds.shareon!==undefined){try{await Sync.share('on');sharePop();}catch(e){toast('링크를 만들지 못했어요. 인터넷을 확인해 주세요.');}}
   else if(ds.shareoff!==undefined){if(!confirm('링크를 끌까요? 이미 받은 사람도 더는 볼 수 없어요.'))return;try{await Sync.share('off');sharePop();toast('링크를 껐어요.');}catch(e){toast('끄지 못했어요. 인터넷을 확인해 주세요.');}}
+  else if(ds.ocrretry!==undefined){if(state.ocrFile)ocrImage(state.ocrFile);}
   else if(ds.trswap!==undefined){const im=$('#trImg');if(im){const o=im.src===im.dataset.orig;im.src=o?im.dataset.tr:im.dataset.orig;t.textContent=o?'원본 보기':'번역 보기';}}
   else if(ds.trmenu!==undefined){if(state.ocrFile)ocrMenu(state.ocrFile);}
   else if(ds.ocrprecise!==undefined){if(state.ocrFile)ocrMenu(state.ocrFile,true);}
@@ -2023,7 +2030,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v123';
+const APP_VER='v125';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

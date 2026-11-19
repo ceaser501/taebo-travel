@@ -1214,3 +1214,5 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .me-dot i{position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);box-sizing:border-box}
 .me-dot::before{content:"";position:absolute;inset:0;border-radius:50%;background:rgba(26,115,232,.35);animation:mepulse 2s ease-out infinite}
 @keyframes mepulse{0%{transform:scale(.5);opacity:1}100%{transform:scale(1.6);opacity:0}}
+/* the route legend follows the plan map when it is shown large */
+.plan-map:has(.mapbox.full) .mleg2{position:fixed;z-index:37;top:calc(env(safe-area-inset-top,0px) + 20px);left:calc(max(10px,50% - 260px) + 10px)}
