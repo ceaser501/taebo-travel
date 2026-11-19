@@ -869,13 +869,14 @@ function paintTranslation(img,blocks){
     const lh=fs*1.25,top=b.cy-lines.length*lh/2;g.save();g.fillStyle=b.ink;g.font=font(fs);g.textAlign='left';g.textBaseline='middle';
     lines.forEach((l,i)=>g.fillText(l,b.x0,top+lh*(i+.5)));g.restore();});
   return c;}
+let ocrURLs=[];
 async function ocrImage(file){
-  state.ocrFile=file;
+  state.ocrFile=file;ocrURLs.forEach(u=>URL.revokeObjectURL(u));ocrURLs=[];
   openOverlay(`<div class="ocr"><div class="ov-top"><b>사진 번역</b><button class="ov-x" data-closeov aria-label="닫기">×</button></div><div id="ocrBody"><p class="fine" style="text-align:center;padding:30px 0">사진을 준비하는 중…</p></div></div>`);
   const body=()=>$('#ocrBody');
   try{
     if(!navigator.onLine)throw new Error('offline');
-    const blob=await downscale(file,1600),url=URL.createObjectURL(blob);
+    const blob=await downscale(file,1600),url=URL.createObjectURL(blob);ocrURLs.push(url);
     const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob);});
     if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"><div class="tr-wait"><div class="ai-bar"><i></i></div><span>글자를 찾아 번역하는 중…</span></div></div>`;
     const img=new Image();img.src=url;await img.decode();
@@ -883,7 +884,7 @@ async function ocrImage(file){
     if(!blocks.length){if(body())body().innerHTML=`<div class="tr-wrap"><img class="tr-img" src="${url}" alt="찍은 사진"></div><p class="fine" style="text-align:center">글자를 찾지 못했어요. 글자가 크게 나오게 다시 찍어 보세요.</p>`;return;}
     const todo=blocks.filter(b=>{const t=b.src.replace(/[\s,，]/g,'');if(b.num){b.ko=kanjiNum(t)||t.replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-65248));return false;}const n=kanjiNum(t);if(n){b.ko=n;b.num=true;return false;}return !/[가-힣]/.test(b.src);});
     const ko=await retry1(()=>koForPhoto(todo.map(b=>b.src)));todo.forEach((b,i)=>b.ko=ko[i]);
-    const out=paintTranslation(img,blocks),tu=await new Promise(r=>out.toBlob(x=>r(URL.createObjectURL(x)),'image/jpeg',.9));
+    const out=paintTranslation(img,blocks),tu=await new Promise(r=>out.toBlob(x=>r(URL.createObjectURL(x)),'image/jpeg',.88));ocrURLs.push(tu);out.width=out.height=0;img.src='';
     state.ocr=blocks.filter(b=>b.ko&&b.ko!==b.src&&!b.num).map(b=>[b.src,b.ko]);
     if(!body())return;
     body().innerHTML=`<div class="tr-wrap"><img class="tr-img" id="trImg" src="${tu}" data-tr="${tu}" data-orig="${url}" alt="번역한 사진"><button class="tr-sw" data-trswap>원본 보기</button></div>
@@ -1496,7 +1497,7 @@ function viewHome(){
     ${nStops?`<div class="mapthumb" data-map="home" data-tab="plan" role="button" tabindex="0" aria-label="전체 동선 지도, 일정으로 이동"><div class="lmap"></div><span class="mlegend">${DAYS.slice(0,4).map(d=>`<span style="--c:var(${d.c})"><i></i>DAY ${d.id}</span>`).join('')}</span><span class="open">일정 보기</span></div>`:''}
     <div><div class="sec-h"><h2>여행 필수 기능</h2></div><div class="tools">
       <button class="tool" data-tool="talk" style="--tc:#e6e6fd"><span class="ti">${svg('talk','')}</span><b>일본어 회화</b><small>듣기 · 크게 보여주기</small></button>
-      <label class="tool" style="--tc:#e3f1fb"><span class="ti">${svg('camera','')}</span><b>사진 번역</b><small>찍으면 바로 번역</small><input type="file" id="ocrInHome" accept="image/*" capture="environment" hidden></label>
+      <label class="tool" style="--tc:#e3f1fb"><span class="ti">${svg('camera','')}</span><b>사진 번역</b><small>찍으면 바로 번역</small><input type="file" id="ocrInHome" accept="image/*" hidden></label>
       <button class="tool" data-tool="home" style="--tc:#ffe1e6"><span class="ti">${svg('home','')}</span><b>숙소 가는 길</b><small>${h?'지금 위치에서':'숙소 미정'}</small></button>
       <button class="tool" data-tool="rate" style="--tc:#dff3e8"><span class="ti">${svg('yen','')}</span><b>환율</b><small>¥1,000 ≈ ${won(1000*rate())}</small></button>
       <button class="tool" data-tool="weather" style="--tc:#fff1c7"><span class="ti">${svg('sun','')}</span><b>날씨</b><small>${esc(T.city||'여행지')} 예보</small></button>
@@ -1762,7 +1763,9 @@ async function downscale(file,max){
   // straight from the file (no giant text copy of the photo), with the phone's own rotation applied
   const draw=src=>{const s=Math.min(1,max/Math.max(src.width,src.height)),c=document.createElement('canvas');c.width=Math.round(src.width*s);c.height=Math.round(src.height*s);
     c.getContext('2d').drawImage(src,0,0,c.width,c.height);if(src.close)src.close();return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',0.82));};
-  if(window.createImageBitmap){try{return await draw(await createImageBitmap(file,{imageOrientation:'from-image'}));}catch(e){}}
+  // the phone decodes the photo already shrunk (a 50-megapixel camera shot is never opened at full size, which closed the app on some phones)
+  if(window.createImageBitmap){try{return await draw(await createImageBitmap(file,{resizeWidth:max,resizeQuality:'medium',imageOrientation:'from-image'}));}catch(e){}
+    try{return await draw(await createImageBitmap(file,{imageOrientation:'from-image'}));}catch(e){}}
   const u=URL.createObjectURL(file);try{const img=new Image();img.src=u;await img.decode();return await draw(img);}finally{URL.revokeObjectURL(u);}}
 
 document.addEventListener('click',async e=>{
@@ -2031,7 +2034,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v127';
+const APP_VER='v128';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
