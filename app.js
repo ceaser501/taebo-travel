@@ -132,6 +132,7 @@ function importTemplate(){
 }
 /* ---------- small UI helpers ---------- */
 const IC={
+  loc:'<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5"/><path d="M12 1.8v2.7M12 19.5v2.7M1.8 12h2.7M19.5 12h2.7"/>',
   flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',grip:'<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3.2"/>',check:'<path d="M5 12.5l4.5 4.5L19 7"/>',mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',bowl:'<path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',cup:'<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
   bed:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5M7 11.5a1.5 1.5 0 1 0 0-.01"/>',plane:'<path d="M2 16l20-6-3-3-7 3-5-5-2 1 3 6-4 2-2-1-1 1z"/>',nav:'<path d="M3 11l18-8-8 18-2-8z"/>',pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   memo:'<path d="M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5"/>',taxi:'<path d="M5 17h14v-5l-2-5H7l-2 5zM5 12h14M8 17v2M16 17v2M10 4h4"/>',walk:'<circle cx="13" cy="4.5" r="1.5"/><path d="M10 21l2-6 3 3v3M9 12l2-4 3 1 2 3M11 8l-2 5"/>',train:'<rect x="6" y="3" width="12" height="13" rx="3"/><path d="M6 10h12M9 20l-2 1M15 20l2 1M9 16l-1 4M15 16l1 4"/>',
@@ -428,20 +429,48 @@ function mountGoogle(key){
   fit();google.maps.event.addListenerOnce(m,'idle',()=>{if(n>1&&m.getZoom()>16)m.setZoom(16);});
   box.querySelectorAll('[data-fit]').forEach(x=>x.addEventListener('click',fit));
   box.classList.remove('offline-map');
-  maps[key]={google:true,stop(){},off(){},invalidateSize(){google.maps.event.trigger(m,'resize');},remove(){objs.forEach(o=>o.setMap(null));el.innerHTML='';}};
+  maps[key]={google:true,gm:m,stop(){},off(){},invalidateSize(){google.maps.event.trigger(m,'resize');},remove(){objs.forEach(o=>o.setMap(null));el.innerHTML='';}};
 }
 // online: Google Maps; offline or if Google is unavailable: the saved vector map
 function mountMap(key){
   if(maps[key]){try{maps[key].stop();maps[key].off();maps[key].remove();}catch(e){}delete maps[key];}
   const box=document.querySelector(`[data-map="${key}"]`);if(!box)return;
-  if(gOK()&&navigator.onLine){try{mountGoogle(key);return;}catch(e){console.warn(e);}}
-  mountLeaflet(key);
+  if(gOK()&&navigator.onLine){try{mountGoogle(key);drawMe(key);return;}catch(e){console.warn(e);}}
+  mountLeaflet(key);drawMe(key);
   if(!navigator.onLine)box.classList.add('offline-map');
   if(!gFailed&&navigator.onLine)loadGoogle().then(()=>{if(document.querySelector(`[data-map="${key}"]`)===box)mountMap(key);}).catch(()=>{});
 }
 const mapBox=(key,cls,cfg)=>`<div class="mapbox ${cls}" data-map="${key}"><div class="lmap" role="region" aria-label="지도"></div>
-  ${cfg.static?'':`<button class="mbig" data-mapbig="${key}" aria-label="지도 크게 보기">${svg('expand')}</button><button class="mfit" data-fit aria-label="일정 전체 보기">${svg('fit')}</button>`}
+  ${cfg.static?'':`<button class="mloc${myPos?' on':''}" data-myloc="${key}" aria-label="내 위치">${svg('loc')}</button><button class="mbig" data-mapbig="${key}" aria-label="지도 크게 보기">${svg('expand')}</button><button class="mfit" data-fit aria-label="일정 전체 보기">${svg('fit')}</button>`}
   ${cfg.air?`<div class="hnd">${svg('plane')}공항 이동은 아래 일정에서 확인하세요</div>`:''}<span class="offbadge">오프라인 지도</span></div>`;
+/* 내 위치: a blue dot with its accuracy circle on every open map; the button starts it and brings the map to you */
+let myPos=null,myWatch=null,myWant=false;const meLayers={};
+function drawMe(key){const m=maps[key];if(!m||!myPos)return;const L0=meLayers[key];
+  if(m.google){const gm=m.gm,pos={lat:myPos.lat,lng:myPos.lng};
+    if(L0&&L0.gm===gm){L0.dot.setPosition(pos);L0.acc.setCenter(pos);L0.acc.setRadius(myPos.acc);return;}
+    if(L0){L0.dot.setMap(null);L0.acc.setMap(null);}
+    meLayers[key]={gm,acc:new google.maps.Circle({map:gm,center:pos,radius:myPos.acc,fillColor:'#1a73e8',fillOpacity:.12,strokeColor:'#1a73e8',strokeOpacity:.35,strokeWeight:1,clickable:false,zIndex:900}),
+      dot:new google.maps.Marker({map:gm,position:pos,clickable:false,zIndex:999,icon:{path:google.maps.SymbolPath.CIRCLE,scale:7.5,fillColor:'#1a73e8',fillOpacity:1,strokeColor:'#ffffff',strokeWeight:3}})};
+  }else{const ll=[myPos.lat,myPos.lng];
+    if(L0&&L0.lm===m){L0.dot.setLatLng(ll);L0.acc.setLatLng(ll);L0.acc.setRadius(myPos.acc);return;}
+    meLayers[key]={lm:m,acc:L.circle(ll,{radius:myPos.acc,color:'#1a73e8',weight:1,opacity:.35,fillColor:'#1a73e8',fillOpacity:.12,interactive:false}).addTo(m),
+      dot:L.marker(ll,{interactive:false,zIndexOffset:1000,icon:L.divIcon({className:'me-dot',html:'<i></i>',iconSize:[22,22],iconAnchor:[11,11]})}).addTo(m)};}}
+function centerMe(key){const m=maps[key];if(!m||!myPos)return;
+  if(m.google){m.gm.panTo({lat:myPos.lat,lng:myPos.lng});if(m.gm.getZoom()<15)m.gm.setZoom(16);}else m.setView([myPos.lat,myPos.lng],Math.max(m.getZoom(),16));}
+function watchMe(onFirst){if(!('geolocation' in navigator)){toast('이 휴대폰에서는 위치를 알 수 없어요.');return;}
+  if(myWatch!==null){if(onFirst&&myPos)onFirst();return;}let first=true;
+  myWatch=navigator.geolocation.watchPosition(p=>{myPos={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.min(p.coords.accuracy||30,800)};
+      Object.keys(maps).forEach(drawMe);document.querySelectorAll('[data-myloc]').forEach(b=>b.classList.add('on'));if(first){first=false;if(onFirst)onFirst();}},
+    // a moment without a fix (indoors, a tunnel) keeps watching; only a refused permission stops it
+    e=>{if(e.code===1){navigator.geolocation.clearWatch(myWatch);myWatch=null;myWant=false;document.querySelectorAll('[data-myloc]').forEach(b=>b.classList.remove('on','busy'));
+        toast('위치 권한이 꺼져 있어요. 휴대폰 설정에서 이 앱(브라우저)의 위치를 허용해 주세요.');return;}
+      if(!myPos){document.querySelectorAll('[data-myloc]').forEach(b=>b.classList.remove('busy'));toast('지금 위치를 찾는 중이에요. 잠시만 기다려 주세요.');}},
+    {enableHighAccuracy:true,maximumAge:5000});}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-myloc]');if(!b)return;e.preventDefault();e.stopPropagation();myWant=true;
+  const key=b.dataset.myloc;if(myPos){drawMe(key);centerMe(key);}else{b.classList.add('busy');}
+  watchMe(()=>{b.classList.remove('busy');drawMe(key);centerMe(key);});},true);
+// stop asking for the position while the app is in the background; carry on when it comes back
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(myWatch!==null){navigator.geolocation.clearWatch(myWatch);myWatch=null;}}else if(myWant)watchMe();});
 // 지도 크게 보기: the map box fills almost the whole screen; tap again (or the dim area, or back) to shrink it
 function mapFull(key,on){const box=document.querySelector(`[data-map="${key}"]`);if(!box)return;
   const was=box.classList.contains('full');if(on===undefined)on=!was;if(on===was)return;
@@ -1994,7 +2023,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v122';
+const APP_VER='v123';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

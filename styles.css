@@ -1204,3 +1204,13 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .cc-total div{display:flex;flex-direction:column;align-items:flex-end}
 .cc-total b{font-family:var(--f-mono);font-size:22px;color:var(--ink)}
 .cc-total small{font-family:var(--f-mono);font-size:13px;color:var(--mute)}
+
+/* 내 위치 */
+.mloc{position:absolute;right:10px;bottom:98px;z-index:500;width:36px;height:36px;border-radius:11px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink)}
+.mloc svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.mloc.on{color:#1a73e8}.mloc.busy svg{animation:mlocspin 1s linear infinite}
+@keyframes mlocspin{to{transform:rotate(360deg)}}
+.me-dot{background:none;border:0}
+.me-dot i{position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);box-sizing:border-box}
+.me-dot::before{content:"";position:absolute;inset:0;border-radius:50%;background:rgba(26,115,232,.35);animation:mepulse 2s ease-out infinite}
+@keyframes mepulse{0%{transform:scale(.5);opacity:1}100%{transform:scale(1.6);opacity:0}}
