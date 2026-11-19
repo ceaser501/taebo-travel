@@ -1461,9 +1461,8 @@ function viewPlan(){
       list+=`<li class="stop leg-li" data-pair="${esc(st[i-1].p+'>'+s.p)}" style="--c:var(${day.c})"><div class="rail"></div><div class="body"><div class="leg"><span class="how">${svg(legIcon(l.how))}${hn}</span>${l.min?`<span class="min">${l.min}분</span>`:''}<a href="${placeDir(hasLL(st[i-1].p)?a.ll:placeQ(st[i-1].p),s.p,mode)}" target="_blank" rel="noopener">${svg('nav')}길찾기</a>${l.note?`<span class="lnote">${esc(l.note)}</span>`:''}</div></div></li>`;}}
     const mark=home?`<span class="num home">숙소</span>`:air?`<span class="num air">${svg('plane','')}</span>`:`<span class="num">${n}</span>`;
     list+=`<li class="stop" data-si="${i}" style="--c:var(${day.c})"><div class="rail">${mark}</div><div class="body">
-      <button class="stop-card" data-place="${s.p}" data-stopi="${i}"><div class="nm">${esc(s.title||p.n)}</div>
-        <div class="meta"><span class="cat" style="--c:var(${c.c})">${esc(p.cat)}</span>${(()=>{const jp=(sg&&sg[0])||p.jp||'',nm=s.title&&s.title!==p.n?p.n:'';return nm||jp?`<span>${esc(nm)}${jp?`${nm?' ':''}<span class="jp-p" lang="ja" translate="no">(${esc(jp)})</span>`:''}</span>`:'';})()}</div>
-        <div class="when"><b>${s.t||'시간 미정'}</b>${s.dur?`<span>${esc(s.dur)}</span>`:''}</div></button>
+      <button class="stop-card" data-place="${s.p}" data-stopi="${i}"><div class="when${s.t?'':' none'}"><b>${s.t||'시간 미정'}</b>${s.dur?`<span>${esc(s.dur)}</span>`:''}</div><div class="nm">${esc(s.title||p.n)}</div>
+        <div class="meta"><span class="cat" style="--c:var(${c.c})">${esc(p.cat)}</span>${(()=>{const jp=(sg&&sg[0])||p.jp||'',nm=s.title&&s.title!==p.n?p.n:'';return nm||jp?`<span>${esc(nm)}${jp?`${nm?' ':''}<span class="jp-p" lang="ja" translate="no">(${esc(jp)})</span>`:''}</span>`:'';})()}</div></button>
 
         ${s.memo?`<div class="memo">${svg('memo','')}<span>${esc(s.memo)}</span></div>`:''}</div></li>`;
   });
@@ -1955,7 +1954,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v119';
+const APP_VER='v120';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

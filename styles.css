@@ -206,8 +206,9 @@ html .sum{background:linear-gradient(135deg,#5a6fe3,#8b7be0 60%,#e8977f)}
 .stop-card .nm{font-size:16.5px;font-weight:700;line-height:1.35}
 .stop-card .meta{font-size:13.5px;color:var(--mute);margin-top:1px;display:flex;flex-wrap:wrap;gap:0 6px}
 .stop-card .meta .cat{color:var(--c)}
-.when{display:inline-flex;gap:6px;align-items:center;margin-top:6px;font-size:13px;color:var(--ink2)}
-.when b{font-family:var(--f-mono);font-weight:600;color:var(--ink);font-size:13.5px}
+.when{display:flex;gap:8px;align-items:center;margin-bottom:5px;font-size:13px;color:var(--ink2)}
+.when b{font-family:var(--f-mono);font-weight:700;font-size:18px;line-height:1;letter-spacing:-.01em;color:color-mix(in srgb,var(--c) 75%,#000);background:color-mix(in srgb,var(--c) 14%,var(--card));border-radius:9px;padding:5px 9px}
+.when.none b{font-family:var(--f-body);font-size:13px;font-weight:600;color:var(--mute);background:var(--soft)}
 .memo{margin-top:8px;background:var(--memo);color:var(--memo-ink);border-radius:12px;padding:8px 11px;font-size:13.5px;line-height:1.5;display:flex;gap:7px}
 .memo svg{margin-top:2px;width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex:none}
 .memo textarea{width:100%;border:0;background:transparent;resize:vertical;min-height:44px;color:inherit;line-height:1.5;padding:0}
