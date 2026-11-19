@@ -1177,3 +1177,30 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .tr-full.z{display:block}
 .tr-full.z img{max-width:none;max-height:none;width:260%;cursor:zoom-out}
 .tr-full .ov-x{position:fixed;top:max(14px,env(safe-area-inset-top));right:14px;z-index:1;background:rgba(255,255,255,.9)}
+
+/* 환율 계산기 (home) */
+.calc{padding:14px;display:flex;flex-direction:column;gap:10px}
+.cc-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cc-h b{display:flex;align-items:center;gap:7px;font-size:15.5px}
+.cc-h b svg{width:18px;height:18px;stroke:#1f9d61;fill:none;stroke-width:2}
+.cc-rate{border:0;background:var(--soft);color:var(--ink2);border-radius:999px;padding:5px 10px;font:inherit;font-size:12px;cursor:pointer}
+.cc-in{display:flex;gap:8px;align-items:stretch}
+.cc-cur{flex:none;width:auto}.cc-cur button{padding:0 11px;white-space:nowrap}
+.cc-amt{flex:1;min-width:0;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:var(--card);height:46px}
+.cc-amt span{font-weight:700;color:var(--mute);font-size:17px}
+.cc-amt input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;font-family:var(--f-mono);font-size:20px;font-weight:700;color:var(--ink);text-align:right}
+.cc-disc{display:flex;align-items:center;gap:8px}
+.cc-disc label{flex:none;display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:10px;padding:0 9px;height:36px;font-size:13px;color:var(--mute)}
+.cc-disc input{width:38px;border:0;outline:0;background:none;font:inherit;font-family:var(--f-mono);font-size:15px;font-weight:700;color:var(--ink);text-align:right}
+.cc-chips{flex:1;min-width:0;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+.cc-chips::-webkit-scrollbar{display:none}
+.cc-chips button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;height:32px;padding:0 10px;font:inherit;font-size:12.5px;color:var(--ink2);cursor:pointer}
+.cc-chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.cc-empty{font-size:13px;color:var(--mute);text-align:center;padding:8px 0 2px}
+.cc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--mute);padding:0 2px}
+.cc-row s{font-family:var(--f-mono)}.cc-row .minus{font-family:var(--f-mono);color:#d4456a;font-weight:600}
+.cc-total{display:flex;justify-content:space-between;align-items:center;background:var(--accent-soft);border-radius:12px;padding:10px 14px}
+.cc-total>span{font-size:13px;font-weight:700;color:var(--accent)}
+.cc-total div{display:flex;flex-direction:column;align-items:flex-end}
+.cc-total b{font-family:var(--f-mono);font-size:22px;color:var(--ink)}
+.cc-total small{font-family:var(--f-mono);font-size:13px;color:var(--mute)}

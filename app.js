@@ -669,6 +669,33 @@ async function rateSheet(){
     <p class="fine">가계부의 원화 환산도 이 환율로 자동으로 맞춰져요.</p>`);
   if(!cached||Date.now()-cached.at>3*3600000){const d=await loadRates(days);const b=$('#rateBody');if(d&&b){b.innerHTML=rateBody(d);convFrom('yen');}}
 }
+/* ===================== 환율 계산기 on home: an amount in yen or won, an optional discount, both currencies at once ===================== */
+state.calc=state.calc||LS.get('calc',{cur:'JPY',amt:'',disc:''});
+const calcNum=v=>{const n=parseFloat(String(v||'').replace(/[^\d.]/g,''));return isNaN(n)?0:n;};
+function calcResult(){const c=state.calc,r=rate(),a=calcNum(c.amt),d=Math.min(100,Math.max(0,calcNum(c.disc))),pay=a*(1-d/100);
+  const yen=v=>`¥${Math.round(c.cur==='JPY'?v:v/r).toLocaleString('ko-KR')}`,krw=v=>`₩${Math.round(c.cur==='KRW'?v:v*r).toLocaleString('ko-KR')}`;
+  const [main,sub]=c.cur==='JPY'?[krw,yen]:[yen,krw];
+  if(!a)return `<div class="cc-empty">금액을 넣으면 ${c.cur==='JPY'?'원화':'엔화'}로 바로 계산해요</div>`;
+  return `${d?`<div class="cc-row"><span>원래 가격</span><s>${sub(a)} · ${main(a)}</s></div><div class="cc-row"><span>할인 ${d}%</span><b class="minus">− ${sub(a-pay)} · ${main(a-pay)}</b></div>`:''}
+    <div class="cc-total"><span>${d?'할인 후':'환산'}</span><div><b>${main(pay)}</b><small>${sub(pay)}</small></div></div>`;}
+function calcCard(){const c=state.calc;
+  return `<div class="card calc"><div class="cc-h"><b>${svg('yen','')}환율 계산기</b><button class="cc-rate" data-tool="rate">100엔 = ${Math.round(rate()*100).toLocaleString('ko-KR')}원</button></div>
+    <div class="cc-in"><div class="seg cc-cur" role="group" aria-label="통화">${[['JPY','¥ 엔'],['KRW','₩ 원']].map(([k,l])=>`<button type="button" data-calccur="${k}" aria-pressed="${c.cur===k}">${l}</button>`).join('')}</div>
+      <label class="cc-amt"><span>${c.cur==='JPY'?'¥':'₩'}</span><input id="calcAmt" inputmode="decimal" placeholder="금액" value="${esc(c.amt?Number(calcNum(c.amt)).toLocaleString('ko-KR'):'')}" aria-label="금액"></label></div>
+    <div class="cc-disc"><label><span>할인</span><input id="calcDisc" inputmode="decimal" placeholder="0" value="${esc(c.disc||'')}" aria-label="할인율"><span>%</span></label>
+      <div class="cc-chips">${[0,5,10,20,30,50].map(v=>`<button type="button" data-calcdisc="${v}" aria-pressed="${calcNum(c.disc)===v&&(v||c.disc!=='')}">${v?v+'%':'없음'}</button>`).join('')}</div></div>
+    <div id="calcOut">${calcResult()}</div></div>`;}
+function calcRefresh(){LS.set('calc',state.calc);const o=$('#calcOut');if(o)o.innerHTML=calcResult();
+  document.querySelectorAll('[data-calcdisc]').forEach(b=>b.setAttribute('aria-pressed',String(calcNum(state.calc.disc)===+b.dataset.calcdisc&&state.calc.disc!=='')));}
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.id==='calcAmt'){const raw=t.value.replace(/[^\d.]/g,''),end=t.value.length-t.selectionStart;state.calc.amt=raw;
+    const [i,f]=raw.split('.');t.value=(i?Number(i).toLocaleString('ko-KR'):'')+(f!==undefined?'.'+f:'');try{const p=Math.max(0,t.value.length-end);t.setSelectionRange(p,p);}catch(err){}calcRefresh();}
+  else if(t.id==='calcDisc'){state.calc.disc=t.value.replace(/[^\d.]/g,'').slice(0,5);calcRefresh();}});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-calccur],[data-calcdisc]');if(!t)return;
+  if(t.dataset.calccur){const c=state.calc;if(c.cur!==t.dataset.calccur){const a=calcNum(c.amt);
+      // switching currency keeps the same money: ¥1,000 becomes about ₩9,040
+      if(a)c.amt=String(Math.round(t.dataset.calccur==='KRW'?a*rate():a/rate()));c.cur=t.dataset.calccur;LS.set('calc',c);render();}}
+  else{state.calc.disc=t.dataset.calcdisc==='0'?'':t.dataset.calcdisc;const d=$('#calcDisc');if(d)d.value=state.calc.disc;calcRefresh();}});
 function convFrom(side){const r=rate(),num=id=>parseFloat(($('#'+id)?.value||'').replace(/,/g,''));
   if(side==='yen'){const y=num('yenIn');if($('#wonIn'))$('#wonIn').value=isNaN(y)?'':Math.round(y*r).toLocaleString('ko-KR');}
   else{const w=num('wonIn');if($('#yenIn'))$('#yenIn').value=isNaN(w)?'':Math.round(w/r).toLocaleString('ko-KR');}}
@@ -1443,6 +1470,7 @@ function viewHome(){
       <button class="tool" data-tool="rate" style="--tc:#dff3e8"><span class="ti">${svg('yen','')}</span><b>환율</b><small>¥1,000 ≈ ${won(1000*rate())}</small></button>
       <button class="tool" data-tool="weather" style="--tc:#fff1c7"><span class="ti">${svg('sun','')}</span><b>날씨</b><small>${esc(T.city||'여행지')} 예보</small></button>
       <button class="tool" data-tab="prep" style="--tc:#f1e3fb"><span class="ti">${svg('list','')}</span><b>준비물</b><small>${[...checks].length}/${all} 완료</small></button></div></div>
+    ${calcCard()}
     ${typeof stepsEntry==='function'?stepsEntry():''}
     ${typeof albumEntry==='function'?albumEntry():''}
     <div><div class="sec-h"><h2>티켓</h2><button class="more" data-tab="tickets">티켓 지갑 ${svg('chev')}</button></div>
@@ -1966,7 +1994,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v121';
+const APP_VER='v122';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}
