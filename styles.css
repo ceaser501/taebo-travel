@@ -1216,3 +1216,5 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 @keyframes mepulse{0%{transform:scale(.5);opacity:1}100%{transform:scale(1.6);opacity:0}}
 /* the route legend follows the plan map when it is shown large */
 .plan-map:has(.mapbox.full) .mleg2{position:fixed;z-index:37;top:calc(env(safe-area-inset-top,0px) + 20px);left:calc(max(10px,50% - 260px) + 10px)}
+.cc-hr{display:flex;align-items:center;gap:6px}
+.cc-reset{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:999px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
