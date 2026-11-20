@@ -883,8 +883,28 @@ async function trCamera(){
     <input type="file" id="ocrIn" accept="image/*" hidden></div>`,true);
   try{camStop();camStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1440}}});
     const v=$('#camV');if(!v){camStop();return;}v.srcObject=camStream;await v.play().catch(()=>{});
+    camFocusInit();
     const h=$('#camHint');if(h)h.textContent='글자가 화면에 크게 나오게 맞추고 찍어 주세요';}
   catch(e){camStop();const h=$('#camHint');if(h)h.innerHTML=e&&e.name==='NotAllowedError'?'카메라 권한이 꺼져 있어요. 휴대폰 설정에서 허용하거나, 아래 「갤러리」로 사진을 골라 주세요.':'카메라를 켜지 못했어요. 아래 「갤러리」로 사진을 골라 주세요.';}}
+// tap to focus, like the Galaxy camera: the spot touched becomes the focus (and exposure) point, with a ring where you tapped
+function camTrack(){return camStream&&camStream.getVideoTracks()[0];}
+function camFocusInit(){const t=camTrack();if(!t||!t.getCapabilities)return;const c=t.getCapabilities();
+  if((c.focusMode||[]).includes('continuous'))t.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});}
+async function camFocusAt(ev){const v=$('#camV'),t=camTrack();if(!v||!t)return;const r=v.getBoundingClientRect();
+  // where the tap falls on the camera picture itself (the picture is cropped to fill the screen)
+  const vw=v.videoWidth||r.width,vh=v.videoHeight||r.height,sc=Math.max(r.width/vw,r.height/vh),dw=vw*sc,dh=vh*sc;
+  const x=Math.min(1,Math.max(0,(ev.clientX-r.left-(r.width-dw)/2)/dw)),y=Math.min(1,Math.max(0,(ev.clientY-r.top-(r.height-dh)/2)/dh));
+  const ring=document.createElement('span');ring.className='tcam-ring';ring.style.left=(ev.clientX-r.left)+'px';ring.style.top=(ev.clientY-r.top)+'px';
+  v.parentElement.appendChild(ring);setTimeout(()=>ring.remove(),1200);
+  const c=t.getCapabilities?t.getCapabilities():{},adv={};
+  if('pointsOfInterest' in c||(t.getSettings&&'pointsOfInterest' in t.getSettings()))adv.pointsOfInterest=[{x,y}];
+  if((c.focusMode||[]).includes('single-shot'))adv.focusMode='single-shot';else if((c.focusMode||[]).includes('continuous'))adv.focusMode='continuous';
+  if((c.exposureMode||[]).includes('continuous'))adv.exposureMode='continuous';
+  if(!Object.keys(adv).length){ring.classList.add('off');return;}
+  try{await t.applyConstraints({advanced:[adv]});ring.classList.add('ok');}catch(e){try{if(adv.pointsOfInterest)await t.applyConstraints({advanced:[{pointsOfInterest:adv.pointsOfInterest}]});ring.classList.add('ok');}catch(e2){}}
+  // back to following the scene a few seconds later, so the next shot isn't stuck on the old spot
+  clearTimeout(camFocusAt.tm);camFocusAt.tm=setTimeout(()=>{if(camTrack()===t&&(c.focusMode||[]).includes('continuous'))t.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});},6000);}
+document.addEventListener('click',e=>{if(e.target.id==='camV')camFocusAt(e);});
 function trGallery(){let i=$('#ocrIn');if(!i){i=document.createElement('input');i.type='file';i.accept='image/*';i.id='ocrIn';i.hidden=true;document.body.appendChild(i);}i.click();}
 async function trShot(){const v=$('#camV');if(!v||!v.videoWidth){toast('카메라가 아직 준비되지 않았어요.');return;}
   const c=document.createElement('canvas'),s=Math.min(1,1600/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*s);c.height=Math.round(v.videoHeight*s);
@@ -2057,7 +2077,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.stop-card'))e.
 // the release at the end of a drag is not a tap on the card
 document.addEventListener('click',e=>{if(Date.now()-dragDone<450&&e.target.closest('.stop-card')){e.stopPropagation();e.preventDefault();}},true);
 // the version shown in settings, so it's easy to tell whether a phone has the latest app
-const APP_VER='v129';
+const APP_VER='v130';
 // throw away the saved app files (not trip data, tickets or maps) and load everything fresh
 async function forceUpdate(){toast('새 버전을 받는 중…');
   try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()));}catch(e){}

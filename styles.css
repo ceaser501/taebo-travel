@@ -1221,7 +1221,8 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 
 /* in-app camera for photo translation */
 .tcam{position:fixed;inset:0;z-index:210;background:#000;display:flex;flex-direction:column}
-.tcam video{flex:1;min-height:0;width:100%;object-fit:cover;background:#000}
+.tcam video{flex:1;min-height:0;width:100%;object-fit:cover;background:#000;cursor:crosshair}
+
 .tcam-x{position:absolute;top:max(14px,env(safe-area-inset-top));right:14px;z-index:2;background:rgba(255,255,255,.92)}
 .tcam-hint{position:absolute;left:16px;right:16px;top:calc(max(14px,env(safe-area-inset-top)) + 52px);margin:0;text-align:center;color:#fff;font-size:14px;text-shadow:0 1px 4px rgba(0,0,0,.7)}
 .tcam-bar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px calc(22px + env(safe-area-inset-bottom));background:#000}
@@ -1231,3 +1232,6 @@ li.leg-li.leg-new .leg{animation:legnew 1.6s ease-out;border-radius:10px}
 .tcam-shot i{display:block;width:100%;height:100%;border-radius:50%;background:#fff}
 .tcam-shot:active i{transform:scale(.9)}
 .tcam-sp{width:64px}
+.tcam-ring{position:absolute;width:70px;height:70px;margin:-35px 0 0 -35px;border:2px solid #ffd54a;border-radius:50%;pointer-events:none;z-index:3;animation:camring .35s ease-out}
+.tcam-ring.ok{border-color:#7dd87d}.tcam-ring.off{border-color:rgba(255,255,255,.6)}
+@keyframes camring{from{transform:scale(1.5);opacity:.4}to{transform:scale(1);opacity:1}}
